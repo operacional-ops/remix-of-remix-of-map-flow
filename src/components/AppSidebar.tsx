@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight } from 'lucide-react';
+import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Eye, Inbox, ListChecks } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useTheme } from 'next-themes';
 import mapLogoLight from '@/assets/map-logo-light.png';
@@ -36,6 +36,12 @@ const modulesNavItems = [
   { title: 'Documentos', url: '/documents', icon: FileText },
   { title: 'Painéis', url: '/dashboards', icon: BarChart3 },
   { title: 'Automações', url: '/automations', icon: Zap },
+];
+
+const drxNavItems = [
+  { title: 'Ritual Diário', url: '/daily-prep', icon: ListChecks },
+  { title: 'God View', url: '/god-view', icon: Eye },
+  { title: 'Chamados', url: '/chamados', icon: Inbox },
 ];
 
 export function AppSidebar() {
@@ -193,6 +199,38 @@ export function AppSidebar() {
                           {!isCollapsed && item.url === '/chat' && hasUnreadMessages && (
                             <span className="ml-auto h-2 w-2 rounded-full bg-destructive flex-shrink-0" />
                           )}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    {isCollapsed && (
+                      <TooltipContent side="right">
+                        {item.title}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* DRX Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel>DRX Operações</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {drxNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <Tooltip delayDuration={isCollapsed ? 0 : 1000}>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton asChild>
+                        <NavLink 
+                          to={item.url}
+                          className="hover:bg-sidebar-accent"
+                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {!isCollapsed && <span>{item.title}</span>}
                         </NavLink>
                       </SidebarMenuButton>
                     </TooltipTrigger>
