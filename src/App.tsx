@@ -31,6 +31,9 @@ import NotFound from "./pages/NotFound";
 import AcceptInvite from "./pages/AcceptInvite";
 import TaskView from "./pages/TaskView";
 import EverythingView from "./pages/EverythingView";
+import DailyPrep from "./pages/DailyPrep";
+import GodView from "./pages/GodView";
+import TeamChamados from "./pages/TeamChamados";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +75,9 @@ const App = () => (
                           <Route path="/documents/:id" element={<DocumentView />} />
                           <Route path="/dashboards" element={<Dashboards />} />
                           <Route path="/dashboards/:id" element={<DashboardView />} />
+                          <Route path="/daily-prep" element={<DailyPrep />} />
+                          <Route path="/god-view" element={<GodView />} />
+                          <Route path="/chamados" element={<TeamChamados />} />
                           <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
                           <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                           <Route path="*" element={<NotFound />} />
