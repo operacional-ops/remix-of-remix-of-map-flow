@@ -34,6 +34,8 @@ import EverythingView from "./pages/EverythingView";
 import DailyPrep from "./pages/DailyPrep";
 import GodView from "./pages/GodView";
 import TeamChamados from "./pages/TeamChamados";
+import FluxogramasProcessos from "./pages/FluxogramasProcessos";
+import MatrizDecisoes from "./pages/MatrizDecisoes";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +80,8 @@ const App = () => (
                           <Route path="/daily-prep" element={<DailyPrep />} />
                           <Route path="/god-view" element={<GodView />} />
                           <Route path="/chamados" element={<TeamChamados />} />
+                          <Route path="/fluxogramas" element={<FluxogramasProcessos />} />
+                          <Route path="/matriz-decisoes" element={<MatrizDecisoes />} />
                           <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
                           <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                           <Route path="*" element={<NotFound />} />

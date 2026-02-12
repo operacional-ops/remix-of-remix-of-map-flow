@@ -878,6 +878,141 @@ export type Database = {
           },
         ]
       }
+      drx_ai_chats: {
+        Row: {
+          context_id: string | null
+          context_type: string
+          created_at: string
+          created_by: string
+          id: string
+          messages: Json
+          updated_at: string
+        }
+        Insert: {
+          context_id?: string | null
+          context_type: string
+          created_at?: string
+          created_by: string
+          id?: string
+          messages?: Json
+          updated_at?: string
+        }
+        Update: {
+          context_id?: string | null
+          context_type?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          messages?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      drx_decision_logs: {
+        Row: {
+          ai_analysis: string | null
+          context: string
+          created_at: string
+          decided_by: string
+          decision: string | null
+          id: string
+          options: Json | null
+          result: string | null
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          ai_analysis?: string | null
+          context?: string
+          created_at?: string
+          decided_by: string
+          decision?: string | null
+          id?: string
+          options?: Json | null
+          result?: string | null
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          ai_analysis?: string | null
+          context?: string
+          created_at?: string
+          decided_by?: string
+          decision?: string | null
+          id?: string
+          options?: Json | null
+          result?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      drx_flowcharts: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          flowchart_data: Json
+          id: string
+          metrics_data: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          flowchart_data?: Json
+          id?: string
+          metrics_data?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          flowchart_data?: Json
+          id?: string
+          metrics_data?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      drx_processes: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       feed_post_comments: {
         Row: {
           author_id: string
