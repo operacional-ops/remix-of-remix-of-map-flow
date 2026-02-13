@@ -36,6 +36,7 @@ import GodView from "./pages/GodView";
 import TeamChamados from "./pages/TeamChamados";
 import FluxogramasProcessos from "./pages/FluxogramasProcessos";
 import MatrizDecisoes from "./pages/MatrizDecisoes";
+import DashboardOperacao from "./pages/DashboardOperacao";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,7 @@ const App = () => (
                           <Route path="/chamados" element={<TeamChamados />} />
                           <Route path="/fluxogramas" element={<FluxogramasProcessos />} />
                           <Route path="/matriz-decisoes" element={<MatrizDecisoes />} />
+                          <Route path="/dashboard-operacao" element={<DashboardOperacao />} />
                           <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
                           <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                           <Route path="*" element={<NotFound />} />

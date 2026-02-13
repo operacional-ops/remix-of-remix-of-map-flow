@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Eye, Inbox, ListChecks, GitBranch, Target } from 'lucide-react';
+import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Eye, Inbox, ListChecks, GitBranch, Target, Activity } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useTheme } from 'next-themes';
 import mapLogoLight from '@/assets/map-logo-light.png';
@@ -44,6 +44,7 @@ const drxNavItems = [
   { title: 'Chamados', url: '/chamados', icon: Inbox },
   { title: 'Fluxogramas', url: '/fluxogramas', icon: GitBranch },
   { title: 'Matriz Decisões', url: '/matriz-decisoes', icon: Target },
+  { title: 'Dashboard Operação', url: '/dashboard-operacao', icon: Activity },
 ];
 
 export function AppSidebar() {
