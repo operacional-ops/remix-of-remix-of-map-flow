@@ -71,13 +71,15 @@ export function useCreateProduct() {
 
   return useMutation({
     mutationFn: async ({ name, code }: { name: string; code: string }) => {
+      if (!user) throw new Error('Usuário não autenticado');
+      if (!activeWorkspace) throw new Error('Selecione um workspace primeiro');
       const { data, error } = await supabase
         .from('operational_products')
         .insert({
           name,
           code,
-          created_by: user!.id,
-          workspace_id: activeWorkspace!.id,
+          created_by: user.id,
+          workspace_id: activeWorkspace.id,
         })
         .select()
         .single();
@@ -96,10 +98,11 @@ export function useImportMetrics() {
 
   return useMutation({
     mutationFn: async ({ productId, rows }: { productId: string; rows: Omit<OperationalMetric, 'id' | 'product_id'>[] }) => {
+      if (!user) throw new Error('Usuário não autenticado');
       const toInsert = rows.map(r => ({
         ...r,
         product_id: productId,
-        created_by: user!.id,
+        created_by: user.id,
       }));
       const { error } = await supabase
         .from('operational_metrics')
@@ -118,11 +121,12 @@ export function useAddMetricRow() {
 
   return useMutation({
     mutationFn: async (row: { product_id: string; data: string; contas_produto: string; status?: string }) => {
+      if (!user) throw new Error('Usuário não autenticado');
       const { data, error } = await supabase
         .from('operational_metrics')
         .insert({
           ...row,
-          created_by: user!.id,
+          created_by: user.id,
         })
         .select()
         .single();
