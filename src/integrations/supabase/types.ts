@@ -1401,6 +1401,115 @@ export type Database = {
           },
         ]
       }
+      operational_metrics: {
+        Row: {
+          contas_produto: string
+          conv_funil: number | null
+          cpa: number | null
+          cpc: number | null
+          cpm: number | null
+          created_at: string
+          created_by: string
+          data: string
+          gastos: number | null
+          id: string
+          lucro_bruto: number | null
+          margem: number | null
+          product_id: string
+          qnt_vendas: number | null
+          resultado: number | null
+          roas: number | null
+          status: string | null
+          ticket_medio: number | null
+        }
+        Insert: {
+          contas_produto: string
+          conv_funil?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string
+          created_by: string
+          data: string
+          gastos?: number | null
+          id?: string
+          lucro_bruto?: number | null
+          margem?: number | null
+          product_id: string
+          qnt_vendas?: number | null
+          resultado?: number | null
+          roas?: number | null
+          status?: string | null
+          ticket_medio?: number | null
+        }
+        Update: {
+          contas_produto?: string
+          conv_funil?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string
+          created_by?: string
+          data?: string
+          gastos?: number | null
+          id?: string
+          lucro_bruto?: number | null
+          margem?: number | null
+          product_id?: string
+          qnt_vendas?: number | null
+          resultado?: number | null
+          roas?: number | null
+          status?: string | null
+          ticket_medio?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_metrics_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "operational_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operational_products: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_products_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
