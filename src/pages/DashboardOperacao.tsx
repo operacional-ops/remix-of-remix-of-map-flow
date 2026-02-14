@@ -230,7 +230,10 @@ export default function DashboardOperacao() {
       setNewProductCode('');
       setDialogOpen(false);
       toast.success('Produto criado com sucesso!');
-    } catch { toast.error('Erro ao criar produto'); }
+    } catch (err: any) {
+      console.error('Erro ao criar produto:', err);
+      toast.error(err?.message || 'Erro ao criar produto');
+    }
   };
 
   const handleCSVUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,7 +245,10 @@ export default function DashboardOperacao() {
     try {
       await importMetrics.mutateAsync({ productId: selectedProductId, rows });
       toast.success(`${rows.length} linhas importadas com sucesso!`);
-    } catch { toast.error('Erro ao importar CSV'); }
+    } catch (err: any) {
+      console.error('Erro ao importar CSV:', err);
+      toast.error(err?.message || 'Erro ao importar CSV');
+    }
     e.target.value = '';
   }, [selectedProductId, importMetrics]);
 
