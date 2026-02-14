@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
-import { Plus, Upload, Package, Trash2, ChevronDown, TrendingUp, DollarSign, ShoppingCart, CreditCard } from 'lucide-react';
+import { Plus, Upload, Package, Trash2, ChevronDown, TrendingUp, DollarSign, ShoppingCart, CreditCard, Undo2, Redo2 } from 'lucide-react';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -209,6 +210,7 @@ export default function DashboardOperacao() {
   const addRow = useAddMetricRow();
   const updateMetric = useUpdateMetric();
   const deleteMetric = useDeleteMetric();
+  const { pushChange, undo, redo, canUndo, canRedo } = useUndoRedo();
 
   const [newProductName, setNewProductName] = useState('');
   const [newProductCode, setNewProductCode] = useState('');
@@ -264,7 +266,20 @@ export default function DashboardOperacao() {
   };
 
   const handleCellSave = (id: string, field: string, value: any) => {
+    const row = metrics?.find(m => m.id === id);
+    const oldValue = row ? (row as any)[field] : undefined;
+    pushChange({ rowId: id, field, oldValue, newValue: value });
     updateMetric.mutate({ id, field, value });
+  };
+
+  const handleUndo = () => {
+    const action = undo();
+    if (action) updateMetric.mutate(action);
+  };
+
+  const handleRedo = () => {
+    const action = redo();
+    if (action) updateMetric.mutate(action);
   };
 
   // Summary calculations
@@ -363,9 +378,17 @@ export default function DashboardOperacao() {
               </p>
             </div>
             {selectedProductId && (
-              <Button size="sm" variant="outline" onClick={handleAddRow} className="gap-1.5 text-xs">
-                <Plus className="h-3.5 w-3.5" /> Nova Linha
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={handleUndo} disabled={!canUndo} className="gap-1 text-xs px-2" title="Desfazer (Ctrl+Z)">
+                  <Undo2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleRedo} disabled={!canRedo} className="gap-1 text-xs px-2" title="Refazer (Ctrl+Y)">
+                  <Redo2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleAddRow} className="gap-1.5 text-xs">
+                  <Plus className="h-3.5 w-3.5" /> Nova Linha
+                </Button>
+              </div>
             )}
           </div>
 
