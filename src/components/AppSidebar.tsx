@@ -62,6 +62,7 @@ export function AppSidebar() {
   const { data: unreadChannels } = useUnreadChannels();
   
   const isAdmin = userRole?.isAdmin ?? false;
+  const isLimitedMember = userRole?.isLimitedMember ?? false;
   const isActive = (path: string) => location.pathname === path;
   const isCollapsed = state === 'collapsed';
   const hasUnreadMessages = unreadChannels && unreadChannels.length > 0;
@@ -71,6 +72,16 @@ export function AppSidebar() {
     if (item.url === '/automations') return isAdmin;
     return true;
   });
+
+  // Filtrar itens DRX Operações - limited_member não vê itens financeiros/operacionais
+  const operationalUrls = ['/dashboard-operacao', '/drx-analytics'];
+  const filteredDrxNavItems = drxNavItems.filter(item => {
+    if (isLimitedMember && operationalUrls.includes(item.url)) return false;
+    return true;
+  });
+
+  // Limited member não vê Painel DRX
+  const filteredPainelDrxNavItems = isLimitedMember ? [] : painelDrxNavItems;
 
   // Resize handler
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -221,11 +232,12 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Painel DRX Section */}
+        {filteredPainelDrxNavItems.length > 0 && (
         <SidebarGroup>
           <SidebarGroupLabel>Painel DRX</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {painelDrxNavItems.map((item) => (
+              {filteredPainelDrxNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <Tooltip delayDuration={isCollapsed ? 0 : 1000}>
                     <TooltipTrigger asChild>
@@ -251,13 +263,14 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
         {/* DRX Section */}
         <SidebarGroup>
           <SidebarGroupLabel>DRX Operações</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {drxNavItems.map((item) => (
+              {filteredDrxNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <Tooltip delayDuration={isCollapsed ? 0 : 1000}>
                     <TooltipTrigger asChild>
