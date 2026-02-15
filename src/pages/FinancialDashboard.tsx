@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, RefreshCw, FileSpreadsheet, MessageSquare, X, Send, ArrowUpCircle, ArrowDownCircle, Wallet, Calendar, BarChart3, ExternalLink } from 'lucide-react';
+import { OperationalOverview } from '@/components/financial/OperationalOverview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -400,6 +401,9 @@ export default function FinancialDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Operational Metrics Integration */}
+      <OperationalOverview financialEntradas={kpis.entradas} financialSaidas={kpis.saidas} />
 
       {/* Data Tables */}
       <Tabs defaultValue="cashbook" className="w-full">
