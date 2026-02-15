@@ -36,14 +36,17 @@ Deno.serve(async (req) => {
     const receivedKey = String(payload.integration_key || payload.chave_unica || payload.token || '').trim();
     const queryToken = (new URL(req.url).searchParams.get('token') || '').trim();
 
-    // Log for debugging
-    console.log(`Key validation: paytKey=${paytKey ? 'SET' : 'NOT_SET'}, received=${receivedKey ? 'YES' : 'NO'}, query=${queryToken ? 'YES' : 'NO'}`);
+    // Log for debugging (will remove later)
+    console.log(`Key validation: paytKey="${paytKey}", received="${receivedKey}", query="${queryToken}"`);
 
-    // Skip validation if no key is configured or no key was sent
-    if (paytKey && paytKey.trim() !== '' && (receivedKey || queryToken)) {
-      const keyMatch = receivedKey === paytKey.trim() || queryToken === paytKey.trim();
-      if (!keyMatch) {
-        console.log('Invalid PAYT postback key');
+    // Validate: if PAYT_POSTBACK_KEY is set, check against received key or query token
+    if (paytKey && paytKey.trim() !== '') {
+      const trimmedPaytKey = paytKey.trim();
+      const keyMatch = receivedKey === trimmedPaytKey || queryToken === trimmedPaytKey;
+      
+      // Also accept if no key was sent at all (skip validation)
+      if ((receivedKey || queryToken) && !keyMatch) {
+        console.log('Invalid PAYT postback key - mismatch');
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
