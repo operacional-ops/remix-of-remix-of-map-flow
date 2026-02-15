@@ -1,50 +1,49 @@
-import { useState, useMemo, useRef } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, Upload, FileSpreadsheet, MessageSquare, X, Send, ArrowUpCircle, ArrowDownCircle, Wallet, Calendar, BarChart3 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, RefreshCw, FileSpreadsheet, MessageSquare, X, Send, ArrowUpCircle, ArrowDownCircle, Wallet, Calendar, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCashbook, usePayables, useBudget, useImportCashbook, useImportPayables, useImportBudget } from '@/hooks/useFinancialData';
+import { useCashbook, usePayables, useBudget } from '@/hooks/useFinancialData';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 const COLORS = ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
 const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-function parseCSVValue(val: string): number {
-  if (!val || val === '-' || val === '') return 0;
-  return parseFloat(val.replace(/[R$\s.]/g, '').replace(',', '.').replace('$', '')) || 0;
-}
 
-function parseCSVDate(val: string): string {
-  if (!val) return '';
-  // Already yyyy-mm-dd
-  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-  // dd/mm/yyyy
-  const parts = val.split('/');
-  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  return val;
-}
 
 export default function FinancialDashboard() {
+  const queryClient = useQueryClient();
   const { data: cashbook = [], isLoading: loadingCashbook } = useCashbook();
   const { data: payables = [], isLoading: loadingPayables } = usePayables();
   const { data: budget = [], isLoading: loadingBudget } = useBudget();
-  const importCashbook = useImportCashbook();
-  const importPayables = useImportPayables();
-  const importBudget = useImportBudget();
 
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importType, setImportType] = useState<'cashbook' | 'payables' | 'budget'>('cashbook');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['financial-cashbook'] });
+      await queryClient.invalidateQueries({ queryKey: ['financial-payables'] });
+      await queryClient.invalidateQueries({ queryKey: ['financial-budget'] });
+      toast.success('Dashboard atualizado com os dados da planilha!');
+    } catch {
+      toast.error('Erro ao atualizar dados.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // KPIs
   const kpis = useMemo(() => {
@@ -115,78 +114,7 @@ export default function FinancialDashboard() {
     }));
   }, [cashbook]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split('\n').map(l => l.split(',').map(c => c.trim().replace(/^"|"$/g, '')));
-      
-      if (lines.length < 2) {
-        toast.error('Arquivo CSV vazio ou inválido');
-        return;
-      }
-
-      try {
-        if (importType === 'cashbook') {
-          const rows = lines.slice(1).filter(l => l[0] && l[0] !== '').map(l => ({
-            data: parseCSVDate(l[0]),
-            tipo: l[1]?.toUpperCase() || 'SAÍDA',
-            nivel1: l[2] || '',
-            nivel2: l[3] || null,
-            historico: l[4] || null,
-            valor: parseCSVValue(l[5]),
-            forma_pagamento: l[6] || null,
-            banco_cartao: l[7] || null,
-            saldo_acumulado: l[8] ? parseCSVValue(l[8]) : null,
-            observacoes: l[9] || null,
-          }));
-          importCashbook.mutate(rows);
-        } else if (importType === 'payables') {
-          const rows = lines.slice(1).filter(l => l[0] && l[0] !== '').map(l => ({
-            vencimento: parseCSVDate(l[0]),
-            dias_vencer: parseInt(l[1]) || null,
-            status: l[2] || 'PENDENTE',
-            nivel1: l[3] || '',
-            nivel2: l[4] || null,
-            fornecedor: l[5] || null,
-            historico: l[6] || null,
-            valor: parseCSVValue(l[7]),
-            forma_pagamento: l[8] || null,
-            banco_cartao: l[9] || null,
-            observacoes: l[10] || null,
-          }));
-          importPayables.mutate(rows);
-        } else {
-          const rows = lines.slice(1).filter(l => l[0] && l[0] !== '').map(l => ({
-            codigo: l[0] || null,
-            nivel1: l[1] || '',
-            nivel2: l[2] || null,
-            jan: parseCSVValue(l[3]),
-            fev: parseCSVValue(l[4]),
-            mar: parseCSVValue(l[5]),
-            abr: parseCSVValue(l[6]),
-            mai: parseCSVValue(l[7]),
-            jun: parseCSVValue(l[8]),
-            jul: parseCSVValue(l[9]),
-            ago: parseCSVValue(l[10]),
-            set: parseCSVValue(l[11]),
-            out: parseCSVValue(l[12]),
-            nov: parseCSVValue(l[13]),
-            dez: parseCSVValue(l[14]),
-            total_anual: parseCSVValue(l[15]),
-          }));
-          importBudget.mutate(rows);
-        }
-      } catch (err) {
-        toast.error('Erro ao processar CSV. Verifique o formato.');
-      }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
 
   const handleChatSend = async () => {
     if (!chatInput.trim() || chatLoading) return;
@@ -293,21 +221,10 @@ export default function FinancialDashboard() {
           <p className="text-sm text-muted-foreground mt-1">Gestão e Operações Financeiras — Visão 360°</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={importType} onValueChange={(v: any) => setImportType(v)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cashbook">Livro Caixa</SelectItem>
-              <SelectItem value="payables">Contas a Pagar</SelectItem>
-              <SelectItem value="budget">Orçamento</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="gap-2">
-            <Upload className="h-4 w-4" />
-            Importar CSV
+          <Button onClick={handleRefresh} variant="outline" className="gap-2" disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Atualizando...' : 'Atualizar Dados'}
           </Button>
-          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
           <Button onClick={() => setChatOpen(!chatOpen)} variant={chatOpen ? 'default' : 'outline'} className="gap-2">
             <MessageSquare className="h-4 w-4" />
             AI Chat
@@ -396,7 +313,7 @@ export default function FinancialDashboard() {
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                   <FileSpreadsheet className="h-8 w-8 mr-2 opacity-50" />
-                  Importe dados para visualizar
+                  Clique em "Atualizar Dados" para carregar
                 </div>
               )}
             </div>
@@ -433,7 +350,7 @@ export default function FinancialDashboard() {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                  Importe orçamento e livro caixa
+                  Clique em "Atualizar Dados" para carregar
                 </div>
               )}
             </div>
@@ -495,7 +412,7 @@ export default function FinancialDashboard() {
                   </TableHeader>
                   <TableBody>
                     {cashbook.length === 0 ? (
-                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhum registro. Importe um CSV.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhum registro. Sincronize a planilha e clique em "Atualizar Dados".</TableCell></TableRow>
                     ) : cashbook.map(row => (
                       <TableRow key={row.id}>
                         <TableCell className="whitespace-nowrap">{row.data}</TableCell>
@@ -541,7 +458,7 @@ export default function FinancialDashboard() {
                   </TableHeader>
                   <TableBody>
                     {payables.length === 0 ? (
-                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nenhum registro.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nenhum registro. Clique em "Atualizar Dados".</TableCell></TableRow>
                     ) : payables.map(row => (
                       <TableRow key={row.id}>
                         <TableCell className="whitespace-nowrap">{row.vencimento}</TableCell>
@@ -585,7 +502,7 @@ export default function FinancialDashboard() {
                   </TableHeader>
                   <TableBody>
                     {budget.length === 0 ? (
-                      <TableRow><TableCell colSpan={16} className="text-center text-muted-foreground py-8">Nenhum registro.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={16} className="text-center text-muted-foreground py-8">Nenhum registro. Clique em "Atualizar Dados".</TableCell></TableRow>
                     ) : budget.map(row => (
                       <TableRow key={row.id}>
                         <TableCell className="text-xs">{row.codigo}</TableCell>
