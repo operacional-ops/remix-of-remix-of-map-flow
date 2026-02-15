@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel DRX | Team Flow</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { 
+            background-color: #020617; 
+            color: #cbd5e1; 
+            font-family: 'Inter', sans-serif; 
+            overflow: hidden; 
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .glass-panel { 
+            background: rgba(15, 23, 42, 0.6); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4); 
+        }
+
+        .animate-enter { animation: enter 0.4s ease-out forwards; }
+        @keyframes enter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .task-card { transition: all 0.2s; }
+        .task-card:hover { transform: translateY(-2px); border-color: #3b82f6; }
+        
+        /* Checkbox Customizado */
+        .custom-checkbox input:checked + div { background-color: #10b981; border-color: #10b981; }
+        .custom-checkbox input:checked + div svg { display: block; }
+
+        /* Estilos de Texto do Cargo */
+        .role-section h4 { color: #60a5fa; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        .role-section ul { list-style: none; padding: 0; margin-bottom: 1rem; }
+        .role-section li { position: relative; padding-left: 1rem; margin-bottom: 0.25rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; }
+        .role-section li::before { content: "•"; position: absolute; left: 0; color: #475569; }
+        
+        .footer-input:focus-within { border-color: #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.1); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // --- FIREBASE INIT ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCn9Cn7WKZW_XEI-HB8XN9F9HMrFzEq4XM",
+            authDomain: "drx-operacao-painel.firebaseapp.com",
+            projectId: "drx-operacao-painel",
+            storageBucket: "drx-operacao-painel.firebasestorage.app",
+            messagingSenderId: "273921323746",
+            appId: "1:273921323746:web:f69935abf568005c98a4bb",
+            measurementId: "G-S17MHC2JND"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        // --- CONSTANTES DE ACESSO ---
+        const SUPERVISORS = ['danillo', 'arthur', 'brandon'];
+        
+        // Quem pode ADICIONAR tarefas no quadro dos outros (Mantendo original)
+        // E agora também usado para verificação de quem pode editar qualquer tarefa
+        const TASK_EDITORS = ['danillo', 'arthur'];
+
+        // --- LISTA NEGRA DE TAREFAS BUGADAS (HARDCODED FIX) ---
+        const GHOST_TASKS = [
+            "pegando ideias para roteiro asdsadas",
+            "pegando ideias para roteiro (Cópia)g",
+            "pegando ideias para roteiro (Cópia)"
+        ];
+
+        // --- DADOS DA EQUIPE (COM CREDENCIAIS) ---
+        const TEAM_DATA = [
+            { id: 'danillo', name: 'Ailton Danillo', role: 'Diretor de Operações (COO)', category: 'board', avatar: 'AD', color: 'bg-blue-600', isDirector: true, user: 'ailtonadm', pass: 'DRX2026@' },
+            { id: 'arthur', name: 'Arthur', role: 'Head de Estratégia', category: 'board', avatar: 'AR', color: 'bg-purple-600', isDirector: true, user: 'arthuradm', pass: 'DRX2026@' },
+            { id: 'brandon', name: 'Brandon', role: 'CEO / Expansão', category: 'board', avatar: 'BR', color: 'bg-indigo-600', isDirector: true, user: 'brandonadm', pass: 'DRX2026@' },
+            { id: 'andre', name: 'Andre', role: 'Diretor Financeiro (CFO)', category: 'board', avatar: 'AN', color: 'bg-emerald-700', isDirector: true, user: 'andreadm', pass: 'DRX2026@' },
+            { id: 'marcos', name: 'Marcos Vinicius', role: 'Diretor de Copy', category: 'board', avatar: 'MV', color: 'bg-rose-600', isDirector: true, user: 'marcosadm', pass: 'DRX2026@' },
+            { id: 'lucas', name: 'Lucas Rosário', role: 'Diretor de Tráfego', category: 'board', avatar: 'LR', color: 'bg-orange-600', isDirector: true, user: 'lucasadm', pass: 'DRX2026@' },
+            
+            { id: 'impactize', name: 'Impactize (Editor VSL)', role: 'Edição de VSL & Criativos', category: 'team', avatar: 'IM', color: 'bg-red-600', isDirector: false, user: 'impactizeadm', pass: 'DRX2026@' },
+            { id: 'gabriel', name: 'Gabriel Gomes', role: 'Copywriter Pleno', category: 'team', avatar: 'GG', color: 'bg-pink-500', isDirector: false, user: 'gabrieladm', pass: 'DRX2026@' },
+            { id: 'pedro', name: 'Pedro Severo', role: 'Infraestrutura Pleno', category: 'team', avatar: 'PS', color: 'bg-cyan-600', isDirector: false, user: 'pedroadm', pass: 'DRX2026@' },
+            { id: 'felipe', name: 'Felipe Origuela', role: 'Filmmaker Sênior', category: 'team', avatar: 'FO', color: 'bg-yellow-600', isDirector: false, user: 'felipeadm', pass: 'DRX2026@' },
+            { id: 'victor', name: 'Victor Navega', role: 'Editor de Vídeos', category: 'team', avatar: 'VN', color: 'bg-teal-500', isDirector: false, user: 'victoradm', pass: 'DRX2026@' },
+            { id: 'bruno', name: 'Bruno Brittes', role: 'Social Media', category: 'team', avatar: 'BB', color: 'bg-fuchsia-500', isDirector: false, user: 'brunoadm', pass: 'DRX2026@' },
+            { id: 'evelin', name: 'Evelin', role: 'Facilities & Apoio', category: 'team', avatar: 'EV', color: 'bg-lime-600', isDirector: false, user: 'evelinadm', pass: 'DRX2026@' }
+        ];
+
+        // --- CONTEÚDO DOS RITUAIS (PDF) ---
+        const DAILY_CONTENT = {
+            'rules': [
+                "Sem atraso. Começa no horário com quem estiver.",
+                "Todos de câmera ligada, momento de total foco.",
+                "Sem discussão longa. Assunto complexo → reunião separada.",
+                "Se não gera ação, não entra.",
+                "Decisão pequena acontece ali. Decisão grande vai para a estratégica."
+            ],
+            'forbidden': [
+                "Brainstorm de copy",
+                "Debate de métrica",
+                "Revisão de criativo",
+                "Explicação longa de problema",
+                "Discussão emocional",
+                "Aula de marketing"
+            ],
+            'structure': [
+                { role: "Arthur (Estratégia)", time: "2 min", what: ["Funis ativos hoje", "Objetivo do dia (teste, escala, ajuste, pausa)", "Alguma mudança estratégica?"] },
+                { role: "Lucas (Tráfego)", time: "3 min", what: ["O que rodou ontem", "Algum número fora do esperado", "Algum risco imediato", "Ação principal hoje"] },
+                { role: "Marcos (Copy)", time: "3 min", what: ["O que foi entregue ontem", "O que entra em produção hoje", "Dificuldade de copy/Bloqueio criativo", "Sugestão de ajuste em funil"] },
+                { role: "Liwerton/Impactize (Edição)", time: "2 min", what: ["Status das peças em edição", "Próximas entregas do dia", "Algum bloqueio técnico ou operacional"] },
+                { role: "Danillo (Operações)", time: "3 min", what: ["Algum risco operacional ativo", "Algum incidente", "Algo que pode parar o funil hoje"] }
+            ]
+        };
+
+        const WEEKLY_CONTENT = {
+            'structure': [
+                { topic: "1. O que GANHOU dinheiro", owner: "Lucas (5 min)", details: ["Qual funil gerou lucro", "Quais criativos performaram", "Qual padrão aparece"] },
+                { topic: "2. O que PERDEU dinheiro", owner: "Lucas (5 min)", details: ["Onde houve prejuízo", "O que já pode ser descartado", "Algum risco emergente (Sem justificativa emocional, só dados)"] },
+                { topic: "3. Leitura de Mensagem & Copy", owner: "Marcos (7 min)", details: ["Qual ângulo funcionou", "Qual promessa perdeu força", "Qual padrão de narrativa aparece", "O que NÃO devemos repetir"] },
+                { topic: "4. Síntese Estratégica", owner: "Arthur (8 min)", details: ["O que escala", "O que pausa", "O que morre", "O que entra em teste", "Prioridade da próxima semana"] }
+            ],
+            'outputs': [
+                "Lista de vencedores", "Lista de descartados", "Hipóteses da próxima semana", "Prioridade única de foco", "Decisões registradas"
+            ]
+        };
+
+        // --- DETALHES DOS CARGOS (PDF) ---
+        const ROLE_DETAILS = {
+            'danillo': { mission: "Garantir que os funis funcionem sem falhas, com estabilidade operacional, SLA cumprido e risco controlado.", nonNegotiables: ["Manter bom relacionamento de toda equipe.", "Manter comunicação alinhada entre tríade (Copy - Tráfego - Edição).", "Resolver gargalos operacionais com rapidez.", "Monitorar riscos operacionais (Toda Infra de Pé).", "Documentar incidentes e correções."], limits: ["Não decide estratégia de funil.", "Não muda promessa ou copy.", "Não altera orçamento.", "Não prioriza testes.", "Não negocia com experts."], decisions: ["Ajustes técnicos e operacionais.", "Pausar funil por risco operacional.", "Priorizar correções emergenciais.", "Definir rotinas operacionais."], behavior: ["Antecipar riscos.", "Resolver sem criar ruído.", "Manter disciplina operacional."] },
+            'arthur': { mission: "Ser dono do resultado econômico dos funis, definindo estratégia, prioridade e alocação de capital para maximizar crescimento.", nonNegotiables: ["Decidir o que nasce, o que escala e o que morre.", "Priorizar funis e testes semanalmente.", "Alocar budget por funil.", "Orquestrar Copy, Tráfego e Operações sem executar tarefas."], limits: ["Não escreve copy.", "Não sobe/otimiza campanhas.", "Não resolve problemas operacionais.", "Não negocia com experts/parceiros.", "Não microgerencia execução."], decisions: ["Criar/encerrar funil.", "Escalar/pausar funil por performance.", "Definir prioridades da semana.", "Redirecionar budget entre funis."], behavior: ["Trazer resultado interno para empresa.", "Definir prioridades semanais do time.", "Tomar as decisões estratégicas com base em dados."] },
+            'brandon': { mission: "Maximizar o valor da empresa no médio e longo prazo, garantindo expansão estratégica e relações externas sólidas.", nonNegotiables: ["Conduzir relacionamento com experts e parceiros.", "Liderar negociações externas.", "Buscar novas oportunidades de funis.", "Garantir governança entre estratégia, operação e expansão."], limits: ["Não define promessa, mecanismo ou ICP.", "Não decide criar, escalar ou matar funil.", "Não altera estratégia de tráfego ou copy.", "Não interfere na operação diária."], decisions: ["Escolha e negociação com experts.", "Definição de acordos comerciais.", "Posicionamento institucional.", "Iniciativas de expansão."], behavior: ["Pensar em empresa vendável.", "Proteger a operação de interferências externas.", "Canalizar demandas externas para o Núcleo Estratégico."] },
+            'andre': { mission: "Garantir clareza financeira, controle de caixa e previsibilidade econômica.", nonNegotiables: ["Manter fluxo de caixa atualizado (DFC).", "Garantir liquidez mínima de segurança.", "Construir DRE gerencial semanal.", "Identificar pontos de prejuízo."], limits: ["Não escala investimento em tráfego sozinho.", "Não bloqueia estratégia sem alinhamento.", "Não redireciona capital entre funis por conta própria."], decisions: ["Priorizar pagamentos dentro do orçamento.", "Sugerir redução de custos.", "Alertar necessidade de pausa por risco de caixa."], behavior: ["Financeiro alerta. Estratégia decide.", "Nenhuma decisão estratégica relevante acontece sem visibilidade financeira."] },
+            'marcos': { mission: "Dirigir a comunicação persuasiva e garantir a qualidade dos ativos de conversão.", nonNegotiables: ["Direcionar quais ângulos e formatos escrever.", "Escrever ativos de copy (VSL, Criativos, E-mails).", "Preencher Airtable com infos dos ativos.", "Revisar edição dos ativos escritos."], limits: ["Não decide budget de tráfego.", "Não interfere na infraestrutura técnica.", "Não negocia contratos."], decisions: ["Ajustes na copy pra performance.", "Prioridade nos testes da esteira de otimização.", "Definir próxima offer para esteira de ripagem."], behavior: ["Pensar em padrões, não ativos isolados.", "Executar rápido, sem ego.", "Registrar aprendizados sempre."] },
+            'lucas': { mission: "Maximizar o retorno sobre o investimento (ROAS) através da gestão técnica de mídia paga.", nonNegotiables: ["Subir, testar e otimizar campanhas.", "Executar os testes definidos pela estratégia.", "Garantir controle de CAC, ROAS e spend.", "Gerar relatórios claros."], limits: ["Não altera a copy sem aval.", "Não define a oferta macro (papel da estratégia)."], decisions: ["Estrutura de campanhas.", "Alocação de budget dentro do funil ativo.", "Pausa técnica de criativos ou campanhas."], behavior: ["Agir com dados, não com opinião.", "Executar rápido e documentar.", "Priorizar eficiência sobre ego."] },
+            'impactize': { mission: "Transformar o roteiro de vendas (Copy) em uma experiência visual hipnótica e persuasiva.", nonNegotiables: ["Produzir vídeos de vendas seguindo rigorosamente o script.", "Narrativa Visual (B-rolls corretos).", "Sound Design que conduza a emoção.", "Cumprimento de Prazos (Deadline).", "Revisão 100% antes da entrega."], limits: ["Não altera o texto da Copy.", "Não muda o Briefing (ex: trocar tensão por alegria)."], decisions: ["Escolha criativa das cenas.", "Estilo das transições e tipografia.", "Ajustes de áudio (mixagem).", "Sugerir mudanças visuais se o roteiro estiver lento."], behavior: ["Visão de Vendas (vídeo é conversão).", "Sempre entregar material revisado.", "Sigilo Absoluto dos materiais."] },
+            'gabriel': { mission: "Garantir a tração e a escala das ofertas através dos seus ativos de copy.", nonNegotiables: ["Produção semanal de ativos de copy.", "Estudo de Público e Pesquisa.", "Espionagem de Mercado (novas ofertas).", "Revisão final dos materiais."], limits: ["Não define o que fazer (segue demanda).", "Não sobe campanhas no gerenciador."], decisions: ["O 'como' criar cada ativo (liberdade criativa no texto)."], behavior: ["Coragem criativa para testar ideias.", "Feedback constante para melhorias.", "Resiliência Criativa (testes falham, continue)."] },
+            'pedro': { mission: "Garantir toda infraestrutura da operação (Sites, Rastreamento, Ferramentas).", nonNegotiables: ["Configuração de domínios, DNS e servidores.", "Rastreamento (Pixels, CAPI, UTMs).", "Criar e otimizar checkouts e funis.", "Configurar VSL na Vturb e testes A/B."], limits: ["Não define orçamento de ferramentas.", "Não cria copy.", "Não negocia taxas de gateways."], decisions: ["Solicitação de compra de ativos (Proxies, Domínios).", "Escolha técnica de implementação.", "Troca de servidor em emergência."], behavior: ["Mindset Preventivo (check-up diário).", "Organização Extrema de acessos.", "Agilidade na Crise (site caiu = prioridade zero)."] },
+            'felipe': { mission: "Elevar o padrão visual da DRX e dos Experts através de produções cinematográficas.", nonNegotiables: ["Captação e Edição de Conteúdo Expert.", "Gestão e manutenção de Equipamentos.", "Direção de Fotografia em gravações.", "Backup e Organização do acervo (RAW)."], limits: ["NÃO edita VSLs (Função da Impactize).", "NÃO interfere na estratégia de VSL.", "Não assume demanda de volume (Reels diários)."], decisions: ["Direção de Cena (parar se luz/som estiver ruim).", "Definir Color Grading e identidade visual.", "Veto Técnico de material ruim."], behavior: ["Olhar Cinematográfico.", "Disponibilidade Técnica para captações complexas.", "Guardião da memória da empresa (arquivos)."] },
+            'victor': { mission: "Materializar a estratégia orgânica em vídeos de alta retenção e qualidade.", nonNegotiables: ["Monitorar calendário orgânico diariamente.", "Executar edição completa (cortes, legendas, cor).", "Reportar problemas técnicos.", "Garantir organização no Drive."], limits: ["Não altera estratégia de conteúdo.", "Não aprova o próprio vídeo (função do Brandon).", "Não posta conteúdo final."], decisions: ["Escolha de trilhas e ritmo.", "Sugestão de ideias criativas.", "Sinalização de impedimentos."], behavior: ["Agilidade sem perder qualidade.", "Proatividade ao buscar referências.", "Resiliência para revisões."] },
+            'bruno': { mission: "Gerenciar e fortalecer a presença digital institucional, criando autoridade e desejo.", nonNegotiables: ["Gestão de Perfis diária.", "Planejamento de Conteúdo e Calendário.", "Social Selling (Responder Directs).", "Agendamento e Postagem correta."], limits: ["Não interfere nas VSLs ou Copy de Vendas.", "Não altera tom de voz sem validação.", "Não faz gestão de Tráfego Pago."], decisions: ["Escolha de áudios (Trends).", "Respostas de rotina.", "Sugestão de pautas (Newsjacking)."], behavior: ["Guardião da Marca (autenticidade).", "Agilidade (tempo real).", "Ponte com a Edição."] },
+            'evelin': { mission: "Garantir a fluidez operacional do escritório e da rotina dos sócios.", nonNegotiables: ["Gestão de Agenda (Sócios).", "Execução de Pagamentos (Cartão Corporativo).", "Facilities (Limpeza, Insumos).", "Prestação de Contas imediata (comprovantes)."], limits: ["Não gasta sem 'OK' do Financeiro.", "Não excede Teto Diário.", "Não empresta o cartão.", "Não negocia grandes contratos."], decisions: ["Solicitar Ubers para convidados.", "Compra de insumos de recorrência.", "Acionar manutenção de urgência."], behavior: ["Disciplina Financeira (justificar cada centavo).", "Agilidade com Comprovantes.", "Discrição e Sigilo."] }
+        };
+
+        // --- CHECKLISTS ---
+        const CHECKLISTS = {
+            'default': ["Organizar ambiente de trabalho", "Checar agenda do dia", "Definir prioridade única"],
+            'impactize': ["Ler Briefing/Roteiro do Marcos com atenção", "Garantir Narrativa Visual (B-rolls corretos)", "Revisão 100% de erros antes da entrega", "Validar prazo para não travar tráfego"],
+            'gabriel': ["Checar demandas do Marcos (Diretor)", "Estudar referências/público (15min)", "Revisar ativos de copy pendentes", "Blindar agenda para escrita focada"],
+            'pedro': ["Check-up de todos os funis (Páginas ON?)", "Verificar integridade dos Pixels e UTMs", "Backup de segurança dos ativos", "Checar alertas de lentidão/servidor"],
+            'felipe': ["Checar equipamentos (Bateria/Cartão)", "Organizar backup de arquivos brutos (RAW)", "Alinhar demandas com Victor Navega", "Verificar agenda de gravações institucionais"],
+            'victor': ["Baixar arquivos brutos do Drive/Social", "Verificar calendário de postagens com Bruno", "Organizar pastas de projetos", "Reportar problemas técnicos ao Danillo"],
+            'bruno': ["Responder Directs (Social Selling)", "Verificar aprovações pendentes com Brandon", "Postar Sequência de Bom Dia (Stories)", "Checar entrega dos posts agendados"],
+            'evelin': ["Checar agenda dos Sócios (Conflitos?)", "Conciliação bancária do dia anterior", "Verificar insumos do escritório", "Enviar comprovantes pendentes ao Andre"],
+            'marcos': ["Alinhar produção com Impactize/Gabriel", "Revisar métricas de conversão", "Definir ângulos do dia"],
+            'lucas': ["Check de Spend diário", "Análise de ROAS matinal", "Alertas de campanhas"],
+            'andre': ["Verificar Saldo/Caixa", "Validar pagamentos do dia", "Atualizar DFC"],
+            'danillo': ["Verificar estabilidade dos sistemas", "Checar reports de risco", "Alinhar prioridades com Arthur"],
+            'arthur': ["Revisar performance macro (Ontem)", "Ajustar prioridades de teste", "Validar budget diário"],
+            'brandon': ["Verificar agenda externa", "Checar métricas de expansão", "Alinhar com parceiros chave"]
+        };
+
+        // --- HELPER DE FORMATAÇÃO DE DATA ---
+        // Solução para o problema da data
+        const formatDate = (timestamp) => {
+            if (!timestamp) return "";
+            // Se for um objeto Timestamp do Firestore (tem método toDate)
+            if (timestamp.toDate) {
+                return timestamp.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            }
+            // Se já for data JS ou número
+            return new Date(timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        };
+
+        // --- COMPONENTE ICON ---
+        const Icon = ({ name, className }) => {
+            const containerRef = React.useRef(null);
+            React.useEffect(() => {
+                if (window.lucide && containerRef.current) {
+                    const tempIcon = document.createElement('i');
+                    tempIcon.setAttribute('data-lucide', name);
+                    if (className) tempIcon.className = className;
+                    containerRef.current.innerHTML = '';
+                    containerRef.current.appendChild(tempIcon);
+                    window.lucide.createIcons({ root: containerRef.current, nameAttr: 'data-lucide' });
+                }
+            }, [name, className]);
+            return <span ref={containerRef} style={{ display: 'contents' }}></span>;
+        };
+
+        // --- COMPONENTE CLOCK ---
+        const Clock = () => {
+            const [time, setTime] = React.useState(new Date());
+            React.useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
+            return (
+                <div className="text-right">
+                    <div className="text-xl font-bold text-red-500 font-mono leading-none">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{time.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+                </div>
+            );
+        };
+
+        // --- COMPONENTE MODAL DE TAREFA ---
+        const TaskModal = ({ task, isOpen, onClose, onSave, isReadOnly, currentUser, targetUserId }) => {
+            const [title, setTitle] = React.useState("");
+            const [desc, setDesc] = React.useState("");
+            const [link, setLink] = React.useState("");
+
+            React.useEffect(() => {
+                if (isOpen && task) {
+                    setTitle(task.text || "");
+                    setDesc(task.description || "");
+                    setLink(task.link || "");
+                } else {
+                    setTitle(""); setDesc(""); setLink("");
+                }
+            }, [isOpen, task]);
+
+            if (!isOpen) return null;
+
+            const isMyTask = task ? task.assignedTo === currentUser.id : targetUserId === currentUser.id;
+            const canEdit = !isReadOnly || TASK_EDITORS.includes(currentUser.id) || isMyTask;
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave({ 
+                    ...task, 
+                    text: title, 
+                    description: desc, 
+                    link: link 
+                });
+                onClose();
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-enter">
+                    <div className="bg-[#0f172a] border border-slate-700 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden">
+                        <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900">
+                            <h3 className="text-white font-bold flex items-center gap-2">
+                                <Icon name={task?.id ? "pencil" : "plus-circle"} className="w-4 h-4 text-blue-500"/> 
+                                {task?.id ? "Editar Tarefa" : "Nova Tarefa"}
+                            </h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-white"><Icon name="x" className="w-5 h-5"/></button>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Título da Tarefa</label>
+                                <input type="text" required disabled={!canEdit} className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-white focus:border-blue-500 focus:outline-none" placeholder="O que precisa ser feito?" value={title} onChange={e => setTitle(e.target.value)} />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descrição Detalhada</label>
+                                <textarea rows="4" disabled={!canEdit} className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-slate-300 text-sm focus:border-blue-500 focus:outline-none resize-none" placeholder="Detalhes, contexto, instruções..." value={desc} onChange={e => setDesc(e.target.value)} />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Link (Drive/Docs/Design)</label>
+                                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded p-2">
+                                    <Icon name="link" className="w-4 h-4 text-slate-500"/>
+                                    <input type="url" disabled={!canEdit} className="flex-1 bg-transparent text-blue-400 text-sm focus:outline-none placeholder-slate-600" placeholder="https://..." value={link} onChange={e => setLink(e.target.value)} />
+                                </div>
+                            </div>
+
+                            {canEdit ? (
+                                <div className="pt-4 flex justify-end gap-3">
+                                    <button type="button" onClick={onClose} className="px-4 py-2 text-slate-400 text-sm font-bold hover:text-white transition-colors">Cancelar</button>
+                                    <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-900/20 transition-all flex items-center gap-2"><Icon name="save" className="w-4 h-4"/> Salvar</button>
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-red-900/20 border border-red-900/50 rounded text-red-400 text-xs text-center">Somente Arthur, Danillo ou o dono podem editar.</div>
+                            )}
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // 1. TELA DAILY (RESTAURADA)
+        const DailyView = () => {
+            return (
+                <div className="h-full flex flex-col animate-enter overflow-y-auto pr-2 pb-4">
+                    <div className="mb-6">
+                        <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+                            <Icon name="mic" className="w-6 h-6 text-purple-500" />
+                            Rituais e Comunicação
+                        </h2>
+                        <p className="text-slate-400 text-sm">Diretrizes oficiais para Daily e Weekly.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* DAILY SECTION */}
+                        <div className="space-y-6">
+                            <div className="glass-panel p-6 rounded-xl border-l-4 border-purple-500">
+                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                    <Icon name="sun" className="w-5 h-5 text-purple-400"/> Daily (15 min)
+                                </h3>
+                                <div className="space-y-4">
+                                    {DAILY_CONTENT.structure.map((item, idx) => (
+                                        <div key={idx} className="p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="font-bold text-blue-400 text-sm">{item.role}</span>
+                                                <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400">{item.time}</span>
+                                            </div>
+                                            <ul className="list-disc list-inside text-xs text-slate-300 space-y-1">
+                                                {item.what.map((w, i) => <li key={i}>{w}</li>)}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="glass-panel p-4 rounded-xl">
+                                    <h4 className="text-xs font-bold text-green-400 uppercase mb-2 flex items-center gap-1"><Icon name="check" className="w-3 h-3"/> Regras de Ouro</h4>
+                                    <ul className="text-xs text-slate-400 space-y-2">
+                                        {DAILY_CONTENT.rules.map((r, i) => <li key={i}>• {r}</li>)}
+                                    </ul>
+                                </div>
+                                <div className="glass-panel p-4 rounded-xl border border-red-900/30">
+                                    <h4 className="text-xs font-bold text-red-400 uppercase mb-2 flex items-center gap-1"><Icon name="ban" className="w-3 h-3"/> Proibido na Daily</h4>
+                                    <ul className="text-xs text-slate-400 space-y-2">
+                                        {DAILY_CONTENT.forbidden.map((r, i) => <li key={i}>• {r}</li>)}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* WEEKLY SECTION */}
+                        <div className="space-y-6">
+                            <div className="glass-panel p-6 rounded-xl border-l-4 border-yellow-500">
+                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                    <Icon name="calendar-check" className="w-5 h-5 text-yellow-400"/> Weekly (Sexta-feira)
+                                </h3>
+                                <div className="space-y-4">
+                                    {WEEKLY_CONTENT.structure.map((item, idx) => (
+                                        <div key={idx} className="p-3 bg-slate-900/50 rounded-lg border border-slate-800 relative overflow-hidden">
+                                            <div className="flex justify-between items-center mb-2 relative z-10">
+                                                <span className="font-bold text-white text-sm">{item.topic}</span>
+                                                <span className="text-[10px] text-slate-500">{item.owner}</span>
+                                            </div>
+                                            <ul className="list-disc list-inside text-xs text-slate-400 space-y-1 relative z-10">
+                                                {item.details.map((d, i) => <li key={i}>{d}</li>)}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="glass-panel p-4 rounded-xl">
+                                <h4 className="text-xs font-bold text-slate-300 uppercase mb-3">Outputs Obrigatórios</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {WEEKLY_CONTENT.outputs.map((o, i) => (
+                                        <span key={i} className="px-2 py-1 bg-slate-800 rounded text-[10px] text-slate-400 border border-slate-700">{o}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const DirectorInbox = ({ messages, onReply }) => {
+            const openMessages = messages.filter(m => m.status === 'open');
+            const [replyText, setReplyText] = React.useState("");
+            const [activeMsgId, setActiveMsgId] = React.useState(null);
+
+            return (
+                <div className="flex-1 overflow-hidden bg-[#0b1121] rounded-2xl border border-slate-800 p-4 flex flex-col">
+                    <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Icon name="inbox" className="w-5 h-5 text-yellow-500" /> Central de Chamados ({openMessages.length})</h3>
+                    <div className="flex-1 overflow-y-auto space-y-3">
+                        {openMessages.length === 0 ? <div className="text-center text-slate-600 py-10">Nenhum chamado pendente.</div> : openMessages.map(msg => (
+                            <div key={msg.id} className="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2"><span className="font-bold text-blue-400 text-sm capitalize">{msg.fromUser.name}</span><span className="text-[10px] text-slate-500">{msg.displayTime}</span></div>
+                                </div>
+                                <p className="text-slate-300 text-sm mb-3 bg-slate-800 p-2 rounded">{msg.content}</p>
+                                {activeMsgId === msg.id ? (
+                                    <div className="flex gap-2"><input type="text" className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-sm text-white" placeholder="Sua resposta..." value={replyText} onChange={(e) => setReplyText(e.target.value)} /><button onClick={() => { onReply(msg.id, replyText); setReplyText(""); setActiveMsgId(null); }} className="bg-green-600 px-3 rounded text-white text-xs font-bold hover:bg-green-500">Enviar</button><button onClick={() => setActiveMsgId(null)} className="text-slate-500 px-2"><Icon name="x" className="w-4 h-4"/></button></div>
+                                ) : (
+                                    <button onClick={() => setActiveMsgId(msg.id)} className="text-xs text-blue-500 hover:text-blue-400 font-bold flex items-center gap-1"><Icon name="reply" className="w-3 h-3"/> Responder</button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const GodView = ({ currentUser, globalTasks, messages, onSaveTask, onMoveTask, onBulkAction, onReply }) => {
+            const [selectedMemberId, setSelectedMemberId] = React.useState(null);
+            const [viewMode, setViewMode] = React.useState('supervision');
+            
+            const allMembers = TEAM_DATA.filter(m => m.id !== currentUser.id);
+            const selectedTasks = (selectedMemberId && globalTasks[selectedMemberId]) ? globalTasks[selectedMemberId] : { todo: [], doing: [], done: [] };
+            const canEdit = TASK_EDITORS.includes(currentUser.id);
+
+            return (
+                <div className="h-full flex flex-col animate-enter">
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-slate-900/50 p-1 rounded-lg border border-slate-800 flex">
+                            <button onClick={() => setViewMode('supervision')} className={`px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${viewMode === 'supervision' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Icon name="layout-grid" className="w-4 h-4"/> Visão Geral (Todos)</button>
+                            <button onClick={() => setViewMode('personal')} className={`px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${viewMode === 'personal' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Icon name="list-todo" className="w-4 h-4"/> Meu Workflow</button>
+                        </div>
+                    </div>
+
+                    {viewMode === 'supervision' ? (
+                        <>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4 overflow-y-auto max-h-[160px] pr-2">
+                                {allMembers.map(member => {
+                                    const stats = globalTasks[member.id] || { todo: [], doing: [], done: [] };
+                                    const doingCount = stats.doing.length;
+                                    const isSelected = selectedMemberId === member.id;
+                                    const pendingMsg = messages.some(m => m.fromUser.id === member.id && m.status === 'open');
+                                    return (
+                                        <button key={member.id} onClick={() => setSelectedMemberId(member.id)} className={`glass-panel p-3 rounded-lg border text-left transition-all relative overflow-hidden ${isSelected ? 'border-blue-500 bg-blue-900/20' : 'border-slate-800 hover:bg-slate-800'}`}>
+                                            {pendingMsg && <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>}
+                                            <div className="flex items-center gap-2 mb-2"><div className={`w-6 h-6 ${member.color} rounded-full flex items-center justify-center text-[10px] font-bold text-white`}>{member.avatar}</div><div className="flex-1 min-w-0"><div className="text-xs font-bold text-slate-200 truncate">{member.name}</div><div className="text-[8px] text-slate-500 truncate uppercase">{member.role}</div></div></div>
+                                            <div className="flex items-center justify-between"><span className="text-[10px] text-slate-500">Fluxo:</span>{doingCount > 0 ? <span className="text-[10px] font-bold text-blue-400 animate-pulse">{doingCount} Ativos</span> : <span className="text-[10px] text-slate-600">Parado</span>}</div>
+                                            <div className="w-full h-1 bg-slate-800 mt-2 rounded-full overflow-hidden"><div className="h-full bg-blue-500" style={{ width: `${(stats.done.length / (stats.todo.length + stats.doing.length + stats.done.length || 1)) * 100}%` }}></div></div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div className="flex-1 flex gap-4 overflow-hidden">
+                                <div className="flex-[2] bg-[#0b1121] rounded-2xl border border-slate-800 p-4 overflow-hidden flex flex-col relative">
+                                    {selectedMemberId ? (
+                                        <>
+                                            <div className="mb-4 flex items-center gap-3 pb-3 border-b border-slate-800/50 relative z-10"><div className={`w-8 h-8 ${TEAM_DATA.find(m => m.id === selectedMemberId).color} rounded-full flex items-center justify-center text-xs font-bold text-white`}>{TEAM_DATA.find(m => m.id === selectedMemberId).avatar}</div><div><h3 className="text-base font-bold text-white">Quadro de {TEAM_DATA.find(m => m.id === selectedMemberId).name}</h3><p className="text-[10px] text-slate-400">{TEAM_DATA.find(m => m.id === selectedMemberId).role}</p></div></div>
+                                            <div className="flex-1 overflow-hidden relative z-10">
+                                                <KanbanBoard 
+                                                    tasks={selectedTasks} 
+                                                    readOnly={!canEdit} 
+                                                    onSaveTask={(task) => onSaveTask(task, selectedMemberId)} 
+                                                    onMoveTask={(taskId, status, dir) => onMoveTask(selectedMemberId, taskId, status, dir)} 
+                                                    onBulkAction={onBulkAction} 
+                                                    currentUser={currentUser}
+                                                    targetUserId={selectedMemberId}
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-slate-600"><Icon name="mouse-pointer-click" className="w-12 h-12 mb-3 opacity-50" /><p className="text-sm">Selecione um colaborador acima para auditar.</p></div>
+                                    )}
+                                </div>
+                                <div className="flex-1 flex flex-col h-full overflow-hidden"><DirectorInbox messages={messages} onReply={onReply} /></div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 overflow-hidden bg-slate-900/30 rounded-xl border border-slate-800 p-4 mb-4">
+                            <div className="flex justify-between items-center mb-4 px-2">
+                                <div className="flex items-center gap-2"><div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div><h2 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Minhas Demandas</h2></div>
+                                <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Diretoria</span>
+                            </div>
+                            <KanbanBoard 
+                                tasks={globalTasks[currentUser.id] || {todo:[], doing:[], done:[]}} 
+                                onMoveTask={(taskId, currentStatus, dir) => onMoveTask(currentUser.id, taskId, currentStatus, dir)} 
+                                onSaveTask={(task) => onSaveTask(task, currentUser.id)} 
+                                onBulkAction={onBulkAction} 
+                                currentUser={currentUser}
+                                targetUserId={currentUser.id}
+                            />
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const KanbanColumn = ({ title, status, items, color, icon, readOnly, onAddClick, onTaskClick, isSelectMode, selectedTasks, onSelectTask, onMoveTask }) => {
+            return (
+                <div className="flex-1 min-w-[280px] bg-[#0b1121] border border-slate-800 rounded-xl flex flex-col h-full">
+                    <div className={`p-3 border-b border-slate-800 flex justify-between items-center ${color} bg-slate-900/50`}>
+                        <div className="flex items-center gap-2 font-bold text-slate-200 text-sm"><Icon name={icon} className="w-3.5 h-3.5 opacity-70" />{title}</div>
+                        <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px] text-slate-400 font-mono">{items.length}</span>
+                    </div>
+                    <div className="p-2 space-y-2 flex-1 overflow-y-auto custom-scrollbar">
+                        {!readOnly && status === 'todo' && (
+                            <button onClick={() => onAddClick(status)} className="w-full py-3 border-2 border-dashed border-slate-800 rounded-lg text-slate-500 hover:border-blue-500 hover:text-blue-400 transition-all text-xs font-bold flex items-center justify-center gap-2 mb-2 group">
+                                <Icon name="plus" className="w-4 h-4 group-hover:scale-110 transition-transform" /> Adicionar Tarefa
+                            </button>
+                        )}
+                        {items.map(task => (
+                            <div key={task.id} className={`task-card bg-[#151e32] p-3 rounded border relative group hover:border-slate-600 transition-all ${selectedTasks.includes(task.id) ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-700/50'}`}>
+                                {isSelectMode && !readOnly && <div className="absolute top-2 right-2 z-10"><input type="checkbox" className="w-4 h-4 cursor-pointer" checked={selectedTasks.includes(task.id)} onChange={() => onSelectTask(task.id)} /></div>}
+                                
+                                <div onClick={() => onTaskClick(task)} className="cursor-pointer">
+                                    <div className="flex justify-between items-start mb-2 pr-6">
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${task.priority === 'high' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>{task.priority === 'high' ? 'Prioridade' : 'Normal'}</span>
+                                        {task.link && <Icon name="link" className="w-3 h-3 text-blue-400" />}
+                                    </div>
+                                    <p className="text-sm text-slate-200 leading-snug font-medium mb-1">{task.text}</p>
+                                    {task.description && <p className="text-[10px] text-slate-500 line-clamp-2">{task.description}</p>}
+                                    {/* Exibição da Data Corrigida */}
+                                    <div className="mt-2 text-[10px] text-slate-600 flex justify-end">
+                                        {formatDate(task.timestamp)}
+                                    </div>
+                                </div>
+
+                                {!readOnly && !isSelectMode && (
+                                    <div className="flex justify-end gap-1 mt-2 pt-2 border-t border-slate-700/30">
+                                        {status !== 'todo' && <button onClick={(e) => {e.stopPropagation(); onMoveTask(task.id, status, 'prev')}} className="p-1 hover:bg-slate-700 rounded text-slate-500 hover:text-white transition-colors"><Icon name="chevron-left" className="w-3 h-3" /></button>}
+                                        {status !== 'done' && <button onClick={(e) => {e.stopPropagation(); onMoveTask(task.id, status, 'next')}} className="p-1 hover:bg-slate-700 rounded text-slate-500 hover:text-green-400 transition-colors"><Icon name="chevron-right" className="w-3 h-3" /></button>}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        function KanbanBoard({ tasks, onMoveTask, onSaveTask, onBulkAction, readOnly = false, currentUser, targetUserId }) {
+            const [isSelectMode, setIsSelectMode] = React.useState(false);
+            const [selectedTasks, setSelectedTasks] = React.useState([]);
+            const [modalOpen, setModalOpen] = React.useState(false);
+            const [currentTask, setCurrentTask] = React.useState(null);
+
+            const handleSelectTask = (taskId) => setSelectedTasks(prev => prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]);
+            const toggleSelectMode = () => { setIsSelectMode(!isSelectMode); setSelectedTasks([]); };
+            
+            const openNewTaskModal = () => { setCurrentTask(null); setModalOpen(true); };
+            const openEditTaskModal = (task) => { setCurrentTask(task); setModalOpen(true); };
+
+            const executeBulkAction = async (action) => { await onBulkAction(action, selectedTasks); setSelectedTasks([]); setIsSelectMode(false); };
+
+            return (
+                <div className="flex flex-col h-full relative">
+                    {/* MODAL DE TAREFAS */}
+                    <TaskModal 
+                        isOpen={modalOpen} onClose={() => setModalOpen(false)} 
+                        task={currentTask} onSave={onSaveTask} isReadOnly={readOnly} 
+                        currentUser={currentUser} targetUserId={targetUserId}
+                    />
+
+                    {!readOnly && (
+                        <div className="flex justify-between items-center mb-2 px-1">
+                            <div className="flex gap-2">
+                                {isSelectMode && selectedTasks.length > 0 && (
+                                    <>
+                                        <button onClick={() => executeBulkAction('delete')} className="bg-red-900/30 text-red-400 px-3 py-1 rounded text-xs font-bold border border-red-900/50 hover:bg-red-900/50 flex items-center gap-1"><Icon name="trash-2" className="w-3 h-3"/> Excluir ({selectedTasks.length})</button>
+                                        {/* Botão de Duplicação funcionando */}
+                                        <button onClick={() => executeBulkAction('duplicate')} className="bg-blue-900/30 text-blue-400 px-3 py-1 rounded text-xs font-bold border border-blue-900/50 hover:bg-blue-900/50 flex items-center gap-1"><Icon name="copy" className="w-3 h-3"/> Duplicar ({selectedTasks.length})</button>
+                                    </>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                {/* BOTÃO GOOGLE MEET */}
+                                <button onClick={() => window.open('https://meet.google.com/new', '_blank')} className="px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded text-xs font-bold flex items-center gap-1 hover:brightness-110 shadow-lg shadow-purple-900/20">
+                                    <Icon name="video" className="w-3 h-3" /> Meet Rápido
+                                </button>
+                                <button onClick={toggleSelectMode} className={`px-3 py-1 rounded text-xs font-bold flex items-center gap-1 transition-all ${isSelectMode ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}><Icon name={isSelectMode ? "x" : "pencil"} className="w-3 h-3" /> {isSelectMode ? "Cancelar" : "Gerenciar"}</button>
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex gap-3 h-full overflow-x-auto pb-2">
+                        <KanbanColumn title="A FAZER" status="todo" items={tasks.todo} color="border-t-2 border-t-slate-500" icon="circle" readOnly={readOnly} onAddClick={openNewTaskModal} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} />
+                        <KanbanColumn title="FAZENDO" status="doing" items={tasks.doing} color="border-t-2 border-t-blue-500" icon="loader" readOnly={readOnly} onAddClick={() => {}} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} />
+                        <KanbanColumn title="FEITO" status="done" items={tasks.done} color="border-t-2 border-t-emerald-500" icon="check-circle" readOnly={readOnly} onAddClick={() => {}} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} />
+                    </div>
+                </div>
+            );
+        }
+
+        function LoginScreen({ onLogin }) {
+            const [selectedUser, setSelectedUser] = React.useState(null);
+            const [username, setUsername] = React.useState("");
+            const [password, setPassword] = React.useState("");
+            const [error, setError] = React.useState("");
+            const boardMembers = TEAM_DATA.filter(m => m.category === 'board');
+            const teamMembers = TEAM_DATA.filter(m => m.category === 'team');
+            const handleCardClick = (member) => { setSelectedUser(member); setError(""); setUsername(""); setPassword(""); };
+            const handleAuth = (e) => { e.preventDefault(); if (username === selectedUser.user && password === selectedUser.pass) { onLogin(selectedUser); } else { setError("Credenciais inválidas."); } };
+            const Card = ({ member }) => (
+                <button onClick={() => handleCardClick(member)} className="glass-panel p-4 rounded-xl hover:bg-slate-800/80 transition-all group text-left flex items-center gap-3 relative overflow-hidden w-full"><div className={`w-12 h-12 ${member.color} rounded-full flex items-center justify-center text-lg font-bold text-white shadow-lg shrink-0`}>{member.avatar}</div><div className="min-w-0"><h3 className="font-bold text-slate-100 text-sm truncate group-hover:text-blue-400 transition-colors">{member.name}</h3><p className="text-[10px] text-slate-400 uppercase font-semibold truncate">{member.role}</p></div>{member.isDirector && <div className="absolute top-2 right-2"><Icon name="eye" className="w-4 h-4 text-blue-500" /></div>}</button>
+            );
+            if (selectedUser) {
+                return (
+                    <div className="min-h-screen bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-[#020617] p-8 flex flex-col items-center justify-center"><div className="max-w-md w-full glass-panel p-8 rounded-2xl border border-slate-700 animate-enter"><button onClick={() => setSelectedUser(null)} className="mb-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"><Icon name="arrow-left" className="w-4 h-4"/> Voltar</button><div className="text-center mb-8"><div className={`w-20 h-20 ${selectedUser.color} rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg mx-auto mb-4`}>{selectedUser.avatar}</div><h2 className="text-2xl font-bold text-white">{selectedUser.name}</h2><p className="text-slate-400 text-sm">{selectedUser.role}</p></div><form onSubmit={handleAuth} className="space-y-4"><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Login</label><input type="text" className="w-full bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 focus:outline-none" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Seu login..." /></div><div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha</label><input type="password" className="w-full bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 focus:outline-none" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua senha..." /></div>{error && <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-xs text-center">{error}</div>}<button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors shadow-lg shadow-blue-900/20">Acessar Painel</button></form></div></div>
+                );
+            }
+            return (
+                <div className="min-h-screen bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-[#020617] p-8 flex flex-col items-center justify-center"><div className="max-w-6xl w-full animate-enter"><div className="text-center mb-10"><h1 className="text-4xl font-bold text-white tracking-tight mb-2">Painel DRX</h1><p className="text-slate-400">Sistema de Gestão de Fluxo & Responsabilidade</p></div><div className="mb-8"><h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2">Diretoria & Estratégia</h2><div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">{boardMembers.map(m => <Card key={m.id} member={m} />)}</div></div><div><h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2">Time Tático & Operacional</h2><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{teamMembers.map(m => <Card key={m.id} member={m} />)}</div></div></div></div>
+            );
+        }
+
+        function DailyPrepScreen({ user, onComplete, onBack }) {
+            const [checks, setChecks] = React.useState({});
+            const myChecklist = CHECKLISTS[user.id] || CHECKLISTS['default'];
+            const myDetails = ROLE_DETAILS[user.id];
+            const handleCheck = (index) => setChecks(prev => ({ ...prev, [index]: !prev[index] }));
+            const allChecked = myChecklist.every((_, i) => checks[i]);
+            return (
+                <div className="min-h-screen bg-[#020617] p-4 md:p-8 flex flex-col"><div className="flex items-center justify-between mb-6"><div className="flex items-center gap-4"><button onClick={onBack} className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"><Icon name="arrow-left" className="w-5 h-5" /></button><div><h2 className="text-xl font-bold text-white">{user.name}</h2><p className="text-slate-400 text-sm">{user.role}</p></div></div><Clock /></div><div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto w-full"><div className="lg:col-span-2 space-y-6 overflow-y-auto pr-2 pb-10" style={{maxHeight: 'calc(100vh - 120px)'}}>{myDetails ? (<><div className="glass-panel p-6 rounded-xl border-l-4 border-blue-500"><h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2"><Icon name="target" className="w-5 h-5 text-blue-500"/> Missão da Função</h3><p className="text-slate-300 leading-relaxed">{myDetails.mission}</p></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="glass-panel p-6 rounded-xl role-section"><h4><Icon name="shield-alert" className="w-4 h-4"/> Não Negociáveis</h4><ul>{myDetails.nonNegotiables.map((item, i) => <li key={i}>{item}</li>)}</ul></div><div className="glass-panel p-6 rounded-xl role-section"><h4><Icon name="ban" className="w-4 h-4 text-red-400"/> Limites Claros</h4><ul>{myDetails.limits.map((item, i) => <li key={i}>{item}</li>)}</ul></div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="glass-panel p-6 rounded-xl role-section"><h4><Icon name="check-circle-2" className="w-4 h-4 text-green-400"/> Decisões Permitidas</h4><ul>{myDetails.decisions.map((item, i) => <li key={i}>{item}</li>)}</ul></div><div className="glass-panel p-6 rounded-xl role-section"><h4><Icon name="user-check" className="w-4 h-4 text-purple-400"/> Expectativa de Comportamento</h4><ul>{myDetails.behavior.map((item, i) => <li key={i}>{item}</li>)}</ul></div></div></>) : (<div className="text-center text-slate-500 py-10">Carregando detalhes do cargo...</div>)}</div><div className="lg:col-span-1"><div className="glass-panel p-6 rounded-xl border border-slate-700 sticky top-4"><h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon name="list-checks" className="w-5 h-5 text-green-400"/> Ritual de Preparação</h3><div className="space-y-3 mb-6">{myChecklist.map((item, index) => (<label key={index} className="flex items-start gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-800/50 transition-colors custom-checkbox group border border-transparent hover:border-slate-700"><div className="relative pt-0.5"><input type="checkbox" className="hidden" checked={!!checks[index]} onChange={() => handleCheck(index)} /><div className="w-5 h-5 rounded border border-slate-500 flex items-center justify-center transition-all group-hover:border-blue-500 shrink-0"><Icon name="check" className="w-3.5 h-3.5 text-white hidden" /></div></div><span className={`text-sm leading-snug ${checks[index] ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{item}</span></label>))}</div><button onClick={onComplete} disabled={!allChecked} className={`w-full py-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${allChecked ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>{allChecked ? <><Icon name="arrow-right" className="w-5 h-5"/> Acessar Workspace</> : "Complete para Desbloquear"}</button></div></div></div></div>
+            );
+        }
+
+        // --- 5. APP CONTROLLER ---
+        function App() {
+            const [view, setView] = React.useState('login');
+            // USE SESSIONSTORAGE FOR AUTH
+            const [currentUser, setCurrentUser] = React.useState(() => {
+                try {
+                    const savedUser = sessionStorage.getItem('drx_user');
+                    return savedUser ? JSON.parse(savedUser) : null;
+                } catch (e) {
+                    console.error("Auth Error", e);
+                    return null;
+                }
+            });
+            
+            const [globalTasks, setGlobalTasks] = React.useState({});
+            const [messages, setMessages] = React.useState([]);
+            const [inputText, setInputText] = React.useState("");
+            
+            // NAVIGATION STATE: 'workflow' | 'inbox' | 'daily'
+            const [activeTab, setActiveTab] = React.useState('workflow');
+
+            // Listener de Tarefas
+            React.useEffect(() => {
+                const unsubscribe = db.collection('drx_tasks').onSnapshot(snapshot => {
+                    const newTasks = {};
+                    TEAM_DATA.forEach(user => {
+                        newTasks[user.id] = { todo: [], doing: [], done: [] };
+                    });
+
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        
+                        // --- CORREÇÃO DE SEGURANÇA (GHOST TASKS) ---
+                        // Ignora tarefas específicas que estão bugadas no banco de dados
+                        // Isso resolve o problema visual enquanto o banco não é limpo
+                        if (GHOST_TASKS.includes(data.text)) {
+                            return; // Pula essa iteração e não adiciona a tarefa
+                        }
+                        
+                        // Verifica se existe assignedTo e status válido antes de adicionar
+                        if (data.assignedTo && newTasks[data.assignedTo] && data.status && newTasks[data.assignedTo][data.status]) {
+                            newTasks[data.assignedTo][data.status].push({ id: doc.id, ...data });
+                        }
+                    });
+                    setGlobalTasks(newTasks);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // Listener de Mensagens
+            React.useEffect(() => {
+                const unsubscribe = db.collection('drx_messages').orderBy('timestamp', 'desc').onSnapshot(snapshot => {
+                    const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setMessages(msgs);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // Efeito para Roteamento
+            React.useEffect(() => {
+                if (currentUser) {
+                    const lastPrepDate = localStorage.getItem(`drx_last_prep_${currentUser.id}`);
+                    const today = new Date().toDateString();
+                    if (SUPERVISORS.includes(currentUser.id) || lastPrepDate === today) {
+                        setView('workspace');
+                    } else {
+                        setView('prep');
+                    }
+                } else {
+                    setView('login');
+                }
+            }, [currentUser]);
+
+            // Ações Firebase (COM SAVE UNIFICADO)
+            // --- VERSÃO CORRIGIDA DO saveTask ---
+            const saveTask = async (taskData, targetUserId) => {
+                try {
+                    if (taskData.id) {
+                        // CORREÇÃO AQUI:
+                        // Usamos .set com merge: true.
+                        // Isso resolve o erro "No document to update".
+                        // Se a tarefa sumiu do banco, ela será recriada automaticamente aqui.
+                        
+                        // 1. Separamos o ID dos dados para não salvar o ID dentro do documento
+                        const { id, ...dataToSave } = taskData;
+
+                        // 2. Garantimos que só salvamos campos definidos (limpeza de segurança)
+                        // Mas mantemos status, prioridade e assignedTo caso precisemos recriar a tarefa
+                        const safeData = {
+                            text: dataToSave.text,
+                            description: dataToSave.description || "",
+                            link: dataToSave.link || "",
+                            status: dataToSave.status || 'todo',          // Garante que se recriar, tenha status
+                            priority: dataToSave.priority || 'normal',    // Garante prioridade
+                            assignedTo: dataToSave.assignedTo || targetUserId, // Garante dono
+                            // Não alteramos o timestamp na edição para manter a ordem original
+                        };
+
+                        await db.collection('drx_tasks').doc(id).set(safeData, { merge: true });
+
+                    } else {
+                        // Lógica de CRIAÇÃO (Nova Tarefa) continua a mesma
+                        await db.collection('drx_tasks').add({
+                            text: taskData.text,
+                            description: taskData.description || "",
+                            link: taskData.link || "",
+                            status: 'todo',
+                            priority: 'normal',
+                            assignedTo: targetUserId || currentUser.id,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                } catch (error) {
+                    console.error("Erro ao salvar tarefa:", error);
+                    alert("Houve um erro de conexão, mas tentamos corrigir. Atualize a página se persistir.");
+                }
+            };
+
+            const moveTask = async (userId, taskId, currentStatus, direction) => {
+                try {
+                    let newStatus;
+                    if (direction === 'next') { if (currentStatus === 'todo') newStatus = 'doing'; else if (currentStatus === 'doing') newStatus = 'done'; }
+                    else { if (currentStatus === 'done') newStatus = 'doing'; else if (currentStatus === 'doing') newStatus = 'todo'; }
+                    
+                    if (newStatus) { 
+                        await db.collection('drx_tasks').doc(taskId).update({ status: newStatus }); 
+                    }
+                } catch (error) {
+                    console.error("Erro ao mover tarefa (provavelmente excluída):", error);
+                }
+            };
+
+            // DUPLICAÇÃO CORRIGIDA AQUI
+            const bulkAction = async (action, taskIds) => {
+                if (action === 'delete') {
+                    const batch = db.batch();
+                    taskIds.forEach(id => {
+                        const ref = db.collection('drx_tasks').doc(id);
+                        batch.delete(ref);
+                    });
+                    await batch.commit();
+                } else if (action === 'duplicate') {
+                    // IMPLEMENTAÇÃO REAL DA DUPLICAÇÃO
+                    const batch = db.batch();
+                    for (const id of taskIds) {
+                        const docRef = db.collection('drx_tasks').doc(id);
+                        const doc = await docRef.get();
+                        if (doc.exists) {
+                            const data = doc.data();
+                            const newDocRef = db.collection('drx_tasks').doc();
+                            batch.set(newDocRef, {
+                                ...data,
+                                text: data.text + " (Cópia)",
+                                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        }
+                    }
+                    await batch.commit();
+                }
+            };
+
+            const sendMessage = async (fromUser, content) => {
+                await db.collection('drx_messages').add({
+                    fromUser: { id: fromUser.id, name: fromUser.name },
+                    content,
+                    reply: null,
+                    status: 'open',
+                    createdAt: Date.now(),
+                    displayTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            };
+
+            const replyMessage = async (msgId, replyContent) => {
+                try {
+                    await db.collection('drx_messages').doc(msgId).update({ reply: replyContent, status: 'replied' });
+                } catch (error) {
+                    console.error("Erro ao responder mensagem:", error);
+                }
+            };
+
+            const handleLogin = (user) => { sessionStorage.setItem('drx_user', JSON.stringify(user)); setCurrentUser(user); };
+            const handleLogout = () => { sessionStorage.removeItem('drx_user'); setCurrentUser(null); setView('login'); };
+            const handlePrepComplete = () => { localStorage.setItem(`drx_last_prep_${currentUser.id}`, new Date().toDateString()); setView('workspace'); }
+
+            const isSupervisor = currentUser && SUPERVISORS.includes(currentUser.id);
+
+            return (
+                <>
+                    {view === 'login' && <LoginScreen onLogin={handleLogin} />}
+                    {view === 'prep' && currentUser && <DailyPrepScreen user={currentUser} onComplete={handlePrepComplete} onBack={handleLogout} />}
+                    {view === 'workspace' && currentUser && (
+                        <div className="flex h-screen flex-col bg-[#020617]">
+                            <header className="h-16 border-b border-slate-800 bg-[#0f172a] flex items-center justify-between px-6 shrink-0">
+                                <div className="flex items-center gap-6">
+                                    <div className="flex items-center gap-3"><div className="w-9 h-9 bg-gradient-to-br from-red-600 to-red-800 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-red-900/20">D</div><div><h1 className="font-bold text-white text-lg tracking-tight">DRX.OS</h1><p className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Operacional</p></div></div>
+                                    <nav className="hidden md:flex items-center gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
+                                        <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'workflow' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('workflow')}><Icon name="activity" className="w-3.5 h-3.5"/> Workflow</button>
+                                        
+                                        {!isSupervisor && <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'inbox' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('inbox')}><Icon name="inbox" className="w-3.5 h-3.5"/> Inbox {messages.filter(m => m.fromUser.id === currentUser.id && m.reply).length > 0 && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}</button>}
+                                        
+                                        <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'daily' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('daily')}><Icon name="sun" className="w-3.5 h-3.5"/> Daily</button>
+                                    </nav>
+                                </div>
+                                <div className="flex items-center gap-6"><Clock /><div className="h-8 w-px bg-slate-800"></div><div className="flex items-center gap-3"><div className={`w-8 h-8 ${currentUser.color} rounded-lg flex items-center justify-center text-xs font-bold text-white shadow`}>{currentUser.avatar}</div><button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors"><Icon name="log-out" className="w-5 h-5" /></button></div></div>
+                            </header>
+                            
+                            <main className="flex-1 overflow-hidden p-6 relative flex flex-col">
+                                {activeTab === 'daily' ? (
+                                    <DailyView />
+                                ) : isSupervisor ? (
+                                    <GodView 
+                                        currentUser={currentUser}
+                                        globalTasks={globalTasks}
+                                        messages={messages}
+                                        onSaveTask={saveTask}
+                                        onMoveTask={moveTask}
+                                        onBulkAction={bulkAction}
+                                        onReply={replyMessage}
+                                    />
+                                ) : (
+                                    <div className="flex-1 flex flex-col h-full animate-enter">
+                                        {activeTab === 'inbox' ? (
+                                            <div className="flex-1 bg-[#0b1121] rounded-2xl border border-slate-800 p-6 overflow-hidden flex flex-col">
+                                                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Icon name="inbox" className="w-6 h-6 text-blue-500"/> Caixa de Entrada</h2>
+                                                <div className="space-y-4 overflow-y-auto pr-2">
+                                                    {messages.filter(m => m.fromUser.id === currentUser.id).length === 0 ? <div className="text-slate-600 text-center py-10">Sua caixa de entrada está vazia.</div> : messages.filter(m => m.fromUser.id === currentUser.id).map(msg => (
+                                                        <div key={msg.id} className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+                                                            <div className="flex justify-between mb-2"><span className="text-xs font-mono text-slate-500">{msg.displayTime}</span>{msg.reply ? <span className="text-xs bg-green-900/30 text-green-400 px-2 rounded">Respondido</span> : <span className="text-xs bg-yellow-900/30 text-yellow-400 px-2 rounded">Enviado</span>}</div>
+                                                            <p className="text-slate-300 text-sm mb-4">"{msg.content}"</p>
+                                                            {msg.reply && <div className="bg-blue-900/10 border-l-2 border-blue-500 p-3 rounded-r-lg"><div className="flex items-center gap-2 mb-1"><div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-[8px] font-bold text-white">AD</div><span className="text-xs font-bold text-blue-400">Danillo</span></div><p className="text-white text-sm">{msg.reply}</p></div>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            /* WORKFLOW TAB */
+                                            <>
+                                                <div className="flex-1 overflow-hidden bg-slate-900/30 rounded-xl border border-slate-800 p-4 mb-4">
+                                                    <div className="flex justify-between items-center mb-4 px-2">
+                                                        <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><h2 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Meu Fluxo</h2></div>
+                                                        <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Sprint Atual</span>
+                                                    </div>
+                                                    <KanbanBoard 
+                                                        tasks={globalTasks[currentUser.id] || {todo:[], doing:[], done:[]}} 
+                                                        onMoveTask={(taskId, currentStatus, dir) => moveTask(currentUser.id, taskId, currentStatus, dir)} 
+                                                        onSaveTask={(task) => saveTask(task, currentUser.id)} 
+                                                        onBulkAction={bulkAction} 
+                                                        currentUser={currentUser}
+                                                        targetUserId={currentUser.id}
+                                                    />
+                                                </div>
+                                                <div className="shrink-0 bg-[#0f172a] p-1.5 rounded-xl border border-slate-700/50 flex items-center gap-3 shadow-lg footer-input transition-all">
+                                                    <div className="w-10 h-10 flex items-center justify-center bg-yellow-500/10 rounded-lg text-yellow-500 shrink-0"><Icon name="alert-triangle" className="w-5 h-5"/></div>
+                                                    <div className="flex-1"><input type="text" className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none h-10" placeholder="Registrar incidente, insight ou bloqueio para a diretoria..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && inputText.trim()) { sendMessage(currentUser, inputText); setInputText(""); } }} /></div>
+                                                    <button onClick={() => { if (inputText.trim()) { sendMessage(currentUser, inputText); setInputText(""); } }} className="h-9 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"><Icon name="send" className="w-4 h-4"/></button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </main>
+                        </div>
+                    )}
+                </>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@widgetbot/crate@3" async defer>
+        new Crate({
+            server: '1469439424147488953',
+            channel: '1469439425195806844'
+        })
+    </script>
+</body>
+</html>

@@ -38,6 +38,7 @@ import FluxogramasProcessos from "./pages/FluxogramasProcessos";
 import MatrizDecisoes from "./pages/MatrizDecisoes";
 import DashboardOperacao from "./pages/DashboardOperacao";
 import DRXAnalytics from "./pages/DRXAnalytics";
+import PainelDRX from "./pages/PainelDRX";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const App = () => (
                           <Route path="/matriz-decisoes" element={<MatrizDecisoes />} />
                           <Route path="/dashboard-operacao" element={<DashboardOperacao />} />
                           <Route path="/drx-analytics" element={<DRXAnalytics />} />
+                          <Route path="/painel-drx" element={<PainelDRX />} />
                           <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
                           <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                           <Route path="*" element={<NotFound />} />
