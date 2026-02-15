@@ -34,12 +34,22 @@ export default function FinancialDashboard() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      // Call edge function to pull fresh data from Google Sheets
+      const { data, error } = await supabase.functions.invoke('financial-sync', {
+        body: { action: 'pull' },
+      });
+
+      if (error) throw error;
+
+      // Re-fetch all queries to update the UI
       await queryClient.invalidateQueries({ queryKey: ['financial-cashbook'] });
       await queryClient.invalidateQueries({ queryKey: ['financial-payables'] });
       await queryClient.invalidateQueries({ queryKey: ['financial-budget'] });
-      toast.success('Dashboard atualizado com os dados da planilha!');
-    } catch {
-      toast.error('Erro ao atualizar dados.');
+      
+      toast.success(`Dados atualizados! ${data?.rows_imported || 0} registros importados da planilha.`);
+    } catch (err) {
+      console.error('Refresh error:', err);
+      toast.error('Erro ao puxar dados da planilha. Verifique se ela está pública.');
     } finally {
       setRefreshing(false);
     }
