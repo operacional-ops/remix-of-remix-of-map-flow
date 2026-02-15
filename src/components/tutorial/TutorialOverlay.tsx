@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, BookOpen, ChevronRight, ChevronLeft, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -207,12 +207,43 @@ export function TutorialOverlay() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAskDialog, setShowAskDialog] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const dragStart = useRef<{ x: number; y: number; ox: number; oy: number }>({ x: 0, y: 0, ox: 0, oy: 0 });
+  const cardRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { data: userRole } = useUserRole();
 
   const isLimitedMember = userRole?.isLimitedMember ?? false;
   const steps = isLimitedMember ? OPERATOR_STEPS : ADMIN_STEPS;
+
+  // Reset drag offset when step changes
+  useEffect(() => {
+    setDragOffset({ x: 0, y: 0 });
+  }, [currentStep]);
+
+  // Drag handlers
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    // Don't drag if clicking a button
+    if ((e.target as HTMLElement).closest('button')) return;
+    isDragging.current = true;
+    dragStart.current = { x: e.clientX, y: e.clientY, ox: dragOffset.x, oy: dragOffset.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }, [dragOffset]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    setDragOffset({
+      x: dragStart.current.ox + (e.clientX - dragStart.current.x),
+      y: dragStart.current.oy + (e.clientY - dragStart.current.y),
+    });
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
 
   useEffect(() => {
     if (userRole === undefined) return;
@@ -342,8 +373,16 @@ export function TutorialOverlay() {
 
       {/* Floating tooltip card */}
       <div
-        className={`fixed z-[102] ${getPositionClasses(step.position)} transition-all duration-300 ease-out`}
-        style={{ maxWidth: isCenter ? '340px' : '300px' }}
+        ref={cardRef}
+        className={`fixed z-[102] ${getPositionClasses(step.position)} ${isDragging.current ? '' : 'transition-all duration-300 ease-out'}`}
+        style={{
+          maxWidth: isCenter ? '340px' : '300px',
+          transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`,
+          cursor: 'grab',
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
       >
         <div className={`relative bg-background/90 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl overflow-hidden animate-scale-in ${isCenter ? 'p-6 text-center' : 'p-4'}`}>
           {/* Pointer arrow */}
