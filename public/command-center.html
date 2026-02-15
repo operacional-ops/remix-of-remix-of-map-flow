@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRX | Command Center</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); }
+        .task-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .task-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); z-index: 10; }
+        
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-left-color: #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* WHITEBOARD STYLES */
+        .whiteboard-grid {
+            background-color: #0f172a;
+            background-image: radial-gradient(#334155 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .wb-obj { position: absolute; transition: box-shadow 0.1s; user-select: none; }
+        .wb-obj:hover { outline: 2px solid rgba(59, 130, 246, 0.5); }
+        .wb-obj.selected { outline: 2px solid #2563eb; z-index: 50; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); }
+        .sticky-note { box-shadow: 2px 4px 6px rgba(0,0,0,0.1); font-family: 'Kalam', cursive, sans-serif; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; overflow: hidden; }
+        .text-obj { background: transparent; border: 1px solid transparent; padding: 4px; }
+        .text-obj:hover { border: 1px dashed #cbd5e1; }
+        .frame-obj { border: 2px dashed #94a3b8; background: rgba(255,255,255,0.05); pointer-events: none; }
+        .frame-obj .frame-label { position: absolute; top: -24px; left: 0; font-size: 12px; color: #94a3b8; font-weight: bold; pointer-events: auto; }
+        .cursor-pen { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 0 24, auto; }
+        
+        .custom-checkbox { cursor: pointer; appearance: none; width: 20px; height: 20px; border: 2px solid #475569; border-radius: 4px; position: relative; background: rgba(15, 23, 42, 0.5); }
+        .custom-checkbox:checked { background-color: #3b82f6; border-color: #3b82f6; }
+        .custom-checkbox:checked::after { content: '✓'; position: absolute; color: white; font-size: 14px; top: -2px; left: 3px; font-weight: bold; }
+    </style>
+</head>
+<body class="dark">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyDylH6geJHzs1xZBhxZ7fnBLEbeKopB9nA",
+          authDomain: "calendario-post-3faec.firebaseapp.com",
+          projectId: "calendario-post-3faec",
+          storageBucket: "calendario-post-3faec.firebasestorage.app",
+          messagingSenderId: "677302847639",
+          appId: "1:677302847639:web:08370d758ab1d7ebf081d2",
+          measurementId: "G-3XCRGNQQSY"
+        };
+
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+        } catch (e) {
+            console.error("Erro Firebase Init:", e);
+        }
+        
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const COLLECTION_NAME = "drx_tasks_v1";
+        const EXPERTS_COLLECTION = "drx_experts_v1";
+        const MINDMAP_COLLECTION = "drx_mindmaps_v1";
+
+        // --- CONSTANTES ---
+        const VIDEO_PACKS = [
+            { name: "AERONAVES", url: "https://drive.google.com/drive/folders/189oEaZQcqc5mLsWSjpXMawNmoe3lmU24?usp=drive_link", icon: "plane" },
+            { name: "CARROS LUXO", url: "https://drive.google.com/drive/folders/1QL8ht2tBe6nL_2-6XFTmtJAjN9nmB4qA?usp=drive_link", icon: "car" },
+            { name: "CORTES PRONTOS", url: "https://drive.google.com/drive/folders/1eoW5Ar4B4gspatezHdV2eI0G2AJEZzt4?usp=drive_link", icon: "scissors" },
+            { name: "MONEY", url: "https://drive.google.com/drive/folders/1qrMxmDxS1p6FnuQDAGW1kDCmKoIlgbR6?usp=drive_link", icon: "dollar-sign" },
+            { name: "FEMININO", url: "https://drive.google.com/drive/folders/18HtVEZFGxzWOQmNSRhjtElJpZfFOAZE3?usp=drive_link", icon: "user" },
+            { name: "FILMES E SÉRIES", url: "https://drive.google.com/drive/folders/1lZnexU1KrY4Ev0QfVwGhfppdQbZX_CBy?usp=drive_link", icon: "film" },
+            { name: "LIFESTYLE", url: "https://drive.google.com/drive/folders/1puA0S1x1hMYqiBp6TbakjvAaPzDrl0eI?usp=drive_link", icon: "coffee" },
+            { name: "LIFESTYLE CASAIS", url: "https://drive.google.com/drive/folders/1VOIsOTkwojahAp1_tJ1e39cYW10rZBgB?usp=drive_link", icon: "heart" },
+            { name: "MANSÕES LUXO", url: "https://drive.google.com/drive/folders/1gL58gw01ye-CnWUa_rl0RpeiGhk4Vx0q?usp=drive_link", icon: "home" },
+            { name: "MAR", url: "https://drive.google.com/drive/folders/1JxzWEVNnEXSYE5DJeQD87e-D743NlaMR?usp=drive_link", icon: "anchor" },
+            { name: "MOTIV. & FOCO", url: "https://drive.google.com/drive/folders/1ZDIZrdle5mLUpAOOMAbv3JJk2mhAPpFb?usp=drive_link", icon: "target" },
+            { name: "MOTOCROSS", url: "https://drive.google.com/drive/folders/1KmWx3jjxK62updPjCl6ca2GiKDFfKlwA?usp=drive_link", icon: "bike" },
+            { name: "MOTOS", url: "https://drive.google.com/drive/folders/1HWMSOX-wajT3AkxEZka-N4-7KqNqrHQF?usp=drive_link", icon: "zap" },
+            { name: "PAISAGENS & VISTAS", url: "https://drive.google.com/drive/folders/18XfVpxZN0bxkrPvyWAX9vrXIGCsGiRyb?usp=drive_link", icon: "mountain" },
+            { name: "RELÓGIOS", url: "https://drive.google.com/drive/folders/1KhblqSRwbXlB8ANs3QpXJb5-ATodYAdw?usp=drive_link", icon: "watch" },
+            { name: "SNOWBOARD", url: "https://drive.google.com/drive/folders/1IqgS5b1wXrNnEWZIY_6tq4pkdcYmSUPJ?usp=drive_link", icon: "snowflake" },
+            { name: "VARIADOS", url: "https://drive.google.com/drive/folders/1j_GxDwIrmdN-UBoUrPZZf_Js6EI6I7iD?usp=drive_link", icon: "grid" },
+        ];
+
+        const TEAM = {
+            'bruno': { name: 'Bruno Brites', role: 'Social Media', color: 'bg-blue-600', text: 'text-blue-100', initials: 'BB' },
+            'victor': { name: 'Victor Navega', role: 'Editor', color: 'bg-purple-600', text: 'text-purple-100', initials: 'VN' },
+            'pedro': { name: 'Pedro Cavassis', role: 'Designer', color: 'bg-pink-600', text: 'text-pink-100', initials: 'PC' },
+            'danillo': { name: 'Danillo Sousa', role: 'Head Ops', color: 'bg-green-600', text: 'text-green-100', initials: 'DS' },
+            'gabriel': { name: 'Gabriel Freitas', role: 'Creator', color: 'bg-yellow-600', text: 'text-yellow-100', initials: 'GF' }
+        };
+
+        const COLUMNS = [
+            { id: 'backlog', title: 'Ideia / Roteiro', color: 'border-slate-500' },
+            { id: 'production', title: 'Em Produção', color: 'border-yellow-500' },
+            { id: 'editing', title: 'Edição / Design', color: 'border-purple-500' },
+            { id: 'review', title: 'Revisão (Ops)', color: 'border-green-500' },
+            { id: 'scheduled', title: 'Agendado', color: 'border-blue-500' },
+            { id: 'posted', title: 'Postado', color: 'border-slate-700' }
+        ];
+
+        const TYPES = {
+            'reels': { label: 'Reels', icon: 'film', color: 'text-purple-400 border-purple-500/50 bg-purple-500/10' },
+            'youtube': { label: 'YouTube', icon: 'youtube', color: 'text-red-500 border-red-500/50 bg-red-500/10' },
+            'carrossel': { label: 'Carrossel', icon: 'images', color: 'text-blue-400 border-blue-500/50 bg-blue-500/10' },
+            'dump': { label: 'Photo Dump', icon: 'camera', color: 'text-green-400 border-green-500/50 bg-green-500/10' },
+            'teste': { label: 'Teste Criativo', icon: 'flask-conical', color: 'text-yellow-400 border-yellow-500/50 bg-yellow-500/10' }
+        };
+
+        const PAUTA_TYPES = {
+            'fria': { label: 'Pauta Fria', color: 'text-blue-400', border: 'border-blue-500', bg: 'bg-blue-500' },
+            'quente': { label: 'Pauta Quente', color: 'text-orange-500', border: 'border-orange-500', bg: 'bg-orange-500' },
+            'urgente': { label: 'Pauta Urgente', color: 'text-red-500', border: 'border-red-600', bg: 'bg-red-600' }
+        };
+
+        const REELS_FORMATS = [
+            { id: 'pov', label: 'POV (Point of View)' },
+            { id: 'video_falado', label: 'Vídeo Falado / Conteúdo' },
+            { id: 'caixinha', label: 'Caixinha de Perguntas' },
+            { id: 'trend', label: 'Trend / Viral' }
+        ];
+
+        const DEFAULT_EXPERTS = ['Pedro Cavassis', 'Arthur César', 'Brandon Cantuária', 'DRX'];
+
+        const getTaskType = (type) => TYPES[type] || TYPES['reels'];
+        const formatDateShort = (dateStr) => dateStr ? dateStr.split('-').reverse().slice(0,2).join('/') : '--/--';
+
+        // --- COMPONENTE ICON ---
+        const Icon = ({ name, className, ...props }) => {
+            const ref = React.useRef(null);
+            React.useEffect(() => {
+                if (ref.current && window.lucide) {
+                    const i = document.createElement('i');
+                    i.setAttribute('data-lucide', name);
+                    if (className) i.className = className;
+                    ref.current.innerHTML = '';
+                    ref.current.appendChild(i);
+                    window.lucide.createIcons({ root: ref.current, nameAttr: 'data-lucide' });
+                }
+            }, [name, className]); 
+            return <span ref={ref} style={{ display: 'contents' }}></span>;
+        };
+
+        // --- COMPONENTE WORKFLOW AI ---
+        function WorkflowView() {
+            const [step, setStep] = React.useState(1);
+            const [productData, setProductData] = React.useState({ niche: '', product: '', target: '' });
+            const [generatedScenes, setGeneratedScenes] = React.useState([]);
+            const [isGenerating, setIsGenerating] = React.useState(false);
+
+            const handleGeneratePrompts = () => {
+                if(!productData.product) return alert("Preencha o nome do produto!");
+                setIsGenerating(true);
+                
+                setTimeout(() => {
+                    const mockScenes = [
+                        { id: 1, text: "Close-up cinematográfico do produto flutuando em gravidade zero, iluminação dramática.", status: 'pending' },
+                        { id: 2, text: "Pessoa usando o produto em um ambiente luxuoso, sorriso natural, câmera lenta.", status: 'pending' },
+                        { id: 3, text: "Explosão de partículas douradas revelando a logo da marca.", status: 'pending' },
+                        { id: 4, text: "Drone view de uma paisagem urbana futurista com o produto em destaque num outdoor holográfico.", status: 'pending' }
+                    ];
+                    setGeneratedScenes(mockScenes);
+                    setIsGenerating(false);
+                    setStep(2);
+                }, 2000);
+            };
+
+            const copyPrompt = (text) => {
+                const prompt = `Hyper-realistic cinematic shot, 8k resolution, highly detailed: ${text} --ar 9:16`;
+                navigator.clipboard.writeText(prompt);
+                alert("Prompt copiado! Cole no Freepik/Midjourney.");
+            };
+
+            return (
+                <div className="h-full flex flex-col p-6 overflow-y-auto">
+                    <div className="max-w-5xl mx-auto w-full">
+                        <div className="mb-8 text-center">
+                            <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500">
+                                VSL Factory (Kling + Topaz)
+                            </h2>
+                            <p className="text-slate-400 mt-2">Workflow automatizado para criar vídeos virais de alta conversão.</p>
+                        </div>
+
+                        {/* STEPS */}
+                        <div className="flex justify-between mb-8 relative">
+                            <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-700 -z-10 rounded"></div>
+                            {[1, 2, 3, 4].map(s => (
+                                <div key={s} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-4 transition-all ${step >= s ? 'bg-blue-600 border-blue-900 text-white' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                                    {s}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* STEP 1: CONCEITO */}
+                        {step === 1 && (
+                            <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-bottom-4">
+                                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Icon name="brain-circuit" className="w-6 h-6 text-blue-400"/> 1. Definição do Conceito</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-400 mb-2">Nicho / Mercado</label>
+                                        <input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none" placeholder="Ex: Estética Automotiva, Dropshipping..." value={productData.niche} onChange={e=>setProductData({...productData, niche: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-400 mb-2">Nome do Produto</label>
+                                        <input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none" placeholder="Ex: UltraShine Wax" value={productData.product} onChange={e=>setProductData({...productData, product: e.target.value})} />
+                                    </div>
+                                    <div className="col-span-1 md:col-span-2">
+                                        <label className="block text-sm font-bold text-slate-400 mb-2">Público Alvo & Vibe</label>
+                                        <textarea className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white h-24 focus:border-blue-500 outline-none" placeholder="Ex: Homens 25-45 anos, apaixonados por carros. Vibe luxuosa, dark, cinematográfica." value={productData.target} onChange={e=>setProductData({...productData, target: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div className="mt-8 flex justify-end">
+                                    <button onClick={handleGeneratePrompts} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-transform hover:scale-105">
+                                        {isGenerating ? <div className="spinner w-5 h-5 border-white"></div> : <Icon name="wand-2" className="w-5 h-5" />}
+                                        Gerar Roteiro & Prompts
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* STEP 2: GERAÇÃO DE IMAGENS */}
+                        {step === 2 && (
+                            <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-right-8">
+                                <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2"><Icon name="image" className="w-6 h-6 text-green-400"/> 2. Geração de Assets (Freepik/Gemini)</h3>
+                                <p className="text-slate-400 mb-6 text-sm">Copie os prompts abaixo e gere as imagens no seu modelo de preferência.</p>
+                                
+                                <div className="space-y-4 mb-8">
+                                    {generatedScenes.map((scene, idx) => (
+                                        <div key={scene.id} className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl flex gap-4 items-start group hover:border-blue-500/50 transition-colors">
+                                            <div className="bg-slate-900 w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold text-slate-500">{idx+1}</div>
+                                            <div className="flex-1">
+                                                <p className="text-slate-300 text-sm mb-2 italic">"{scene.text}"</p>
+                                                <div className="bg-slate-950 p-3 rounded border border-slate-800 text-xs font-mono text-green-400 flex justify-between items-center">
+                                                    <span className="truncate mr-4">Hyper-realistic cinematic shot, 8k resolution: {scene.text} --ar 9:16</span>
+                                                    <button onClick={() => copyPrompt(scene.text)} className="text-slate-400 hover:text-white"><Icon name="copy" className="w-4 h-4"/></button>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <a href="https://www.freepik.com/pikaso/ai-image-generator" target="_blank" className="p-2 bg-blue-600/20 text-blue-400 rounded hover:bg-blue-600/40 text-xs font-bold text-center">Freepik</a>
+                                                <input type="checkbox" className="w-6 h-6 rounded border-slate-600 bg-slate-900 cursor-pointer" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex justify-between">
+                                    <button onClick={() => setStep(1)} className="text-slate-400 hover:text-white">Voltar</button>
+                                    <button onClick={() => setStep(3)} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center gap-2">Próximo: Animar <Icon name="arrow-right" className="w-5 h-5"/></button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* STEP 3: ANIMAÇÃO (KLING) */}
+                        {step === 3 && (
+                            <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-right-8">
+                                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Icon name="film" className="w-6 h-6 text-purple-400"/> 3. Animação (Kling AI)</h3>
+                                <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-xl mb-6 flex gap-4 items-center">
+                                    <div className="p-3 bg-purple-600 rounded-lg"><Icon name="zap" className="w-6 h-6 text-white"/></div>
+                                    <div>
+                                        <h4 className="font-bold text-white">Instruções Kling 2.6</h4>
+                                        <p className="text-sm text-purple-200">Use o modo "Image to Video". Upload da imagem gerada no passo anterior. Ajuste "Motion" para 5.0 para movimentos suaves.</p>
+                                    </div>
+                                    <a href="https://kling.kuaishou.com/" target="_blank" className="ml-auto px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg">Abrir Kling AI</a>
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {generatedScenes.map((scene, idx) => (
+                                        <div key={scene.id} className="aspect-[9/16] bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center p-4 text-center hover:border-purple-500/50 transition-colors">
+                                            <span className="text-xs text-slate-500 mb-2">Cena {idx+1}</span>
+                                            <Icon name="upload-cloud" className="w-8 h-8 text-slate-600 mb-2"/>
+                                            <p className="text-[10px] text-slate-400">Arraste o vídeo gerado aqui (Placeholder)</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-8 flex justify-between">
+                                    <button onClick={() => setStep(2)} className="text-slate-400 hover:text-white">Voltar</button>
+                                    <button onClick={() => setStep(4)} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center gap-2">Próximo: Upscale <Icon name="arrow-right" className="w-5 h-5"/></button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* STEP 4: UPSCALE & EDIT */}
+                        {step === 4 && (
+                            <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-right-8 text-center">
+                                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <Icon name="check-circle" className="w-10 h-10 text-green-400"/>
+                                </div>
+                                <h3 className="text-2xl font-bold text-white mb-2">Produção Finalizada!</h3>
+                                <p className="text-slate-400 mb-8 max-w-md mx-auto">Agora passe os vídeos pelo Topaz Labs para qualidade 4K e monte a edição final no CapCut sincronizando com a música.</p>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
+                                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-yellow-600 rounded flex items-center justify-center text-white font-bold">T</div>
+                                        <div className="text-left">
+                                            <h4 className="font-bold text-white">Topaz Video AI</h4>
+                                            <p className="text-xs text-slate-400">Upscale para 4K 60fps</p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-black border border-white/20 rounded flex items-center justify-center text-white font-bold">C</div>
+                                        <div className="text-left">
+                                            <h4 className="font-bold text-white">CapCut Desktop</h4>
+                                            <p className="text-xs text-slate-400">Cortes, Legendas e Áudio</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onClick={() => {setStep(1); setGeneratedScenes([]); setProductData({niche:'',product:'',target:''})}} className="text-blue-400 hover:text-blue-300 underline">Criar Nova VSL</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- COMPONENTE MIND MAP ---
+        function MindMapView({ user }) {
+            const [maps, setMaps] = React.useState([]);
+            const [currentMap, setCurrentMap] = React.useState(null);
+            const [nodes, setNodes] = React.useState([]);
+            const [view, setView] = React.useState({ x: 0, y: 0, scale: 1 });
+            const [loadingMap, setLoadingMap] = React.useState(false);
+
+            React.useEffect(() => {
+                const unsubscribe = db.collection(MINDMAP_COLLECTION).orderBy('createdAt', 'desc').onSnapshot(snap => {
+                    setMaps(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const createNewMap = async () => {
+                const name = prompt("Nome do novo Quadro:");
+                if (!name) return;
+                try {
+                    const docRef = await db.collection(MINDMAP_COLLECTION).add({ name, createdAt: new Date().toISOString(), nodes: [] });
+                    setCurrentMap({ id: docRef.id, name, nodes: [] });
+                } catch(e) { alert(e.message); }
+            };
+
+            const openMap = (map) => {
+                setCurrentMap(map);
+                setNodes(map.nodes || []);
+            };
+
+            if (!currentMap) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-full text-white">
+                        <div className="bg-slate-900/90 p-8 rounded-3xl border border-slate-700 shadow-2xl text-center max-w-4xl w-full">
+                            <h2 className="text-4xl font-bold mb-8">Mind Maps</h2>
+                            <button onClick={createNewMap} className="p-4 bg-blue-600 rounded text-white font-bold mb-4">Novo Mapa</button>
+                            <div className="grid grid-cols-3 gap-4">
+                                {maps.map(m => (
+                                    <div key={m.id} onClick={() => openMap(m)} className="p-4 bg-slate-800 rounded cursor-pointer hover:bg-slate-700 border border-slate-600">
+                                        {m.name}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full h-full relative whiteboard-grid">
+                    <button onClick={() => setCurrentMap(null)} className="absolute top-4 left-4 z-50 p-2 bg-slate-800 rounded text-white">Voltar</button>
+                    <div className="flex items-center justify-center h-full text-slate-500">
+                        Canvas do Mapa Mental Ativo: {currentMap.name}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- APP PRINCIPAL ---
+        function App() {
+            const [user, setUser] = React.useState(null);
+            const [tasks, setTasks] = React.useState([]);
+            const [experts, setExperts] = React.useState(DEFAULT_EXPERTS);
+            const [viewMode, setViewMode] = React.useState('kanban'); 
+            const [loading, setLoading] = React.useState(true);
+            const [statusMsg, setStatusMsg] = React.useState("Iniciando...");
+            const [statusColor, setStatusColor] = React.useState("text-yellow-500");
+            
+            // Filtros
+            const [filterExpert, setFilterExpert] = React.useState('');
+            const [filterType, setFilterType] = React.useState('');
+            const [filterPauta, setFilterPauta] = React.useState('');
+            const [filterFavorites, setFilterFavorites] = React.useState(false); // NOVO
+            
+            const [columnDateFilters, setColumnDateFilters] = React.useState({});
+            const [columnSearchTexts, setColumnSearchTexts] = React.useState({}); // NOVO
+
+            const [isModalOpen, setIsModalOpen] = React.useState(false);
+            const [editingTask, setEditingTask] = React.useState(null);
+            const [isPacksModalOpen, setIsPacksModalOpen] = React.useState(false);
+            const [isSelectionMode, setIsSelectionMode] = React.useState(false);
+            const [selectedTasks, setSelectedTasks] = React.useState(new Set());
+
+            React.useEffect(() => {
+                const timer = setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
+                return () => clearTimeout(timer);
+            }, [tasks, viewMode, columnSearchTexts]); // Atualiza icons se busca mudar
+
+            React.useEffect(() => {
+                const unsubscribeAuth = auth.onAuthStateChanged(async (u) => {
+                    if (u) { setUser(u); setStatusMsg("Conectado"); setStatusColor("text-green-400"); } 
+                    else { await auth.signInAnonymously(); }
+                });
+                return () => unsubscribeAuth();
+            }, []);
+
+            React.useEffect(() => {
+                const unsubscribe = db.collection(COLLECTION_NAME).onSnapshot((snapshot) => {
+                    setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            React.useEffect(() => {
+                const fetchExperts = async () => {
+                    try {
+                        const doc = await db.collection(EXPERTS_COLLECTION).doc('list').get();
+                        if (doc.exists) {
+                            const data = doc.data();
+                            const merged = Array.from(new Set([...DEFAULT_EXPERTS, ...(data.names || [])]));
+                            setExperts(merged);
+                        } else {
+                            await db.collection(EXPERTS_COLLECTION).doc('list').set({ names: DEFAULT_EXPERTS });
+                        }
+                    } catch (e) { console.error("Erro ao carregar experts", e); }
+                };
+                fetchExperts();
+            }, []);
+
+            const addNewExpertToDb = async (newExpertName) => {
+                if (!newExpertName || experts.includes(newExpertName)) return;
+                try {
+                    const newExpertsList = [...experts, newExpertName];
+                    await db.collection(EXPERTS_COLLECTION).doc('list').set({ names: newExpertsList }, { merge: true });
+                    setExperts(newExpertsList);
+                    alert("Expert adicionado com sucesso!");
+                } catch (e) { alert("Erro ao salvar novo expert: " + e.message); }
+            };
+
+            // Função Wrapper para adicionar expert via prompt global
+            const handleAddExpertGlobal = () => {
+                const name = prompt("Nome do novo Expert:");
+                if (name && name.trim()) {
+                    addNewExpertToDb(name.trim());
+                }
+            };
+
+            const saveTask = async (taskData) => {
+                try {
+                    setStatusMsg("Salvando...");
+                    const payload = { ...taskData, updatedAt: new Date().toISOString() };
+                    if (taskData.id) await db.collection(COLLECTION_NAME).doc(taskData.id).update(payload);
+                    else await db.collection(COLLECTION_NAME).add({ ...payload, createdAt: new Date().toISOString() });
+                    setIsModalOpen(false); setEditingTask(null); setStatusMsg("Salvo com sucesso!"); setTimeout(() => setStatusMsg("Conectado"), 2000);
+                } catch (error) { alert("Falha ao salvar: " + error.message); }
+            };
+
+            const deleteTask = async (taskId) => {
+                if(!confirm("Tem certeza que deseja excluir esta tarefa?")) return;
+                try { await db.collection(COLLECTION_NAME).doc(taskId).delete(); setIsModalOpen(false); } catch (error) { alert("Erro ao deletar: " + error.message); }
+            };
+
+            const updateStatus = async (taskId, newStatus) => { db.collection(COLLECTION_NAME).doc(taskId).update({ status: newStatus }); };
+
+            const toggleTaskFavorite = async (taskId, currentStatus) => {
+                try {
+                    await db.collection(COLLECTION_NAME).doc(taskId).update({ isFavorite: !currentStatus });
+                } catch (e) { console.error("Erro ao favoritar", e); }
+            };
+
+            const baseFilteredTasks = React.useMemo(() => {
+                return tasks.filter(t => 
+                    (!filterExpert || t.expert === filterExpert) && 
+                    (!filterType || t.type === filterType) &&
+                    (!filterPauta || t.pauta === filterPauta) &&
+                    (!filterFavorites || t.isFavorite) // Filtro de Favoritos
+                );
+            }, [tasks, filterExpert, filterType, filterPauta, filterFavorites]);
+
+            // Handlers para Selection Mode (mantidos simplificados aqui)
+            const toggleSelectionMode = () => setIsSelectionMode(!isSelectionMode);
+            const toggleTaskSelection = (id) => { const newSet = new Set(selectedTasks); if(newSet.has(id)) newSet.delete(id); else newSet.add(id); setSelectedTasks(newSet); };
+
+            if (loading) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white"><div className="spinner"></div></div>;
+
+            return (
+                <div className="min-h-screen pb-10 flex flex-col h-screen">
+                    <header className="glass-panel sticky top-0 z-30 px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 border-b border-slate-700/50 gap-4 shrink-0">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center font-bold text-2xl text-white">D</div>
+                            <div>
+                                <h1 className="text-xl font-bold text-white">DRX Operação</h1>
+                                <div className={`text-xs font-mono flex items-center gap-2 ${statusColor}`}><span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>{statusMsg}</div>
+                            </div>
+                        </div>
+
+                        <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 overflow-x-auto">
+                            <button onClick={() => setViewMode('calendar')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='calendar'?'bg-blue-600 text-white':'text-slate-400 hover:text-white'}`}><Icon name="calendar" className="w-4 h-4" /> Calendário</button>
+                            <button onClick={() => setViewMode('kanban')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='kanban'?'bg-blue-600 text-white':'text-slate-400 hover:text-white'}`}><Icon name="kanban" className="w-4 h-4" /> Kanban</button>
+                            <button onClick={() => setViewMode('mindmap')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='mindmap'?'bg-cyan-600 text-white':'text-slate-400 hover:text-cyan-400'}`}><Icon name="brain-circuit" className="w-4 h-4" /> Mind Map</button>
+                            <button onClick={() => setViewMode('workflow')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='workflow'?'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]':'text-slate-400 hover:text-purple-400'}`}><Icon name="bot" className="w-4 h-4" /> VSL AI</button>
+                        </div>
+
+                        <div className="flex gap-3 items-center">
+                            {/* Filtros Globais */}
+                            {viewMode !== 'mindmap' && viewMode !== 'workflow' && (
+                                <>
+                                    <div className="flex items-center gap-2 border-r border-slate-700 pr-4 mr-2">
+                                        <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5">
+                                            <Icon name="users" className="w-3 h-3 text-slate-400" />
+                                            <select value={filterExpert} onChange={(e) => setFilterExpert(e.target.value)} className="bg-transparent text-xs text-slate-200 outline-none w-24 cursor-pointer">
+                                                <option value="" className="bg-slate-800">Experts</option>
+                                                {experts.map(e => <option key={e} value={e} className="bg-slate-800">{e}</option>)}
+                                            </select>
+                                            <button onClick={handleAddExpertGlobal} className="text-blue-400 hover:text-blue-300 font-bold ml-1" title="Novo Expert">+</button>
+                                        </div>
+                                        <button onClick={() => setFilterFavorites(!filterFavorites)} className={`p-2 rounded-lg transition-all ${filterFavorites ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50' : 'bg-slate-800 text-slate-400 border border-slate-600 hover:text-yellow-400'}`} title="Filtrar Favoritos">
+                                            <Icon name="star" className={`w-4 h-4 ${filterFavorites ? 'fill-current' : ''}`} />
+                                        </button>
+                                    </div>
+                                    <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-bold flex gap-2 shadow-lg"><Icon name="plus" className="w-4 h-4" /> Nova</button>
+                                </>
+                            )}
+                        </div>
+                    </header>
+
+                    <main className="px-6 flex-1 overflow-hidden relative">
+                        {viewMode === 'mindmap' ? <MindMapView user={user} /> : 
+                         viewMode === 'workflow' ? <WorkflowView /> :
+                         viewMode === 'calendar' ? <CalendarView tasks={baseFilteredTasks} onTaskClick={setEditingTask} onDateClick={() => setIsModalOpen(true)} /> : 
+                         <KanbanView 
+                            tasks={baseFilteredTasks} 
+                            onTaskClick={(t) => {setEditingTask(t); setIsModalOpen(true);}} 
+                            onStatusChange={updateStatus} 
+                            isSelectionMode={isSelectionMode} 
+                            selectedTasks={selectedTasks} 
+                            toggleTaskSelection={toggleTaskSelection} 
+                            columnDateFilters={columnDateFilters} 
+                            setColumnDateFilters={setColumnDateFilters}
+                            columnSearchTexts={columnSearchTexts}
+                            setColumnSearchTexts={setColumnSearchTexts}
+                            toggleTaskFavorite={toggleTaskFavorite} // Passando função
+                         />
+                        }
+                    </main>
+
+                    {isModalOpen && <TaskModal task={editingTask || {}} experts={experts} onAddExpert={addNewExpertToDb} onClose={()=>setIsModalOpen(false)} onSave={saveTask} onDelete={deleteTask} />}
+                </div>
+            );
+        }
+
+        function CalendarView({tasks}) { return <div className="text-white">Calendar Component Placeholder</div> }
+        
+        // --- KANBAN ATUALIZADO ---
+        function KanbanView({tasks, onTaskClick, onStatusChange, columnDateFilters, setColumnDateFilters, columnSearchTexts, setColumnSearchTexts, toggleTaskFavorite}) {
+            const getTaskType = (type) => TYPES[type] || TYPES['reels'];
+            const formatDateShort = (dateStr) => dateStr ? dateStr.split('-').reverse().slice(0,2).join('/') : '--/--';
+
+            // Funções de filtro de coluna (Toggle Date Filter)
+            const toggleColumnFilter = (colId, type) => {
+                const current = columnDateFilters[colId];
+                if (current && current.type === type) {
+                    const newFilters = {...columnDateFilters};
+                    delete newFilters[colId];
+                    setColumnDateFilters(newFilters);
+                } else {
+                    setColumnDateFilters({...columnDateFilters, [colId]: { type, date: '' }}); // Inicia vazio, input aparece
+                }
+            };
+            const applyColumnFilterDate = (colId, date) => {
+                setColumnDateFilters(prev => ({ ...prev, [colId]: { ...prev[colId], date } }));
+            };
+
+            return (
+                <div className="flex gap-4 overflow-x-auto pb-6 h-full">
+                    {COLUMNS.map(col => {
+                        const searchText = (columnSearchTexts[col.id] || '').toLowerCase();
+                        const activeDateFilter = columnDateFilters[col.id];
+
+                        // Filtro Local da Coluna (Busca texto + Filtro Data)
+                        const colTasks = tasks.filter(t => {
+                            if (t.status !== col.id) return false;
+                            
+                            // 1. Busca por Texto
+                            if (searchText) {
+                                const matchTitle = t.title?.toLowerCase().includes(searchText);
+                                const matchDesc = t.description?.toLowerCase().includes(searchText);
+                                const matchExpert = t.expert?.toLowerCase().includes(searchText);
+                                if (!matchTitle && !matchDesc && !matchExpert) return false;
+                            }
+
+                            // 2. Filtro de Data
+                            if (activeDateFilter && activeDateFilter.date) {
+                                if (activeDateFilter.type === 'posting' && t.date !== activeDateFilter.date) return false;
+                                if (activeDateFilter.type === 'edition' && t.deadlineDate !== activeDateFilter.date) return false;
+                            }
+                            return true;
+                        });
+
+                        return (
+                            <div key={col.id} className="min-w-[320px] w-[320px] flex flex-col glass-panel rounded-xl h-full border-t-4 transition-all duration-300 border-slate-500 relative" style={{borderColor: col.color.replace('border-', '')}}>
+                                <div className="p-3 bg-slate-800/60 rounded-t space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2"><span className="font-bold text-sm text-white">{col.title}</span><span className="text-xs bg-slate-700 px-2 rounded-full text-slate-300">{colTasks.length}</span></div>
+                                        <div className="flex items-center gap-1">
+                                            <button onClick={() => toggleColumnFilter(col.id, 'edition')} className={`p-1.5 rounded hover:bg-green-900/30 transition-colors ${activeDateFilter?.type === 'edition' ? 'text-green-400 bg-green-900/20' : 'text-slate-500 hover:text-green-400'}`} title="Prazo Edição"><Icon name="clock" className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => toggleColumnFilter(col.id, 'posting')} className={`p-1.5 rounded hover:bg-purple-900/30 transition-colors ${activeDateFilter?.type === 'posting' ? 'text-purple-400 bg-purple-900/20' : 'text-slate-500 hover:text-purple-400'}`} title="Postagem"><Icon name="calendar" className="w-3.5 h-3.5" /></button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* CAMPO DE BUSCA NA COLUNA */}
+                                    <div className="relative">
+                                        <Icon name="search" className="absolute left-2 top-1.5 w-3.5 h-3.5 text-slate-500" />
+                                        <input 
+                                            type="text" 
+                                            placeholder="Buscar..." 
+                                            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-1 pl-7 pr-2 text-xs text-white focus:border-blue-500 outline-none"
+                                            value={columnSearchTexts[col.id] || ''}
+                                            onChange={(e) => setColumnSearchTexts({...columnSearchTexts, [col.id]: e.target.value})}
+                                        />
+                                    </div>
+
+                                    {/* Input de Data (Condicional) */}
+                                    {activeDateFilter && (
+                                        <div className="animate-in fade-in slide-in-from-top-2">
+                                            <input type="date" className="w-full bg-slate-800 border rounded p-1 text-xs text-white [color-scheme:dark]" onChange={(e) => applyColumnFilterDate(col.id, e.target.value)} value={activeDateFilter.date} autoFocus />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="p-3 flex-1 overflow-y-auto space-y-3">
+                                    {colTasks.map(task => {
+                                        const typeStyle = getTaskType(task.type);
+                                        const pautaData = PAUTA_TYPES[task.pauta];
+                                        return (
+                                            <div key={task.id} draggable onDragStart={(e)=>e.dataTransfer.setData('taskId', task.id)} onClick={()=>onTaskClick(task)} className={`task-card bg-slate-800 p-3 rounded border cursor-pointer relative overflow-hidden border-slate-700 hover:border-slate-500 group`}>
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${typeStyle.color.split(' ')[0].replace('text-','bg-')}`}></div>
+                                                
+                                                {/* Botão Favorito */}
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); toggleTaskFavorite(task.id, task.isFavorite); }}
+                                                    className={`absolute top-2 right-2 p-1 rounded-full hover:bg-slate-700 transition-colors z-10 ${task.isFavorite ? 'text-yellow-400' : 'text-slate-600 hover:text-yellow-200'}`}
+                                                >
+                                                    <Icon name="star" className={`w-3.5 h-3.5 ${task.isFavorite ? 'fill-current' : ''}`} />
+                                                </button>
+
+                                                <div className="flex justify-between items-start mb-2 pl-2 pr-4">
+                                                    <div className="flex gap-1"><span className={`text-[9px] font-bold px-1 rounded border ${typeStyle.color}`}>{typeStyle.label}</span></div>
+                                                    <div className="flex items-center gap-2">{pautaData && (<Icon name="megaphone" className={`w-3.5 h-3.5 ${pautaData.color}`} />)}</div>
+                                                </div>
+                                                <p className="text-sm font-medium pl-2 mb-1 line-clamp-2 text-slate-200">{task.title}</p>
+                                                {task.expert && (<div className="pl-2 mb-2"><span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">{task.expert}</span></div>)}
+                                                
+                                                <div className="flex justify-between items-end pl-2 pt-2 border-t border-slate-700 mt-2">
+                                                    <div className="text-[10px] text-slate-400 flex gap-2">
+                                                        {task.date && <div className="text-purple-300 flex items-center gap-1"><Icon name="calendar" className="w-3 h-3" /> {formatDateShort(task.date)}</div>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        function TaskModal({onClose, task, experts, onAddExpert}) { return (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg p-6 relative">
+                    <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><Icon name="x" className="w-6 h-6"/></button>
+                    <h2 className="text-xl font-bold text-white mb-4">Gerenciar Tarefa</h2>
+                    <p className="text-slate-400 text-sm mb-4">Edição simplificada (Placeholder)</p>
+                    {/* Exemplo de uso do onAddExpert dentro do modal também */}
+                    <div className="mb-4">
+                        <label className="text-xs font-bold text-slate-400 block mb-1">Expert</label>
+                        <div className="flex gap-2">
+                            <select className="bg-slate-800 border border-slate-600 rounded p-2 text-white flex-1">
+                                {experts.map(e => <option key={e}>{e}</option>)}
+                            </select>
+                            <button onClick={() => {
+                                const name = prompt("Novo Expert:");
+                                if(name) onAddExpert(name);
+                            }} className="px-3 bg-blue-600 text-white rounded text-xs font-bold">+ Novo</button>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button onClick={onClose} className="px-4 py-2 text-slate-300 hover:bg-slate-800 rounded">Cancelar</button>
+                        <button onClick={onClose} className="px-4 py-2 bg-blue-600 text-white rounded font-bold">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
