@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, BookOpen, MousePointer, LogIn, LayoutGrid, Plus, ArrowRight, MessageSquare, HelpCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, BookOpen, MousePointer, LogIn, LayoutGrid, Plus, ArrowRight, MessageSquare, HelpCircle, BarChart3, GitBranch, Target, Settings, Briefcase, TrendingUp, Layers, Send, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface TutorialStep {
@@ -9,60 +9,72 @@ interface TutorialStep {
   description: string;
   icon: React.ReactNode;
   route?: string;
-  highlight?: string;
 }
 
+// ─── ADMIN TUTORIAL: DRX Operações completo ───
 const ADMIN_TUTORIAL_STEPS: TutorialStep[] = [
   {
-    title: '1. Selecione um Workspace',
-    description: 'Ao acessar o sistema, selecione ou crie um Workspace na barra lateral. O Workspace representa a operação que você deseja gerenciar. Todos os dados ficam isolados por workspace.',
-    icon: <span className="text-4xl">🏢</span>,
+    title: '🏢 Passo 1: Selecione seu Workspace',
+    description: 'Antes de tudo, selecione um Workspace na barra lateral. Cada workspace representa uma operação diferente (ex: LITHIUM, PRODUTO X).\n\nVocê pode ter várias operações rodando ao mesmo tempo — basta criar um novo workspace para cada uma. Todos os dados (métricas, analytics, decisões) ficam isolados por workspace.',
+    icon: <Briefcase className="h-10 w-10 text-primary" />,
     route: '/workspaces',
   },
   {
-    title: '2. Navegue pelos Módulos',
-    description: 'Use a barra lateral para acessar Chat, Equipes, Documentos, Painéis e Automações. O item "Tudo" mostra todas as tarefas de todos os espaços.',
-    icon: <span className="text-4xl">📋</span>,
-    route: '/',
-  },
-  {
-    title: '3. Painel DRX (Legado)',
-    description: 'O Painel DRX integra o sistema legado com Kanban e gestão de membros. Faça login com seu nome + "adm" (ex: ailtonadm) e a senha universal DRX2026@.',
-    icon: <span className="text-4xl">📺</span>,
+    title: '📺 Passo 2: Painel DRX (Kanban)',
+    description: 'Acesse "Painel DRX" na barra lateral. Faça login com:\n\n• Login: seu nome + "adm" (ex: ailtonadm)\n• Senha: DRX2026@\n\nVocê verá o Kanban com 3 colunas (A Fazer, Fazendo, Feito). Crie tarefas com "+", mova com as setas ◀ ▶ e use o Inbox para comunicação.',
+    icon: <LayoutGrid className="h-10 w-10 text-blue-500" />,
     route: '/painel-drx',
   },
   {
-    title: '4. Dashboard Operação',
-    description: 'Visualize KPIs da operação: ROAS, Lucro, Vendas e Gastos em tempo real. Acompanhe gráficos de Receita vs Gastos e evolução do ROAS.',
-    icon: <span className="text-4xl">📊</span>,
+    title: '📊 Passo 3: Dashboard Operação',
+    description: 'Vá em "DRX Operações" → "Dashboard Operação". Aqui você monitora em tempo real:\n\n• ROAS da operação\n• Lucro bruto\n• Volume de vendas\n• Gastos com tráfego\n\nOs gráficos mostram Receita vs Gastos e a evolução do ROAS ao longo do tempo.',
+    icon: <BarChart3 className="h-10 w-10 text-emerald-500" />,
     route: '/dashboard-operacao',
   },
   {
-    title: '5. DRX Analytics',
-    description: 'Análise avançada de marketing: cards de KPI, ROI por fonte de tráfego e Deep Dive com Funil de Vendas, Unit Economics e Mapa de Calor.',
-    icon: <span className="text-4xl">📈</span>,
+    title: '📈 Passo 4: DRX Analytics',
+    description: 'Em "DRX Operações" → "Analytics", você encontra a análise avançada de marketing:\n\n• Cards de KPI (Receita, Gastos, Lucro, ROAS, Vendas)\n• Funil de Vendas: Impressões → Cliques → Checkout → Compras\n• Unit Economics: CPA, Ticket Médio e Margem de Contribuição\n• Mapa de Calor: horários de pico para otimizar orçamento',
+    icon: <TrendingUp className="h-10 w-10 text-violet-500" />,
     route: '/drx-analytics',
   },
   {
-    title: '6. Fluxogramas de Processos',
-    description: 'Crie e visualize fluxogramas da operação, documente processos e POPs. Use o chatbot de IA para consultar e criar novos processos.',
-    icon: <span className="text-4xl">🔀</span>,
+    title: '🗂️ Passo 5: Controle Operacional',
+    description: 'No Dashboard Operação, gerencie seus bancos de dados por produto. Você pode:\n\n• Cadastrar produtos (ex: LITHIUM)\n• Importar métricas via CSV (substitui o Airtable)\n• Visualizar a tabela de alta densidade com todas as métricas\n• Excluir produtos e métricas em cascata',
+    icon: <Layers className="h-10 w-10 text-orange-500" />,
+    route: '/dashboard-operacao',
+  },
+  {
+    title: '📨 Passo 6: Chamados',
+    description: 'Em "DRX Operações" → "Chamados", você pode enviar chamados para a equipe e a diretoria. Funciona como um canal de comunicação interna para solicitar suporte, reportar problemas e acompanhar resoluções.',
+    icon: <Send className="h-10 w-10 text-cyan-500" />,
+    route: '/chamados',
+  },
+  {
+    title: '🔀 Passo 7: Fluxogramas de Processos',
+    description: 'Em "DRX Operações" → "Fluxogramas", crie e visualize fluxogramas da operação:\n\n• Documente cada etapa do processo (POPs)\n• Adicione métricas aos nós do fluxograma\n• Use o chatbot de IA integrado para consultar processos\n• Identifique gargalos e otimize o fluxo operacional',
+    icon: <GitBranch className="h-10 w-10 text-pink-500" />,
     route: '/fluxogramas',
   },
   {
-    title: '7. Matriz de Decisões',
-    description: 'Consultoria estratégica data-driven: a IA analisa dados de performance para validar ou desafiar suas decisões.',
-    icon: <span className="text-4xl">🎯</span>,
+    title: '🎯 Passo 8: Matriz de Decisões',
+    description: 'Em "Matriz Decisões", a IA atua como consultora estratégica usando seus dados reais:\n\n• Análise de Funil: otimize conversões\n• Delegação: priorize tarefas com Eisenhower\n• Alertas automáticos: ROAS < 1.5 ou CPA alto\n\nPor workspace — cada operação tem sua própria análise. Crie workspaces separados para analisar cada produto.',
+    icon: <Brain className="h-10 w-10 text-yellow-500" />,
     route: '/matriz-decisoes',
   },
   {
-    title: '8. Configurações (Admin)',
-    description: 'Administradores podem gerenciar usuários, status, tags, templates, APIs e webhooks.',
-    icon: <span className="text-4xl">⚙️</span>,
+    title: '⚙️ Passo 9: Configurações',
+    description: 'Em "Configurações", gerencie:\n\n• Usuários e permissões\n• Status personalizados e templates\n• Tags do workspace\n• APIs e Webhooks\n• Templates de espaço e automações',
+    icon: <Settings className="h-10 w-10 text-muted-foreground" />,
     route: '/settings',
+  },
+  {
+    title: '✅ Tutorial Concluído!',
+    description: 'Agora você domina o DRX Central! Dicas finais:\n\n• Selecione o workspace antes de ver dados\n• Cada workspace = uma operação independente\n• A Matriz de Decisões usa dados reais do workspace ativo\n• Use Fluxogramas + Chamados para organizar processos\n\nVocê pode refazer o tutorial pelo botão "Tutorial" na barra lateral.',
+    icon: <span className="text-4xl">🎉</span>,
   },
 ];
 
+// ─── OPERATOR TUTORIAL: Painel DRX + Kanban ───
 const OPERATOR_TUTORIAL_STEPS: TutorialStep[] = [
   {
     title: 'Bem-vindo ao DRX Central! 👋',
@@ -73,7 +85,6 @@ const OPERATOR_TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Passo 1: A Barra Lateral',
     description: 'No lado esquerdo você encontra a barra lateral de navegação. Ela contém todos os módulos que você pode acessar: Início, Chat, Equipes, Documentos e os módulos DRX.',
     icon: <LayoutGrid className="h-10 w-10 text-blue-500" />,
-    highlight: 'sidebar',
   },
   {
     title: 'Passo 2: Acesse o Painel DRX',
@@ -114,57 +125,55 @@ const OPERATOR_TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     title: '✅ Tutorial Concluído!',
-    description: 'Agora você sabe navegar pelo DRX Central! Lembre-se:\n\n• Login do Painel: seu nome + "adm"\n• Senha: DRX2026@\n• Use o Kanban para gerenciar tarefas\n• Consulte a Matriz de Decisões para dúvidas\n\nVocê pode refazer este tutorial a qualquer momento pelo botão "Tutorial" na barra lateral.',
+    description: 'Agora você sabe navegar pelo DRX Central! Lembre-se:\n\n• Login do Painel: seu nome + "adm"\n• Senha: DRX2026@\n• Use o Kanban para gerenciar tarefas\n• Consulte a Matriz de Decisões para dúvidas\n\nO tutorial aparecerá novamente no próximo login para sua conveniência.',
     icon: <span className="text-4xl">🎉</span>,
   },
 ];
 
-const STORAGE_KEY = 'drx_tutorial_completed';
-const OPERATOR_STORAGE_KEY = 'drx_operator_tutorial_completed';
+const ADMIN_STORAGE_KEY = 'drx_admin_tutorial_completed';
 
 export function TutorialOverlay() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAskDialog, setShowAskDialog] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const navigate = useNavigate();
-  const location = useLocation();
   const { data: userRole } = useUserRole();
 
   const isLimitedMember = userRole?.isLimitedMember ?? false;
   const steps = isLimitedMember ? OPERATOR_TUTORIAL_STEPS : ADMIN_TUTORIAL_STEPS;
-  const storageKey = isLimitedMember ? OPERATOR_STORAGE_KEY : STORAGE_KEY;
 
-  // Show ask dialog on first load for limited members
+  // Operator: ALWAYS show ask dialog on mount (no localStorage)
+  // Admin: show once, then persist
   useEffect(() => {
     if (userRole === undefined) return;
-    const completed = localStorage.getItem(storageKey);
-    if (!completed) {
-      if (isLimitedMember) {
+
+    if (isLimitedMember) {
+      // Always show for operators (9 users share this login)
+      setShowAskDialog(true);
+    } else {
+      const completed = localStorage.getItem(ADMIN_STORAGE_KEY);
+      if (!completed) {
         setShowAskDialog(true);
-      } else {
-        setIsOpen(true);
       }
     }
-  }, [userRole, storageKey, isLimitedMember]);
+  }, [userRole, isLimitedMember]);
 
   // Listen for manual re-open
   useEffect(() => {
     const handler = () => {
       setCurrentStep(0);
-      if (isLimitedMember) {
-        setShowAskDialog(true);
-      } else {
-        setIsOpen(true);
-      }
+      setShowAskDialog(true);
     };
     window.addEventListener('drx-open-tutorial', handler);
     return () => window.removeEventListener('drx-open-tutorial', handler);
-  }, [isLimitedMember]);
+  }, []);
 
   const handleClose = () => {
     setIsOpen(false);
     setShowAskDialog(false);
-    localStorage.setItem(storageKey, 'true');
+    if (!isLimitedMember) {
+      localStorage.setItem(ADMIN_STORAGE_KEY, 'true');
+    }
   };
 
   const handleStartTutorial = () => {
@@ -175,7 +184,9 @@ export function TutorialOverlay() {
 
   const handleSkipTutorial = () => {
     setShowAskDialog(false);
-    localStorage.setItem(storageKey, 'true');
+    if (!isLimitedMember) {
+      localStorage.setItem(ADMIN_STORAGE_KEY, 'true');
+    }
   };
 
   const handleNext = () => {
@@ -199,7 +210,7 @@ export function TutorialOverlay() {
     }
   };
 
-  // Ask dialog for operators
+  // Ask dialog (both roles)
   if (showAskDialog) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -208,17 +219,22 @@ export function TutorialOverlay() {
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <BookOpen className="h-8 w-8 text-primary" />
             </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">Olá! Bem-vindo ao DRX Central 👋</h2>
+            <h2 className="text-xl font-bold text-foreground mb-2">
+              {isLimitedMember ? 'Olá! Bem-vindo ao DRX Central 👋' : 'Tutorial DRX Operações 🚀'}
+            </h2>
             <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-              Parece que é sua primeira vez aqui. Deseja fazer um tutorial rápido para aprender a usar o sistema?
+              {isLimitedMember
+                ? 'Deseja fazer um tutorial rápido para aprender a usar o sistema?'
+                : 'Quer aprender a usar todos os módulos de operação? Workspaces, Analytics, Fluxogramas, Matriz de Decisões e mais.'
+              }
             </p>
             <div className="flex flex-col gap-3">
               <Button onClick={handleStartTutorial} className="w-full gap-2 h-12 text-base">
                 <BookOpen className="h-5 w-5" />
-                Sim, quero aprender!
+                {isLimitedMember ? 'Sim, quero aprender!' : 'Iniciar Tutorial'}
               </Button>
               <Button variant="ghost" onClick={handleSkipTutorial} className="w-full text-muted-foreground">
-                Não, já sei usar
+                {isLimitedMember ? 'Não, já sei usar' : 'Pular por agora'}
               </Button>
             </div>
           </div>
@@ -240,7 +256,7 @@ export function TutorialOverlay() {
           <div className="flex items-center gap-2 text-primary">
             <BookOpen className="h-5 w-5" />
             <span className="text-sm font-semibold uppercase tracking-wide">
-              {isLimitedMember ? 'Tutorial do Operador' : 'Tutorial DRX Central'}
+              {isLimitedMember ? 'Tutorial do Operador' : 'Tutorial DRX Operações'}
             </span>
           </div>
           <Button variant="ghost" size="icon" onClick={handleClose} className="h-8 w-8">
