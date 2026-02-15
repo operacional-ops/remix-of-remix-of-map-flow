@@ -1711,6 +1711,80 @@ export type Database = {
           },
         ]
       }
+      payt_transactions: {
+        Row: {
+          amount: number
+          commission: number | null
+          created_at: string
+          currency: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          net_amount: number | null
+          paid_at: string | null
+          payment_method: string | null
+          product_code: string | null
+          product_name: string | null
+          raw_payload: Json | null
+          refunded_at: string | null
+          status: string
+          transaction_id: string | null
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          amount?: number
+          commission?: number | null
+          created_at?: string
+          currency?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          net_amount?: number | null
+          paid_at?: string | null
+          payment_method?: string | null
+          product_code?: string | null
+          product_name?: string | null
+          raw_payload?: Json | null
+          refunded_at?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          amount?: number
+          commission?: number | null
+          created_at?: string
+          currency?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          net_amount?: number | null
+          paid_at?: string | null
+          payment_method?: string | null
+          product_code?: string | null
+          product_name?: string | null
+          raw_payload?: Json | null
+          refunded_at?: string | null
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payt_transactions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

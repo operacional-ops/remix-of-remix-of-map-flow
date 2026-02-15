@@ -56,6 +56,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SalesFunnelChart } from "@/components/analytics/SalesFunnelChart";
 import { UnitEconomicsCards } from "@/components/analytics/UnitEconomicsCards";
 import { TopPerformersHeatmap } from "@/components/analytics/TopPerformersHeatmap";
+import { PaytSalesPanel } from "@/components/analytics/PaytSalesPanel";
 
 // ── Sparkline Component ────────────────────────────────────
 function Sparkline({ data, color }: { data: { v: number }[]; color: string }) {
@@ -613,6 +614,11 @@ export default function DRXAnalytics() {
               )}
             </CardContent>
           </Card>
+
+          {/* ── PAYT Sales Section ───────────────── */}
+          <div className="pt-4 border-t border-border">
+            <PaytSalesPanel />
+          </div>
         </div>
       </div>
     </div>
