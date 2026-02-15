@@ -89,7 +89,7 @@ const ResetPassword = () => {
             <div className="flex justify-center">
               <ThemeLogo className="h-16 w-16 object-contain" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">MAP Flow</h1>
+            <h1 className="text-3xl font-bold tracking-tight">DRX Central</h1>
           </div>
           <Card>
             <CardHeader>
@@ -125,7 +125,7 @@ const ResetPassword = () => {
           <div className="flex justify-center">
             <ThemeLogo className="h-16 w-16 object-contain" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">MAP Flow</h1>
+          <h1 className="text-3xl font-bold tracking-tight">DRX Central</h1>
           <p className="text-muted-foreground">Defina sua nova senha</p>
         </div>
 
