@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,6 +18,7 @@ import {
   useAddMetricRow,
   useUpdateMetric,
   useDeleteMetric,
+  useDeleteProduct,
   type OperationalMetric,
 } from '@/hooks/useOperationalProducts';
 
@@ -210,6 +212,7 @@ export default function DashboardOperacao() {
   const addRow = useAddMetricRow();
   const updateMetric = useUpdateMetric();
   const deleteMetric = useDeleteMetric();
+  const deleteProduct = useDeleteProduct();
   const { pushChange, undo, redo, canUndo, canRedo } = useUndoRedo();
 
   const [newProductName, setNewProductName] = useState('');
@@ -341,19 +344,56 @@ export default function DashboardOperacao() {
           <div className="p-2 space-y-1">
             {loadingProducts && <p className="text-xs text-muted-foreground p-2">Carregando...</p>}
             {products?.map(product => (
-              <button
+              <div
                 key={product.id}
-                onClick={() => setSelectedProductId(product.id)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors group/item ${
                   selectedProductId === product.id
                     ? 'bg-primary/10 text-primary font-medium'
                     : 'text-foreground hover:bg-muted'
                 }`}
               >
-                <Package className="h-4 w-4 shrink-0" />
-                <span className="truncate">{product.name}</span>
-                <span className="text-xs text-muted-foreground ml-auto">{product.code}</span>
-              </button>
+                <button
+                  onClick={() => setSelectedProductId(product.id)}
+                  className="flex items-center gap-2 flex-1 min-w-0"
+                >
+                  <Package className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{product.name}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{product.code}</span>
+                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      className="opacity-0 group-hover/item:opacity-100 text-destructive hover:text-destructive/80 transition-opacity p-1 shrink-0"
+                      title="Apagar produto"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Apagar produto "{product.name}"?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Isso vai apagar o produto e <strong>todos os dados importados</strong> (métricas CSV). Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => {
+                          if (selectedProductId === product.id) setSelectedProductId(null);
+                          deleteProduct.mutate(product.id, {
+                            onSuccess: () => toast.success(`Produto "${product.name}" apagado.`),
+                            onError: (err: any) => toast.error(err?.message || 'Erro ao apagar produto'),
+                          });
+                        }}
+                      >
+                        Apagar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             ))}
             {products?.length === 0 && (
               <p className="text-xs text-muted-foreground p-3 text-center">
