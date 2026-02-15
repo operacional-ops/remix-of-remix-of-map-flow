@@ -39,15 +39,15 @@ const modulesNavItems = [
 ];
 
 const painelDrxNavItems = [
-  { title: 'Painel DRX', url: '/painel-drx', icon: Monitor },
+  { title: 'Painel DRX', url: '/painel-drx', icon: Monitor, tutorialId: 'painel-drx' },
 ];
 
 const drxNavItems = [
-  { title: 'Chamados', url: '/chamados', icon: Inbox },
-  { title: 'Fluxogramas', url: '/fluxogramas', icon: GitBranch },
-  { title: 'Matriz Decisões', url: '/matriz-decisoes', icon: Target },
-  { title: 'Dashboard Operação', url: '/dashboard-operacao', icon: Activity },
-  { title: 'DRX Analytics', url: '/drx-analytics', icon: BarChart3 },
+  { title: 'Chamados', url: '/chamados', icon: Inbox, tutorialId: 'chamados' },
+  { title: 'Fluxogramas', url: '/fluxogramas', icon: GitBranch, tutorialId: 'fluxogramas' },
+  { title: 'Matriz Decisões', url: '/matriz-decisoes', icon: Target, tutorialId: 'matriz-decisoes' },
+  { title: 'Dashboard Operação', url: '/dashboard-operacao', icon: Activity, tutorialId: 'dashboard-operacao' },
+  { title: 'DRX Analytics', url: '/drx-analytics', icon: BarChart3, tutorialId: 'drx-analytics' },
 ];
 
 export function AppSidebar() {
@@ -246,6 +246,7 @@ export function AppSidebar() {
                           to={item.url}
                           className="hover:bg-sidebar-accent"
                           activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                          data-tutorial={item.tutorialId}
                         >
                           <item.icon className="h-4 w-4" />
                           {!isCollapsed && <span>{item.title}</span>}
@@ -279,6 +280,7 @@ export function AppSidebar() {
                           to={item.url}
                           className="hover:bg-sidebar-accent"
                           activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                          data-tutorial={item.tutorialId}
                         >
                           <item.icon className="h-4 w-4" />
                           {!isCollapsed && <span>{item.title}</span>}
@@ -302,7 +304,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             {activeWorkspace ? (
               <Collapsible open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
-                <div className="flex items-center justify-between px-2 py-2">
+                <div className="flex items-center justify-between px-2 py-2" data-tutorial="workspace-selector">
                   <CollapsibleTrigger asChild>
                     <button className="flex items-center gap-2 min-w-0 hover:bg-sidebar-accent rounded p-1 flex-1">
                       <ChevronRight className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${workspaceOpen ? 'rotate-90' : ''}`} />
@@ -346,6 +348,7 @@ export function AppSidebar() {
                       to="/workspaces" 
                       className="hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      data-tutorial="workspace-selector"
                     >
                       <Home className="h-4 w-4" />
                       {!isCollapsed && <span>Workspaces</span>}
