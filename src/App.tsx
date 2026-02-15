@@ -4,14 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { OperationalRoute } from "@/components/OperationalRoute";
-import { AppSidebar } from "@/components/AppSidebar";
-import { MobileHeader } from "@/components/MobileHeader";
+import { BottomDock } from "@/components/BottomDock";
 import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import HomePage from "./pages/HomePage";
 import WorkspaceOverview from "./pages/WorkspaceOverview";
@@ -54,58 +52,52 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <WorkspaceProvider>
-            <Routes>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/auth/reset-password" element={<ResetPassword />} />
-        <Route path="/accept-invite/:token" element={<AcceptInvite />} />
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-                <SidebarProvider>
-                    <div className="flex flex-col h-screen w-full overflow-hidden">
-                      <MobileHeader />
-                      <div className="flex flex-1 overflow-hidden">
-                        <AppSidebar />
-                        <main className="flex-1 overflow-auto">
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/reset-password" element={<ResetPassword />} />
+                <Route path="/accept-invite/:token" element={<AcceptInvite />} />
+                <Route
+                  path="/*"
+                  element={
+                    <ProtectedRoute>
+                      <div className="relative h-screen w-full overflow-hidden">
+                        <main className="h-full overflow-auto pb-20">
                           <TutorialOverlay />
                           <Routes>
-                          <Route path="/" element={<HomePage />} />
-                          <Route path="/workspaces" element={<WorkspaceOverview />} />
-                          <Route path="/everything" element={<EverythingView />} />
-                          <Route path="/spaces" element={<SpacesView />} />
-                          <Route path="/space/:spaceId" element={<SpaceDetailView />} />
-                          <Route path="/folder/:folderId" element={<FolderDetailView />} />
-                          <Route path="/list/:listId" element={<ListDetailView />} />
-                          <Route path="/task/:taskId" element={<TaskView />} />
-                          <Route path="/chat" element={<Chat />} />
-                          <Route path="/discord" element={<DiscordChat />} />
-                          <Route path="/teams" element={<Teams />} />
-                          <Route path="/documents" element={<Documents />} />
-                          <Route path="/documents/:id" element={<DocumentView />} />
-                          <Route path="/dashboards" element={<Dashboards />} />
-                          <Route path="/dashboards/:id" element={<DashboardView />} />
-                          
-                          <Route path="/chamados" element={<TeamChamados />} />
-                          <Route path="/fluxogramas" element={<FluxogramasProcessos />} />
-                          <Route path="/matriz-decisoes" element={<MatrizDecisoes />} />
-                          <Route path="/dashboard-operacao" element={<OperationalRoute><DashboardOperacao /></OperationalRoute>} />
-                          <Route path="/drx-analytics" element={<OperationalRoute><DRXAnalytics /></OperationalRoute>} />
-                          <Route path="/painel-drx" element={<OperationalRoute><PainelDRX /></OperationalRoute>} />
-                          <Route path="/command-center" element={<OperationalRoute><CommandCenter /></OperationalRoute>} />
-                          <Route path="/financeiro" element={<OperationalRoute><FinancialDashboard /></OperationalRoute>} />
-                          <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
-                          <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
-                          <Route path="*" element={<NotFound />} />
+                            <Route path="/" element={<HomePage />} />
+                            <Route path="/workspaces" element={<WorkspaceOverview />} />
+                            <Route path="/everything" element={<EverythingView />} />
+                            <Route path="/spaces" element={<SpacesView />} />
+                            <Route path="/space/:spaceId" element={<SpaceDetailView />} />
+                            <Route path="/folder/:folderId" element={<FolderDetailView />} />
+                            <Route path="/list/:listId" element={<ListDetailView />} />
+                            <Route path="/task/:taskId" element={<TaskView />} />
+                            <Route path="/chat" element={<Chat />} />
+                            <Route path="/discord" element={<DiscordChat />} />
+                            <Route path="/teams" element={<Teams />} />
+                            <Route path="/documents" element={<Documents />} />
+                            <Route path="/documents/:id" element={<DocumentView />} />
+                            <Route path="/dashboards" element={<Dashboards />} />
+                            <Route path="/dashboards/:id" element={<DashboardView />} />
+                            <Route path="/chamados" element={<TeamChamados />} />
+                            <Route path="/fluxogramas" element={<FluxogramasProcessos />} />
+                            <Route path="/matriz-decisoes" element={<MatrizDecisoes />} />
+                            <Route path="/dashboard-operacao" element={<OperationalRoute><DashboardOperacao /></OperationalRoute>} />
+                            <Route path="/drx-analytics" element={<OperationalRoute><DRXAnalytics /></OperationalRoute>} />
+                            <Route path="/painel-drx" element={<OperationalRoute><PainelDRX /></OperationalRoute>} />
+                            <Route path="/command-center" element={<OperationalRoute><CommandCenter /></OperationalRoute>} />
+                            <Route path="/financeiro" element={<OperationalRoute><FinancialDashboard /></OperationalRoute>} />
+                            <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
+                            <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+                            <Route path="*" element={<NotFound />} />
                           </Routes>
                         </main>
+                        <BottomDock />
                       </div>
-                    </div>
-                  </SidebarProvider>
-                </ProtectedRoute>
-              }
-            />
-            </Routes>
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
             </WorkspaceProvider>
           </AuthProvider>
         </BrowserRouter>
