@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,35 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AiChatPanel } from '@/components/drx/AiChatPanel';
-import { Target, Users, CalendarCheck, Plus, Trash2, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Target, Users, CalendarCheck, Plus, Trash2, CheckCircle, Clock, XCircle, TrendingUp, DollarSign, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useOperationalProducts, type OperationalMetric } from '@/hooks/useOperationalProducts';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { cn } from '@/lib/utils';
 
 type DecisionType = 'funnel_optimization' | 'delegation' | 'daily_priorities';
 
+// ── Hook: fetch all metrics across products ──
+function useAllOperationalMetrics(productIds: string[]) {
+  return useQuery({
+    queryKey: ['operational-metrics', 'all-for-decisions', productIds],
+    queryFn: async () => {
+      if (productIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('operational_metrics')
+        .select('*')
+        .in('product_id', productIds)
+        .order('data', { ascending: false });
+      if (error) throw error;
+      return data as OperationalMetric[];
+    },
+    enabled: productIds.length > 0,
+  });
+}
+
+// ── Hook: decisions ──
 function useDecisions(type: DecisionType) {
   return useQuery({
     queryKey: ['drx-decisions', type],
@@ -29,7 +51,115 @@ function useDecisions(type: DecisionType) {
   });
 }
 
-// ---- Generic Decision Section ----
+// ── Operational Summary Builder ──
+function buildOperationalSummary(
+  metrics: OperationalMetric[],
+  products: { id: string; name: string; code: string }[]
+) {
+  const totalGastos = metrics.reduce((s, m) => s + Number(m.gastos || 0), 0);
+  const totalResultado = metrics.reduce((s, m) => s + Number(m.resultado || 0), 0);
+  const totalLucro = metrics.reduce((s, m) => s + Number(m.lucro_bruto || 0), 0);
+  const totalVendas = metrics.reduce((s, m) => s + Number(m.qnt_vendas || 0), 0);
+  const avgRoas = totalGastos > 0 ? totalResultado / totalGastos : 0;
+  const avgCpa = totalVendas > 0 ? totalGastos / totalVendas : 0;
+  const avgTicket = totalVendas > 0 ? totalResultado / totalVendas : 0;
+  const margin = avgTicket - avgCpa;
+
+  // Per-product breakdown
+  const byProduct: Record<string, { gastos: number; resultado: number; lucro: number; vendas: number; name: string }> = {};
+  metrics.forEach(m => {
+    const pid = m.product_id;
+    if (!byProduct[pid]) {
+      const prod = products.find(p => p.id === pid);
+      byProduct[pid] = { gastos: 0, resultado: 0, lucro: 0, vendas: 0, name: prod?.name || 'Desconhecido' };
+    }
+    byProduct[pid].gastos += Number(m.gastos || 0);
+    byProduct[pid].resultado += Number(m.resultado || 0);
+    byProduct[pid].lucro += Number(m.lucro_bruto || 0);
+    byProduct[pid].vendas += Number(m.qnt_vendas || 0);
+  });
+
+  const productBreakdown = Object.entries(byProduct).map(([, d]) => ({
+    produto: d.name,
+    gastos: d.gastos.toFixed(2),
+    receita: d.resultado.toFixed(2),
+    lucro: d.lucro.toFixed(2),
+    vendas: d.vendas,
+    roas: d.gastos > 0 ? (d.resultado / d.gastos).toFixed(2) : '0',
+    cpa: d.vendas > 0 ? (d.gastos / d.vendas).toFixed(2) : 'N/A',
+  }));
+
+  // Top accounts by spend
+  const byAccount: Record<string, { gastos: number; resultado: number; vendas: number }> = {};
+  metrics.forEach(m => {
+    const key = m.contas_produto || 'Sem conta';
+    if (!byAccount[key]) byAccount[key] = { gastos: 0, resultado: 0, vendas: 0 };
+    byAccount[key].gastos += Number(m.gastos || 0);
+    byAccount[key].resultado += Number(m.resultado || 0);
+    byAccount[key].vendas += Number(m.qnt_vendas || 0);
+  });
+
+  const topAccounts = Object.entries(byAccount)
+    .sort(([, a], [, b]) => b.gastos - a.gastos)
+    .slice(0, 10)
+    .map(([name, d]) => ({
+      conta: name,
+      gastos: d.gastos.toFixed(2),
+      receita: d.resultado.toFixed(2),
+      roas: d.gastos > 0 ? (d.resultado / d.gastos).toFixed(2) : '0',
+    }));
+
+  // Alerts
+  const alerts: string[] = [];
+  if (avgRoas < 1.5) alerts.push(`⚠️ ROAS geral crítico: ${avgRoas.toFixed(2)}x`);
+  if (margin < 0) alerts.push(`🔴 Margem de Contribuição NEGATIVA: R$ ${margin.toFixed(2)}`);
+  if (avgCpa > avgTicket && totalVendas > 0) alerts.push(`🔴 CPA (R$ ${avgCpa.toFixed(2)}) MAIOR que Ticket Médio (R$ ${avgTicket.toFixed(2)}) — operação no prejuízo`);
+  productBreakdown.forEach(p => {
+    if (parseFloat(p.roas) < 1 && parseFloat(p.gastos) > 100) {
+      alerts.push(`⚠️ Produto "${p.produto}" com ROAS ${p.roas}x e R$ ${p.gastos} gastos`);
+    }
+  });
+
+  return {
+    resumo_geral: {
+      total_gastos: totalGastos.toFixed(2),
+      total_receita: totalResultado.toFixed(2),
+      total_lucro: totalLucro.toFixed(2),
+      total_vendas: totalVendas,
+      roas_medio: avgRoas.toFixed(2),
+      cpa_medio: avgCpa.toFixed(2),
+      ticket_medio: avgTicket.toFixed(2),
+      margem_contribuicao: margin.toFixed(2),
+      total_registros: metrics.length,
+      total_produtos: products.length,
+    },
+    produtos: productBreakdown,
+    top_contas: topAccounts,
+    alertas: alerts,
+    kpis: { totalGastos, totalResultado, totalLucro, totalVendas, avgRoas, avgCpa, avgTicket, margin },
+  };
+}
+
+function formatCurrency(val: number) {
+  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+// ── KPI Mini Card ──
+function MiniKPI({ label, value, color, icon: Icon }: { label: string; value: string; color: string; icon: React.ElementType }) {
+  return (
+    <div className="flex items-center gap-3 bg-card border border-border/50 rounded-lg px-4 py-3">
+      <div className={cn("p-2 rounded-lg", color)}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+        <p className="text-sm font-bold">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Decision Section ──
 function DecisionSection({
   type,
   icon: Icon,
@@ -38,6 +168,7 @@ function DecisionSection({
   contextFields,
   aiContextType,
   aiPlaceholder,
+  operationalSummary,
 }: {
   type: DecisionType;
   icon: any;
@@ -46,6 +177,7 @@ function DecisionSection({
   contextFields: { key: string; label: string; placeholder: string; multiline?: boolean }[];
   aiContextType: string;
   aiPlaceholder: string;
+  operationalSummary: ReturnType<typeof buildOperationalSummary> | null;
 }) {
   const queryClient = useQueryClient();
   const { data: decisions = [] } = useDecisions(type);
@@ -101,6 +233,26 @@ function DecisionSection({
   const parseContext = (ctx: string) => {
     try { return JSON.parse(ctx); } catch { return {}; }
   };
+
+  // Build enriched context for AI
+  const aiContextData = useMemo(() => {
+    const base = selectedDecision
+      ? { decision: selectedDecision, context: parseContext(selectedDecision.context) }
+      : { all_decisions: decisions.slice(0, 10) };
+
+    if (operationalSummary) {
+      return {
+        ...base,
+        operational_summary: {
+          ...operationalSummary.resumo_geral,
+          alertas: operationalSummary.alertas,
+          produtos: operationalSummary.produtos,
+          top_contas: operationalSummary.top_contas.slice(0, 5),
+        },
+      };
+    }
+    return base;
+  }, [selectedDecision, decisions, operationalSummary]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -257,7 +409,7 @@ function DecisionSection({
       <div className="h-[500px] lg:h-[600px]">
         <AiChatPanel
           contextType={aiContextType}
-          contextData={selectedDecision ? { decision: selectedDecision, context: parseContext(selectedDecision.context) } : { all_decisions: decisions.slice(0, 10) }}
+          contextData={aiContextData}
           title={`IA - ${title}`}
           placeholder={aiPlaceholder}
         />
@@ -266,14 +418,78 @@ function DecisionSection({
   );
 }
 
-// ---- Main Page ----
+// ── Main Page ──
 export default function MatrizDecisoes() {
+  const { data: products = [] } = useOperationalProducts();
+  const productIds = useMemo(() => products.map(p => p.id), [products]);
+  const { data: metrics = [] } = useAllOperationalMetrics(productIds);
+
+  const operationalSummary = useMemo(() => {
+    if (metrics.length === 0 || products.length === 0) return null;
+    return buildOperationalSummary(metrics, products);
+  }, [metrics, products]);
+
+  const kpis = operationalSummary?.kpis;
+
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Matriz de Decisões</h1>
-        <p className="text-muted-foreground text-sm">Tome decisões estratégicas com assistência de IA integrada</p>
+        <p className="text-muted-foreground text-sm">Tome decisões estratégicas com assistência de IA integrada aos dados da operação</p>
       </div>
+
+      {/* ── Operational KPIs Strip ── */}
+      {kpis && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+            <MiniKPI
+              label="Receita"
+              value={formatCurrency(kpis.totalResultado)}
+              color="bg-emerald-500/10 text-emerald-500"
+              icon={DollarSign}
+            />
+            <MiniKPI
+              label="Lucro"
+              value={formatCurrency(kpis.totalLucro)}
+              color={kpis.totalLucro >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}
+              icon={TrendingUp}
+            />
+            <MiniKPI
+              label="ROAS"
+              value={`${kpis.avgRoas.toFixed(2)}x`}
+              color={kpis.avgRoas >= 2 ? "bg-emerald-500/10 text-emerald-500" : "bg-yellow-500/10 text-yellow-500"}
+              icon={TrendingUp}
+            />
+            <MiniKPI
+              label="CPA"
+              value={formatCurrency(kpis.avgCpa)}
+              color={kpis.avgCpa > 50 ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-500"}
+              icon={ShoppingCart}
+            />
+            <MiniKPI
+              label="Ticket Médio"
+              value={formatCurrency(kpis.avgTicket)}
+              color="bg-primary/10 text-primary"
+              icon={DollarSign}
+            />
+            <MiniKPI
+              label="Margem"
+              value={formatCurrency(kpis.margin)}
+              color={kpis.margin >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}
+              icon={kpis.margin < 0 ? AlertTriangle : TrendingUp}
+            />
+          </div>
+          {operationalSummary && operationalSummary.alertas.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {operationalSummary.alertas.map((alert, i) => (
+                <Badge key={i} variant="outline" className="text-xs border-yellow-500/30 text-yellow-500 bg-yellow-500/5">
+                  {alert}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <Tabs defaultValue="funnel" className="flex-1">
         <TabsList>
@@ -293,7 +509,7 @@ export default function MatrizDecisoes() {
             type="funnel_optimization"
             icon={Target}
             title="Otimização de Funil"
-            description="Qual parte do funil otimizar? Analise dados e decida com IA."
+            description="Qual parte do funil otimizar? A IA analisa seus dados reais para sugerir ações."
             contextFields={[
               { key: 'funnel_stage', label: 'Etapa do Funil', placeholder: 'Ex: Topo, Meio, Fundo' },
               { key: 'current_metrics', label: 'Métricas Atuais', placeholder: 'Ex: Taxa de conversão 2.5%, CPL R$15', multiline: true },
@@ -301,7 +517,8 @@ export default function MatrizDecisoes() {
               { key: 'context', label: 'Contexto Adicional', placeholder: 'Informações relevantes sobre o cenário atual', multiline: true },
             ]}
             aiContextType="funnel_optimization"
-            aiPlaceholder="Descreva seu funil e métricas. A IA vai analisar e sugerir otimizações."
+            aiPlaceholder="Pergunte sobre seu funil — a IA já tem acesso aos seus KPIs reais da operação."
+            operationalSummary={operationalSummary}
           />
         </TabsContent>
 
@@ -310,7 +527,7 @@ export default function MatrizDecisoes() {
             type="delegation"
             icon={Users}
             title="Delegação de Funções"
-            description="Qual função você pode delegar? O consultor IA vai provocar você."
+            description="A IA usa seus dados de faturamento e complexidade da operação para provocar delegações."
             contextFields={[
               { key: 'function_name', label: 'Função a Delegar', placeholder: 'Ex: Gestão de tráfego pago' },
               { key: 'time_spent', label: 'Tempo Gasto (horas/semana)', placeholder: 'Ex: 10h' },
@@ -319,7 +536,8 @@ export default function MatrizDecisoes() {
               { key: 'risk', label: 'Risco de Delegar', placeholder: 'Descreva os riscos percebidos', multiline: true },
             ]}
             aiContextType="delegation"
-            aiPlaceholder="Descreva a função. A IA vai questionar se você realmente precisa fazer isso."
+            aiPlaceholder="Descreva a função — a IA vai cruzar com seus dados de receita e complexidade operacional."
+            operationalSummary={operationalSummary}
           />
         </TabsContent>
 
@@ -328,7 +546,7 @@ export default function MatrizDecisoes() {
             type="daily_priorities"
             icon={CalendarCheck}
             title="Prioridades do Dia"
-            description="Organize suas prioridades diárias com ajuda de IA conselheira."
+            description="A IA identifica urgências nos seus dados reais e ajuda a priorizar com Eisenhower."
             contextFields={[
               { key: 'pending_tasks', label: 'Tarefas Pendentes', placeholder: 'Liste as tarefas pendentes de ontem', multiline: true },
               { key: 'ongoing_tasks', label: 'Tarefas em Andamento', placeholder: 'O que está sendo executado agora?', multiline: true },
@@ -337,7 +555,8 @@ export default function MatrizDecisoes() {
               { key: 'team_status', label: 'Status da Equipe', placeholder: 'Quem está disponível? Algum bloqueio?', multiline: true },
             ]}
             aiContextType="daily_priorities"
-            aiPlaceholder="Dê contexto da operação. A IA vai ajudar a priorizar usando a Matriz de Eisenhower."
+            aiPlaceholder="Dê contexto do dia — a IA já sabe seus KPIs e vai priorizar com base nos dados reais."
+            operationalSummary={operationalSummary}
           />
         </TabsContent>
       </Tabs>
