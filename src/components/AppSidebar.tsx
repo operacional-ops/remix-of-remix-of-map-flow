@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Eye, Inbox, ListChecks, GitBranch, Target, Activity, Monitor } from 'lucide-react';
+import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Inbox, GitBranch, Target, Activity, Monitor, BookOpen } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useTheme } from 'next-themes';
 import { ThemeLogo } from '@/components/ThemeLogo';
@@ -43,8 +43,6 @@ const painelDrxNavItems = [
 ];
 
 const drxNavItems = [
-  { title: 'Ritual Diário', url: '/daily-prep', icon: ListChecks },
-  { title: 'God View', url: '/god-view', icon: Eye },
   { title: 'Chamados', url: '/chamados', icon: Inbox },
   { title: 'Fluxogramas', url: '/fluxogramas', icon: GitBranch },
   { title: 'Matriz Decisões', url: '/matriz-decisoes', icon: Target },
@@ -383,6 +381,21 @@ export function AppSidebar() {
                   {isCollapsed && (
                     <TooltipContent side="right">
                       {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <Tooltip delayDuration={isCollapsed ? 0 : 1000}>
+                  <TooltipTrigger asChild>
+                    <SidebarMenuButton onClick={() => { localStorage.removeItem('drx_tutorial_completed'); window.dispatchEvent(new Event('drx-open-tutorial')); }}>
+                      <BookOpen className="h-4 w-4" />
+                      {!isCollapsed && <span>Tutorial</span>}
+                    </SidebarMenuButton>
+                  </TooltipTrigger>
+                  {isCollapsed && (
+                    <TooltipContent side="right">
+                      Tutorial
                     </TooltipContent>
                   )}
                 </Tooltip>
