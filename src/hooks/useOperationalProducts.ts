@@ -172,3 +172,29 @@ export function useDeleteMetric() {
     },
   });
 }
+
+export function useDeleteProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (productId: string) => {
+      // First delete all metrics for this product
+      const { error: metricsError } = await supabase
+        .from('operational_metrics')
+        .delete()
+        .eq('product_id', productId);
+      if (metricsError) throw metricsError;
+
+      // Then delete the product
+      const { error } = await supabase
+        .from('operational_products')
+        .delete()
+        .eq('id', productId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['operational-products'] });
+      queryClient.invalidateQueries({ queryKey: ['operational-metrics'] });
+    },
+  });
+}
