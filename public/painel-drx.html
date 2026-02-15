@@ -17,11 +17,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        * { box-sizing: border-box; }
         body { 
             background-color: #020617; 
             color: #cbd5e1; 
             font-family: 'Inter', sans-serif; 
-            overflow: hidden; 
+            overflow: auto; 
+            margin: 0;
+            padding: 0;
         }
         
         /* Custom Scrollbar */
@@ -34,8 +37,9 @@
             background: rgba(15, 23, 42, 0.6); 
             backdrop-filter: blur(12px); 
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05); 
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4); 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+            border-radius: 0.75rem;
         }
 
         .animate-enter { animation: enter 0.4s ease-out forwards; }
@@ -57,7 +61,23 @@
         .role-section li { position: relative; padding-left: 1rem; margin-bottom: 0.25rem; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; }
         .role-section li::before { content: "•"; position: absolute; left: 0; color: #475569; }
         
-        .footer-input:focus-within { border-color: #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.1); }
+        .footer-input:focus-within { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.15); }
+
+        /* Mobile-first responsive fixes */
+        @media (max-width: 768px) {
+            .login-board-grid { grid-template-columns: repeat(2, 1fr) !important; }
+            .login-team-grid { grid-template-columns: 1fr !important; }
+            .login-wrapper { padding: 1rem !important; }
+            .login-title { font-size: 1.75rem !important; }
+            .workspace-header { padding: 0.75rem 1rem !important; }
+            .workspace-header nav { display: none !important; }
+            .workspace-mobile-nav { display: flex !important; }
+            .prep-grid { grid-template-columns: 1fr !important; }
+            .prep-details { max-height: none !important; }
+        }
+        @media (min-width: 769px) {
+            .workspace-mobile-nav { display: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -605,7 +625,36 @@
                 );
             }
             return (
-                <div className="min-h-screen bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-[#020617] p-8 flex flex-col items-center justify-center"><div className="max-w-6xl w-full animate-enter"><div className="text-center mb-10"><h1 className="text-4xl font-bold text-white tracking-tight mb-2">Painel DRX</h1><p className="text-slate-400">Sistema de Gestão de Fluxo & Responsabilidade</p></div><div className="mb-8"><h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2">Diretoria & Estratégia</h2><div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">{boardMembers.map(m => <Card key={m.id} member={m} />)}</div></div><div><h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2">Time Tático & Operacional</h2><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{teamMembers.map(m => <Card key={m.id} member={m} />)}</div></div></div></div>
+                <div className="min-h-screen bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-[#020617] p-4 md:p-8 flex flex-col items-center overflow-y-auto login-wrapper">
+                    <div className="max-w-5xl w-full animate-enter py-8">
+                        <div className="text-center mb-10">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-red-900/30">D</div>
+                                <div className="text-left">
+                                    <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight login-title">Painel DRX</h1>
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Operacional</p>
+                                </div>
+                            </div>
+                            <p className="text-slate-400 text-sm">Selecione seu perfil para acessar o workspace</p>
+                        </div>
+                        <div className="mb-8">
+                            <h2 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2 flex items-center gap-2">
+                                <Icon name="crown" className="w-3.5 h-3.5"/> Diretoria & Estratégia
+                            </h2>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 login-board-grid">
+                                {boardMembers.map(m => <Card key={m.id} member={m} />)}
+                            </div>
+                        </div>
+                        <div>
+                            <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2 flex items-center gap-2">
+                                <Icon name="users" className="w-3.5 h-3.5"/> Time Tático & Operacional
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 login-team-grid">
+                                {teamMembers.map(m => <Card key={m.id} member={m} />)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             );
         }
 
@@ -616,7 +665,46 @@
             const handleCheck = (index) => setChecks(prev => ({ ...prev, [index]: !prev[index] }));
             const allChecked = myChecklist.every((_, i) => checks[i]);
             return (
-                <div className="min-h-screen bg-[#020617] p-4 md:p-8 flex flex-col"><div className="flex items-center justify-between mb-6"><div className="flex items-center gap-4"><button onClick={onBack} className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"><Icon name="arrow-left" className="w-5 h-5" /></button><div><h2 className="text-xl font-bold text-white">{user.name}</h2><p className="text-slate-400 text-sm">{user.role}</p></div></div><Clock /></div><div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto w-full"><div className="lg:col-span-2 space-y-6 overflow-y-auto pr-2 pb-10" style={{maxHeight: 'calc(100vh - 120px)'}}>{myDetails ? (<><div className="glass-panel p-6 rounded-xl border-l-4 border-blue-500"><h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2"><Icon name="target" className="w-5 h-5 text-blue-500"/> Missão da Função</h3><p className="text-slate-300 leading-relaxed">{myDetails.mission}</p></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="glass-panel p-6 rounded-xl role-section"><h4><Icon name="shield-alert" className="w-4 h-4"/> Não Negociáveis</h4><ul>{myDetails.nonNegotiables.map((item, i) => <li key={i}>{item}</li>)}</ul></div><div className="glass-panel p-6 rounded-xl role-section"><h4><Icon name="ban" className="w-4 h-4 text-red-400"/> Limites Claros</h4><ul>{myDetails.limits.map((item, i) => <li key={i}>{item}</li>)}</ul></div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="glass-panel p-6 rounded-xl role-section"><h4><Icon name="check-circle-2" className="w-4 h-4 text-green-400"/> Decisões Permitidas</h4><ul>{myDetails.decisions.map((item, i) => <li key={i}>{item}</li>)}</ul></div><div className="glass-panel p-6 rounded-xl role-section"><h4><Icon name="user-check" className="w-4 h-4 text-purple-400"/> Expectativa de Comportamento</h4><ul>{myDetails.behavior.map((item, i) => <li key={i}>{item}</li>)}</ul></div></div></>) : (<div className="text-center text-slate-500 py-10">Carregando detalhes do cargo...</div>)}</div><div className="lg:col-span-1"><div className="glass-panel p-6 rounded-xl border border-slate-700 sticky top-4"><h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon name="list-checks" className="w-5 h-5 text-green-400"/> Ritual de Preparação</h3><div className="space-y-3 mb-6">{myChecklist.map((item, index) => (<label key={index} className="flex items-start gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-800/50 transition-colors custom-checkbox group border border-transparent hover:border-slate-700"><div className="relative pt-0.5"><input type="checkbox" className="hidden" checked={!!checks[index]} onChange={() => handleCheck(index)} /><div className="w-5 h-5 rounded border border-slate-500 flex items-center justify-center transition-all group-hover:border-blue-500 shrink-0"><Icon name="check" className="w-3.5 h-3.5 text-white hidden" /></div></div><span className={`text-sm leading-snug ${checks[index] ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{item}</span></label>))}</div><button onClick={onComplete} disabled={!allChecked} className={`w-full py-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${allChecked ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>{allChecked ? <><Icon name="arrow-right" className="w-5 h-5"/> Acessar Workspace</> : "Complete para Desbloquear"}</button></div></div></div></div>
+                <div className="min-h-screen bg-[#020617] p-4 md:p-8 flex flex-col overflow-y-auto">
+                    <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                        <div className="flex items-center gap-4">
+                            <button onClick={onBack} className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"><Icon name="arrow-left" className="w-5 h-5" /></button>
+                            <div><h2 className="text-xl font-bold text-white">{user.name}</h2><p className="text-slate-400 text-sm">{user.role}</p></div>
+                        </div>
+                        <Clock />
+                    </div>
+                    <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto w-full prep-grid">
+                        <div className="lg:col-span-2 space-y-6 overflow-y-auto pr-2 pb-10 prep-details" style={{maxHeight: 'calc(100vh - 120px)'}}>
+                            {myDetails ? (<>
+                                <div className="glass-panel p-6 rounded-xl border-l-4 border-blue-500"><h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2"><Icon name="target" className="w-5 h-5 text-blue-500"/> Missão da Função</h3><p className="text-slate-300 leading-relaxed">{myDetails.mission}</p></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="glass-panel p-5 rounded-xl role-section"><h4><Icon name="shield-alert" className="w-4 h-4"/> Não Negociáveis</h4><ul>{myDetails.nonNegotiables.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
+                                    <div className="glass-panel p-5 rounded-xl role-section"><h4><Icon name="ban" className="w-4 h-4 text-red-400"/> Limites Claros</h4><ul>{myDetails.limits.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="glass-panel p-5 rounded-xl role-section"><h4><Icon name="check-circle-2" className="w-4 h-4 text-green-400"/> Decisões Permitidas</h4><ul>{myDetails.decisions.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
+                                    <div className="glass-panel p-5 rounded-xl role-section"><h4><Icon name="user-check" className="w-4 h-4 text-purple-400"/> Expectativa de Comportamento</h4><ul>{myDetails.behavior.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
+                                </div>
+                            </>) : (<div className="text-center text-slate-500 py-10">Carregando detalhes do cargo...</div>)}
+                        </div>
+                        <div className="lg:col-span-1">
+                            <div className="glass-panel p-6 rounded-xl border border-slate-700 lg:sticky lg:top-4">
+                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon name="list-checks" className="w-5 h-5 text-green-400"/> Ritual de Preparação</h3>
+                                <div className="space-y-3 mb-6">
+                                    {myChecklist.map((item, index) => (
+                                        <label key={index} className="flex items-start gap-3 cursor-pointer p-3 rounded-lg hover:bg-slate-800/50 transition-colors custom-checkbox group border border-transparent hover:border-slate-700">
+                                            <div className="relative pt-0.5"><input type="checkbox" className="hidden" checked={!!checks[index]} onChange={() => handleCheck(index)} /><div className="w-5 h-5 rounded border border-slate-500 flex items-center justify-center transition-all group-hover:border-blue-500 shrink-0"><Icon name="check" className="w-3.5 h-3.5 text-white hidden" /></div></div>
+                                            <span className={`text-sm leading-snug ${checks[index] ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{item}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                <button onClick={onComplete} disabled={!allChecked} className={`w-full py-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${allChecked ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+                                    {allChecked ? <><Icon name="arrow-right" className="w-5 h-5"/> Acessar Workspace</> : "Complete para Desbloquear"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             );
         }
 
@@ -813,21 +901,35 @@
                     {view === 'prep' && currentUser && <DailyPrepScreen user={currentUser} onComplete={handlePrepComplete} onBack={handleLogout} />}
                     {view === 'workspace' && currentUser && (
                         <div className="flex h-screen flex-col bg-[#020617]">
-                            <header className="h-16 border-b border-slate-800 bg-[#0f172a] flex items-center justify-between px-6 shrink-0">
-                                <div className="flex items-center gap-6">
-                                    <div className="flex items-center gap-3"><div className="w-9 h-9 bg-gradient-to-br from-red-600 to-red-800 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-red-900/20">D</div><div><h1 className="font-bold text-white text-lg tracking-tight">DRX.OS</h1><p className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Operacional</p></div></div>
+                            <header className="border-b border-slate-800 bg-[#0f172a] flex items-center justify-between px-3 md:px-6 py-3 shrink-0 workspace-header">
+                                <div className="flex items-center gap-3 md:gap-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-blue-900/20 text-sm">D</div>
+                                        <div><h1 className="font-bold text-white text-sm md:text-lg tracking-tight">DRX.OS</h1><p className="text-[9px] md:text-[10px] text-slate-500 uppercase tracking-widest">Sistema Operacional</p></div>
+                                    </div>
                                     <nav className="hidden md:flex items-center gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
-                                        <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'workflow' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('workflow')}><Icon name="activity" className="w-3.5 h-3.5"/> Workflow</button>
-                                        
+                                        <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'workflow' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('workflow')}><Icon name="activity" className="w-3.5 h-3.5"/> Workflow</button>
                                         {!isSupervisor && <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'inbox' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('inbox')}><Icon name="inbox" className="w-3.5 h-3.5"/> Inbox {messages.filter(m => m.fromUser.id === currentUser.id && m.reply).length > 0 && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}</button>}
-                                        
-                                        <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'daily' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('daily')}><Icon name="sun" className="w-3.5 h-3.5"/> Daily</button>
+                                        <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'daily' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('daily')}><Icon name="sun" className="w-3.5 h-3.5"/> Daily</button>
                                     </nav>
                                 </div>
-                                <div className="flex items-center gap-6"><Clock /><div className="h-8 w-px bg-slate-800"></div><div className="flex items-center gap-3"><div className={`w-8 h-8 ${currentUser.color} rounded-lg flex items-center justify-center text-xs font-bold text-white shadow`}>{currentUser.avatar}</div><button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors"><Icon name="log-out" className="w-5 h-5" /></button></div></div>
+                                <div className="flex items-center gap-3 md:gap-6">
+                                    <div className="hidden md:block"><Clock /></div>
+                                    <div className="h-8 w-px bg-slate-800 hidden md:block"></div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-7 h-7 md:w-8 md:h-8 ${currentUser.color} rounded-lg flex items-center justify-center text-[10px] md:text-xs font-bold text-white shadow`}>{currentUser.avatar}</div>
+                                        <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors"><Icon name="log-out" className="w-4 h-4 md:w-5 md:h-5" /></button>
+                                    </div>
+                                </div>
                             </header>
+                            {/* Mobile Nav */}
+                            <div className="workspace-mobile-nav bg-[#0f172a] border-b border-slate-800 px-2 py-2 gap-1 overflow-x-auto">
+                                <button className={`px-3 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all whitespace-nowrap ${activeTab === 'workflow' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'}`} onClick={() => setActiveTab('workflow')}><Icon name="activity" className="w-3 h-3"/> Workflow</button>
+                                {!isSupervisor && <button className={`px-3 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all whitespace-nowrap ${activeTab === 'inbox' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'}`} onClick={() => setActiveTab('inbox')}><Icon name="inbox" className="w-3 h-3"/> Inbox</button>}
+                                <button className={`px-3 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all whitespace-nowrap ${activeTab === 'daily' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'}`} onClick={() => setActiveTab('daily')}><Icon name="sun" className="w-3 h-3"/> Daily</button>
+                            </div>
                             
-                            <main className="flex-1 overflow-hidden p-6 relative flex flex-col">
+                            <main className="flex-1 overflow-auto p-3 md:p-6 relative flex flex-col">
                                 {activeTab === 'daily' ? (
                                     <DailyView />
                                 ) : isSupervisor ? (
