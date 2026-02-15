@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, RefreshCw, FileSpreadsheet, MessageSquare, X, Send, ArrowUpCircle, ArrowDownCircle, Wallet, Calendar, BarChart3 } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, RefreshCw, FileSpreadsheet, MessageSquare, X, Send, ArrowUpCircle, ArrowDownCircle, Wallet, Calendar, BarChart3, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -234,6 +234,14 @@ export default function FinancialDashboard() {
           <Button onClick={handleRefresh} variant="outline" className="gap-2" disabled={refreshing}>
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Atualizando...' : 'Atualizar Dados'}
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => window.open('https://docs.google.com/spreadsheets/d/142zEXhlAYA22xGWIfNCAkzmgZEQ5-MaaOE2KJPH8b0c/edit', '_blank')}
+          >
+            <ExternalLink className="h-4 w-4" />
+            Abrir Planilha
           </Button>
           <Button onClick={() => setChatOpen(!chatOpen)} variant={chatOpen ? 'default' : 'outline'} className="gap-2">
             <MessageSquare className="h-4 w-4" />
