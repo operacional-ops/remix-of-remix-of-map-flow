@@ -94,7 +94,7 @@ export default function GodView() {
                     </div>
                     <p className="text-muted-foreground">
                       Para ver as tarefas deste membro, acesse a visão <strong>"Tudo"</strong> e filtre por responsável. 
-                      A integração com o kanban completo do MAP Flow permite acompanhar o fluxo em tempo real.
+                      A integração com o kanban completo do DRX Central permite acompanhar o fluxo em tempo real.
                     </p>
                   </div>
                 ) : (

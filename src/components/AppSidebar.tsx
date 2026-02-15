@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Eye, Inbox, ListChecks, GitBranch, Target, Activity, Monitor } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useTheme } from 'next-themes';
-import mapLogoLight from '@/assets/map-logo-light.png';
+import { ThemeLogo } from '@/components/ThemeLogo';
 import { useLocation } from 'react-router-dom';
 import {
   Sidebar,
@@ -105,8 +105,8 @@ export function AppSidebar() {
           {/* Logo + Nome - só quando expandido */}
           {!isCollapsed && (
             <div className="flex items-center gap-2">
-              <img src={mapLogoLight} alt="MAP Flow" className="h-8 w-8 object-contain" />
-              <span className="font-semibold text-sidebar-foreground">MAP Flow</span>
+              <ThemeLogo className="h-8 w-8 object-contain" />
+              <span className="font-semibold text-sidebar-foreground">DRX Central</span>
             </div>
           )}
           
