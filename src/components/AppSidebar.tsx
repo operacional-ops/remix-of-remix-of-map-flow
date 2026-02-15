@@ -45,6 +45,7 @@ const drxNavItems = [
   { title: 'Fluxogramas', url: '/fluxogramas', icon: GitBranch },
   { title: 'Matriz Decisões', url: '/matriz-decisoes', icon: Target },
   { title: 'Dashboard Operação', url: '/dashboard-operacao', icon: Activity },
+  { title: 'DRX Analytics', url: '/drx-analytics', icon: BarChart3 },
 ];
 
 export function AppSidebar() {
