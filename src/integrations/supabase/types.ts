@@ -1155,6 +1155,207 @@ export type Database = {
           },
         ]
       }
+      financial_budget: {
+        Row: {
+          abr: number | null
+          ago: number | null
+          codigo: string | null
+          created_at: string
+          dez: number | null
+          fev: number | null
+          id: string
+          jan: number | null
+          jul: number | null
+          jun: number | null
+          mai: number | null
+          mar: number | null
+          nivel1: string
+          nivel2: string | null
+          nov: number | null
+          out: number | null
+          set: number | null
+          total_anual: number | null
+          uploaded_by: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          abr?: number | null
+          ago?: number | null
+          codigo?: string | null
+          created_at?: string
+          dez?: number | null
+          fev?: number | null
+          id?: string
+          jan?: number | null
+          jul?: number | null
+          jun?: number | null
+          mai?: number | null
+          mar?: number | null
+          nivel1: string
+          nivel2?: string | null
+          nov?: number | null
+          out?: number | null
+          set?: number | null
+          total_anual?: number | null
+          uploaded_by?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          abr?: number | null
+          ago?: number | null
+          codigo?: string | null
+          created_at?: string
+          dez?: number | null
+          fev?: number | null
+          id?: string
+          jan?: number | null
+          jul?: number | null
+          jun?: number | null
+          mai?: number | null
+          mar?: number | null
+          nivel1?: string
+          nivel2?: string | null
+          nov?: number | null
+          out?: number | null
+          set?: number | null
+          total_anual?: number | null
+          uploaded_by?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
+      financial_cashbook: {
+        Row: {
+          banco_cartao: string | null
+          created_at: string
+          data: string
+          forma_pagamento: string | null
+          historico: string | null
+          id: string
+          nivel1: string
+          nivel2: string | null
+          observacoes: string | null
+          saldo_acumulado: number | null
+          tipo: string
+          uploaded_by: string | null
+          valor: number
+          workspace_id: string | null
+        }
+        Insert: {
+          banco_cartao?: string | null
+          created_at?: string
+          data: string
+          forma_pagamento?: string | null
+          historico?: string | null
+          id?: string
+          nivel1: string
+          nivel2?: string | null
+          observacoes?: string | null
+          saldo_acumulado?: number | null
+          tipo: string
+          uploaded_by?: string | null
+          valor?: number
+          workspace_id?: string | null
+        }
+        Update: {
+          banco_cartao?: string | null
+          created_at?: string
+          data?: string
+          forma_pagamento?: string | null
+          historico?: string | null
+          id?: string
+          nivel1?: string
+          nivel2?: string | null
+          observacoes?: string | null
+          saldo_acumulado?: number | null
+          tipo?: string
+          uploaded_by?: string | null
+          valor?: number
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
+      financial_payables: {
+        Row: {
+          banco_cartao: string | null
+          created_at: string
+          dias_vencer: number | null
+          forma_pagamento: string | null
+          fornecedor: string | null
+          historico: string | null
+          id: string
+          nivel1: string
+          nivel2: string | null
+          observacoes: string | null
+          status: string
+          uploaded_by: string | null
+          valor: number
+          vencimento: string
+          workspace_id: string | null
+        }
+        Insert: {
+          banco_cartao?: string | null
+          created_at?: string
+          dias_vencer?: number | null
+          forma_pagamento?: string | null
+          fornecedor?: string | null
+          historico?: string | null
+          id?: string
+          nivel1: string
+          nivel2?: string | null
+          observacoes?: string | null
+          status?: string
+          uploaded_by?: string | null
+          valor?: number
+          vencimento: string
+          workspace_id?: string | null
+        }
+        Update: {
+          banco_cartao?: string | null
+          created_at?: string
+          dias_vencer?: number | null
+          forma_pagamento?: string | null
+          fornecedor?: string | null
+          historico?: string | null
+          id?: string
+          nivel1?: string
+          nivel2?: string | null
+          observacoes?: string | null
+          status?: string
+          uploaded_by?: string | null
+          valor?: number
+          vencimento?: string
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
+      financial_uploads: {
+        Row: {
+          file_name: string
+          id: string
+          rows_imported: number | null
+          sheet_type: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          file_name: string
+          id?: string
+          rows_imported?: number | null
+          sheet_type: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          file_name?: string
+          id?: string
+          rows_imported?: number | null
+          sheet_type?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       folder_permissions: {
         Row: {
           created_at: string
