@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
     // Validate postback key (optional - only reject if both exist and mismatch)
     const paytKey = Deno.env.get('PAYT_POSTBACK_KEY');
-    const receivedKey = String(payload.chave_unica || payload.token || '').trim();
+    const receivedKey = String(payload.integration_key || payload.chave_unica || payload.token || '').trim();
     const queryToken = (new URL(req.url).searchParams.get('token') || '').trim();
 
     // Log for debugging
@@ -59,22 +59,35 @@ Deno.serve(async (req) => {
     // Get workspace_id from query params or use default
     const workspaceId = new URL(req.url).searchParams.get('workspace') || '1dc2a772-4acc-4a12-a86f-21ac77471460';
 
-    // Extract PAYT transaction data - handle various field name formats
-    const transactionId = String(payload.transaction || payload.transaction_id || payload.codigo_transacao || payload.id || '');
-    const status = mapPaytStatus(String(payload.status || payload.transaction_status || payload.status_transacao || ''));
-    const amount = parseNumber(payload.valor || payload.amount || payload.transaction_amount || payload.preco || 0);
-    const commission = parseNumber(payload.comissao || payload.commission || 0);
-    const netAmount = parseNumber(payload.valor_liquido || payload.net_amount || (amount - commission));
-    const customerName = String(payload.nome || payload.customer_name || payload.nome_completo || payload.comprador_nome || '');
-    const customerEmail = String(payload.email || payload.customer_email || payload.comprador_email || '');
-    const customerPhone = String(payload.telefone || payload.phone || payload.celular || payload.comprador_telefone || '');
-    const productName = String(payload.produto || payload.product_name || payload.prod_name || payload.nome_produto || '');
-    const productCode = String(payload.produto_codigo || payload.product_code || payload.prod_code || payload.codigo_produto || '');
-    const paymentMethod = String(payload.forma_pagamento || payload.payment_method || payload.metodo_pagamento || '');
+    // Extract PAYT transaction data - support nested format from real PAYT payloads
+    const customer = (payload.customer || {}) as Record<string, unknown>;
+    const product = (payload.product || {}) as Record<string, unknown>;
+    const transaction = (payload.transaction || {}) as Record<string, unknown>;
+    const commissionArr = (payload.commission || []) as Array<Record<string, unknown>>;
+
+    const transactionId = String(payload.transaction_id || payload.cart_id || payload.codigo_transacao || payload.id || '');
+    const status = mapPaytStatus(String(payload.status || (transaction.payment_status as string) || ''));
+    
+    // PAYT sends prices in cents (e.g. 133299 = R$ 1.332,99)
+    const rawAmount = parseNumber(transaction.total_price || payload.valor || payload.amount || 0);
+    const amount = rawAmount > 1000 ? rawAmount / 100 : rawAmount; // auto-detect cents
+    
+    // Sum commissions from array
+    const totalCommission = Array.isArray(commissionArr) 
+      ? commissionArr.reduce((s, c) => s + parseNumber(c.amount || 0), 0) / (rawAmount > 1000 ? 100 : 1)
+      : parseNumber(payload.comissao || payload.commission || 0);
+    const netAmount = amount - totalCommission;
+    
+    const customerName = String(customer.name || payload.nome || payload.customer_name || '');
+    const customerEmail = String(customer.email || payload.email || payload.customer_email || '');
+    const customerPhone = String(customer.phone || payload.telefone || payload.phone || '');
+    const productName = String(product.name || payload.produto || payload.product_name || '');
+    const productCode = String(product.code || payload.produto_codigo || payload.product_code || '');
+    const paymentMethod = String(transaction.payment_method || payload.forma_pagamento || payload.payment_method || '');
 
     // Determine paid_at / refunded_at
     const now = new Date().toISOString();
-    const paidAt = ['approved', 'completed', 'paid'].includes(status) ? (String(payload.data_pagamento || payload.paid_at || now)) : null;
+    const paidAt = ['approved', 'completed', 'paid'].includes(status) ? String(transaction.paid_at || payload.data_pagamento || now) : null;
     const refundedAt = ['refunded', 'chargeback'].includes(status) ? now : null;
 
     // Upsert transaction (update if same transaction_id exists)
@@ -91,7 +104,7 @@ Deno.serve(async (req) => {
           .update({
             status,
             amount,
-            commission,
+            commission: totalCommission,
             net_amount: netAmount,
             payment_method: paymentMethod,
             paid_at: paidAt,
@@ -115,7 +128,7 @@ Deno.serve(async (req) => {
             product_code: productCode || null,
             payment_method: paymentMethod || null,
             amount,
-            commission,
+            commission: totalCommission,
             net_amount: netAmount,
             paid_at: paidAt,
             refunded_at: refundedAt,
@@ -138,7 +151,7 @@ Deno.serve(async (req) => {
           product_code: productCode || null,
           payment_method: paymentMethod || null,
           amount,
-          commission,
+          commission: totalCommission,
           net_amount: netAmount,
           paid_at: paidAt,
           refunded_at: refundedAt,
