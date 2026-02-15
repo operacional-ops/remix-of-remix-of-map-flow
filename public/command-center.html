@@ -6,8 +6,8 @@
     <title>DRX | Command Center</title>
     
     <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -24,19 +24,25 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow: hidden; }
+        
+        /* SCROLLBAR */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
         
+        /* UI ELEMENTS */
         .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); }
-        .task-card { transition: transform 0.2s, box-shadow 0.2s; }
-        .task-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); z-index: 10; }
+        .task-card { transition: transform 0.2s, box-shadow 0.2s; cursor: grab; }
+        .task-card:active { cursor: grabbing; }
+        .task-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); z-index: 10; }
         
         .spinner { border: 3px solid rgba(255,255,255,0.1); border-left-color: #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* WHITEBOARD STYLES */
+
+        /* WHITEBOARD (MIND MAP) STYLES */
         .whiteboard-grid {
             background-color: #0f172a;
             background-image: radial-gradient(#334155 1px, transparent 1px);
@@ -45,26 +51,34 @@
         .wb-obj { position: absolute; transition: box-shadow 0.1s; user-select: none; }
         .wb-obj:hover { outline: 2px solid rgba(59, 130, 246, 0.5); }
         .wb-obj.selected { outline: 2px solid #2563eb; z-index: 50; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); }
-        
         .sticky-note { 
-            box-shadow: 2px 4px 6px rgba(0,0,0,0.1); 
-            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.2); 
+            font-family: 'Comic Sans MS', cursive, sans-serif; 
             display: flex; align-items: center; justify-content: center; 
-            text-align: center; padding: 10px; overflow: hidden; color: #1e293b;
+            text-align: center; padding: 12px; overflow: hidden; border-radius: 4px; color: #1e293b;
         }
         .text-obj { background: transparent; border: 1px solid transparent; padding: 4px; }
         .text-obj:hover { border: 1px dashed #cbd5e1; }
-        
-        .frame-obj { border: 2px dashed #94a3b8; background: rgba(255,255,255,0.05); pointer-events: none; }
+        .frame-obj { border: 2px dashed #94a3b8; background: rgba(255,255,255,0.03); pointer-events: none; }
         .frame-obj .frame-label { position: absolute; top: -24px; left: 0; font-size: 12px; color: #94a3b8; font-weight: bold; pointer-events: auto; }
-        
-        .cursor-pen { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 0 24, auto; }
+        .cursor-pen { cursor: crosshair; }
+
+        /* ANIMATIONS */
+        .animate-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        /* MODAL */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); transition: all 0.2s; }
+        .btn-primary:hover { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
     </style>
 </head>
 <body class="dark">
-    <div id="root"></div>
+    <div id="root" class="h-screen w-screen"></div>
 
     <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
         // --- CONFIGURAÇÃO FIREBASE ---
         const firebaseConfig = {
           apiKey: "AIzaSyDylH6geJHzs1xZBhxZ7fnBLEbeKopB9nA",
@@ -76,17 +90,17 @@
           measurementId: "G-3XCRGNQQSY"
         };
 
+        let auth, db;
         try {
             if (!firebase.apps.length) {
                 firebase.initializeApp(firebaseConfig);
             }
+            auth = firebase.auth();
+            db = firebase.firestore();
         } catch (e) {
             console.error("Erro Firebase Init:", e);
         }
         
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-
         const COLLECTION_NAME = "drx_tasks_v1";
         const EXPERTS_COLLECTION = "drx_experts_v1";
         const MINDMAP_COLLECTION = "drx_mindmaps_v1";
@@ -153,40 +167,47 @@
         const DEFAULT_EXPERTS = ['Pedro Cavassis', 'Arthur César', 'Brandon Cantuária', 'DRX'];
 
         const getTaskType = (type) => TYPES[type] || TYPES['reels'];
-        const formatDateShort = (dateStr) => dateStr ? dateStr.split('-').reverse().slice(0,2).join('/') : '--/--';
+        const formatDateShort = (dateStr) => {
+            if (!dateStr) return '--/--';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+            return '--/--';
+        };
 
         // --- COMPONENTE ICON ---
         const Icon = ({ name, className, ...props }) => {
-            const ref = React.useRef(null);
-            React.useEffect(() => {
+            const ref = useRef(null);
+            useEffect(() => {
                 if (ref.current && window.lucide) {
                     const i = document.createElement('i');
                     i.setAttribute('data-lucide', name);
                     if (className) i.className = className;
                     ref.current.innerHTML = '';
                     ref.current.appendChild(i);
-                    window.lucide.createIcons({ root: ref.current, nameAttr: 'data-lucide' });
+                    try { window.lucide.createIcons({ root: ref.current, nameAttr: 'data-lucide' }); } catch (e) {}
                 }
             }, [name, className]); 
-            return <span ref={ref} style={{ display: 'contents' }}></span>;
+            return <span ref={ref} style={{ display: 'inline-flex', alignItems: 'center' }} {...props}></span>;
         };
 
-        // --- COMPONENTE WORKFLOW AI (VSL GENERATOR) ---
+        // --- VIEW: WORKFLOW AI (VSL) ---
         function WorkflowView() {
-            const [step, setStep] = React.useState(1);
-            const [productData, setProductData] = React.useState({ niche: '', product: '', target: '' });
-            const [generatedScenes, setGeneratedScenes] = React.useState([]);
-            const [isGenerating, setIsGenerating] = React.useState(false);
+            const [step, setStep] = useState(1);
+            const [productData, setProductData] = useState({ niche: '', product: '', target: '' });
+            const [generatedScenes, setGeneratedScenes] = useState([]);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [copied, setCopied] = useState(null);
 
             const handleGeneratePrompts = () => {
-                if(!productData.product) return alert("Preencha o nome do produto!");
+                if(!productData.product) return alert("❌ Preencha o nome do produto!");
                 setIsGenerating(true);
                 setTimeout(() => {
                     const mockScenes = [
                         { id: 1, text: "Close-up cinematográfico do produto flutuando em gravidade zero, iluminação dramática.", status: 'pending' },
-                        { id: 2, text: "Pessoa usando o produto em um ambiente luxuoso, sorriso natural, câmera lenta.", status: 'pending' },
-                        { id: 3, text: "Explosão de partículas douradas revelando a logo da marca.", status: 'pending' },
-                        { id: 4, text: "Drone view de uma paisagem urbana futurista com o produto em destaque num outdoor holográfico.", status: 'pending' }
+                        { id: 2, text: "Pessoa usando o produto em um ambiente luxuoso e moderno, sorriso natural e confiante.", status: 'pending' },
+                        { id: 3, text: "Explosão de partículas douradas e brilhantes revelando a logo da marca em 3D.", status: 'pending' },
+                        { id: 4, text: "Drone view aéreo de uma paisagem urbana futurista ao entardecer com o produto em destaque.", status: 'pending' },
+                        { id: 5, text: "Transição rápida mostrando benefícios do produto com motion graphics elegante.", status: 'pending' }
                     ];
                     setGeneratedScenes(mockScenes);
                     setIsGenerating(false);
@@ -194,147 +215,75 @@
                 }, 2000);
             };
 
-            const copyPrompt = (text) => {
-                const prompt = `Hyper-realistic cinematic shot, 8k resolution, highly detailed: ${text} --ar 9:16`;
+            const copyPrompt = (text, id) => {
+                const prompt = `Hyper-realistic cinematic shot, 8k HDR, professional color grading: ${text} --ar 9:16 --style raw --q 2`;
                 navigator.clipboard.writeText(prompt);
-                alert("Prompt copiado! Cole no Freepik/Midjourney.");
+                setCopied(id);
+                setTimeout(() => setCopied(null), 2000);
             };
 
             return (
                 <div className="h-full flex flex-col p-6 overflow-y-auto">
                     <div className="max-w-5xl mx-auto w-full">
-                        <div className="mb-8 text-center">
-                            <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500">
-                                VSL Factory (Kling + Topaz)
-                            </h2>
-                            <p className="text-slate-400 mt-2">Workflow automatizado para criar vídeos virais de alta conversão.</p>
+                        <div className="text-center mb-8">
+                            <h2 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 mb-2">🎬 VSL Factory AI</h2>
+                            <p className="text-slate-400">Workflow: Conceito → Freepik/Nano → Kling AI → Topaz → CapCut</p>
                         </div>
-
-                        {/* STEPS */}
-                        <div className="flex justify-between mb-8 relative">
-                            <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-700 -z-10 rounded"></div>
-                            {[1, 2, 3, 4].map(s => (
-                                <div key={s} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-4 transition-all ${step >= s ? 'bg-blue-600 border-blue-900 text-white' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
-                                    {s}
+                        
+                        <div className="flex justify-between mb-10 relative max-w-2xl mx-auto">
+                            <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-700 -z-10 rounded transform -translate-y-1/2"></div>
+                            {[{num:1, l:'Conceito'}, {num:2, l:'Prompts'}, {num:3, l:'Animação'}, {num:4, l:'Edição'}].map(s => (
+                                <div key={s.num} className="flex flex-col items-center">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold border-4 transition-all ${step >= s.num ? 'bg-blue-600 border-blue-900 text-white' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>{s.num}</div>
+                                    <span className="text-xs text-slate-500 mt-2">{s.l}</span>
                                 </div>
                             ))}
                         </div>
 
-                        {/* STEP 1: CONCEITO */}
                         {step === 1 && (
-                            <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-bottom-4">
-                                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Icon name="brain-circuit" className="w-6 h-6 text-blue-400"/> 1. Definição do Conceito</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-400 mb-2">Nicho / Mercado</label>
-                                        <input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none" placeholder="Ex: Estética Automotiva, Dropshipping..." value={productData.niche} onChange={e=>setProductData({...productData, niche: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-400 mb-2">Nome do Produto</label>
-                                        <input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none" placeholder="Ex: UltraShine Wax" value={productData.product} onChange={e=>setProductData({...productData, product: e.target.value})} />
-                                    </div>
-                                    <div className="col-span-1 md:col-span-2">
-                                        <label className="block text-sm font-bold text-slate-400 mb-2">Público Alvo & Vibe</label>
-                                        <textarea className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white h-24 focus:border-blue-500 outline-none" placeholder="Ex: Homens 25-45 anos, apaixonados por carros. Vibe luxuosa, dark, cinematográfica." value={productData.target} onChange={e=>setProductData({...productData, target: e.target.value})} />
-                                    </div>
+                            <div className="glass-panel p-8 rounded-2xl animate-in">
+                                <h3 className="text-2xl font-bold text-white mb-6 flex gap-2"><Icon name="target" className="w-6 h-6 text-blue-400"/> Definição do Conceito</h3>
+                                <div className="space-y-5">
+                                    <div><label className="text-sm font-bold text-slate-300 block mb-2">Nicho</label><input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white" value={productData.niche} onChange={e=>setProductData({...productData, niche: e.target.value})} placeholder="Ex: Estética Automotiva" /></div>
+                                    <div><label className="text-sm font-bold text-slate-300 block mb-2">Produto</label><input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white" value={productData.product} onChange={e=>setProductData({...productData, product: e.target.value})} placeholder="Ex: Cera Premium" /></div>
+                                    <div><label className="text-sm font-bold text-slate-300 block mb-2">Público & Vibe</label><textarea className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white h-24" value={productData.target} onChange={e=>setProductData({...productData, target: e.target.value})} placeholder="Homens, 25-45 anos. Vibe dark, luxuosa, cinematográfica." /></div>
                                 </div>
-                                <div className="mt-8 flex justify-end">
-                                    <button onClick={handleGeneratePrompts} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-transform hover:scale-105">
-                                        {isGenerating ? <div className="spinner w-5 h-5 border-white"></div> : <Icon name="wand-2" className="w-5 h-5" />}
-                                        Gerar Roteiro & Prompts
-                                    </button>
-                                </div>
+                                <button onClick={handleGeneratePrompts} disabled={isGenerating} className="mt-8 px-8 py-4 btn-primary text-white font-bold rounded-xl w-full flex items-center justify-center gap-3 disabled:opacity-50">
+                                    {isGenerating ? <><div className="spinner"></div> Gerando...</> : <><Icon name="wand-2" className="w-5 h-5"/> Gerar Roteiro com IA</>}
+                                </button>
                             </div>
                         )}
 
-                        {/* STEP 2: GERAÇÃO DE IMAGENS */}
                         {step === 2 && (
-                            <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-right-8">
-                                <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2"><Icon name="image" className="w-6 h-6 text-green-400"/> 2. Geração de Assets (Freepik/Gemini)</h3>
-                                <p className="text-slate-400 mb-6 text-sm">Copie os prompts abaixo e gere as imagens no seu modelo de preferência.</p>
-                                
+                            <div className="glass-panel p-8 rounded-2xl animate-in">
+                                <h3 className="text-2xl font-bold text-white mb-6 flex gap-2"><Icon name="sparkles" className="w-6 h-6 text-purple-400"/> Prompts Gerados</h3>
                                 <div className="space-y-4 mb-8">
                                     {generatedScenes.map((scene, idx) => (
-                                        <div key={scene.id} className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl flex gap-4 items-start group hover:border-blue-500/50 transition-colors">
-                                            <div className="bg-slate-900 w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold text-slate-500">{idx+1}</div>
+                                        <div key={scene.id} className="bg-slate-800/50 p-5 rounded-xl border border-slate-700 flex gap-4">
                                             <div className="flex-1">
-                                                <p className="text-slate-300 text-sm mb-2 italic">"{scene.text}"</p>
-                                                <div className="bg-slate-950 p-3 rounded border border-slate-800 text-xs font-mono text-green-400 flex justify-between items-center">
-                                                    <span className="truncate mr-4">Hyper-realistic cinematic shot, 8k resolution: {scene.text} --ar 9:16</span>
-                                                    <button onClick={() => copyPrompt(scene.text)} className="text-slate-400 hover:text-white"><Icon name="copy" className="w-4 h-4"/></button>
-                                                </div>
+                                                <div className="flex items-center gap-2 mb-2"><span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded">Cena {idx + 1}</span></div>
+                                                <p className="text-slate-300 text-sm">{scene.text}</p>
                                             </div>
-                                            <div className="flex flex-col gap-2">
-                                                <a href="https://www.freepik.com/pikaso/ai-image-generator" target="_blank" className="p-2 bg-blue-600/20 text-blue-400 rounded hover:bg-blue-600/40 text-xs font-bold text-center">Freepik</a>
-                                                <input type="checkbox" className="w-6 h-6 rounded border-slate-600 bg-slate-900 cursor-pointer" />
-                                            </div>
+                                            <button onClick={()=>copyPrompt(scene.text, scene.id)} className="p-3 bg-blue-600 hover:bg-blue-500 rounded-lg"><Icon name={copied === scene.id ? "check" : "copy"} className="w-5 h-5 text-white" /></button>
                                         </div>
                                     ))}
                                 </div>
-                                <div className="flex justify-between">
-                                    <button onClick={() => setStep(1)} className="text-slate-400 hover:text-white">Voltar</button>
-                                    <button onClick={() => setStep(3)} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center gap-2">Próximo: Animar <Icon name="arrow-right" className="w-5 h-5"/></button>
+                                <div className="flex justify-between pt-6 border-t border-slate-700">
+                                    <button onClick={()=>setStep(1)} className="text-slate-400 hover:text-white flex gap-2"><Icon name="arrow-left" className="w-4 h-4"/> Voltar</button>
+                                    <button onClick={()=>setStep(3)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-bold flex gap-2">Próximo <Icon name="arrow-right" className="w-4 h-4"/></button>
                                 </div>
                             </div>
                         )}
-
-                        {/* STEP 3: ANIMAÇÃO (KLING) */}
-                        {step === 3 && (
-                            <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-right-8">
-                                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Icon name="film" className="w-6 h-6 text-purple-400"/> 3. Animação (Kling AI)</h3>
-                                <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-xl mb-6 flex gap-4 items-center">
-                                    <div className="p-3 bg-purple-600 rounded-lg"><Icon name="zap" className="w-6 h-6 text-white"/></div>
-                                    <div>
-                                        <h4 className="font-bold text-white">Instruções Kling 2.6</h4>
-                                        <p className="text-sm text-purple-200">Use o modo "Image to Video". Upload da imagem gerada no passo anterior. Ajuste "Motion" para 5.0 para movimentos suaves.</p>
-                                    </div>
-                                    <a href="https://kling.kuaishou.com/" target="_blank" className="ml-auto px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg">Abrir Kling AI</a>
+                        
+                        {(step === 3 || step === 4) && (
+                            <div className="glass-panel p-8 rounded-2xl text-center animate-in">
+                                <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center mx-auto mb-6"><Icon name="check" className="w-8 h-8 text-white"/></div>
+                                <h3 className="text-2xl font-bold text-white mb-4">Próximos Passos</h3>
+                                <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
+                                    <a href="https://kling.kuaishou.com/" target="_blank" className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-purple-500 transition block"><div className="text-3xl mb-2">🎬</div><h4 className="font-bold text-white">Animar no Kling AI</h4><p className="text-sm text-slate-400">Image to Video (Motion 5.0)</p></a>
+                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700"><div className="text-3xl mb-2">✨</div><h4 className="font-bold text-white">Upscale (Topaz)</h4><p className="text-sm text-slate-400">Melhorar para 4K 60fps</p></div>
                                 </div>
-
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {generatedScenes.map((scene, idx) => (
-                                        <div key={scene.id} className="aspect-[9/16] bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center p-4 text-center hover:border-purple-500/50 transition-colors">
-                                            <span className="text-xs text-slate-500 mb-2">Cena {idx+1}</span>
-                                            <Icon name="upload-cloud" className="w-8 h-8 text-slate-600 mb-2"/>
-                                            <p className="text-[10px] text-slate-400">Arraste o vídeo gerado aqui (Placeholder)</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="mt-8 flex justify-between">
-                                    <button onClick={() => setStep(2)} className="text-slate-400 hover:text-white">Voltar</button>
-                                    <button onClick={() => setStep(4)} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center gap-2">Próximo: Upscale <Icon name="arrow-right" className="w-5 h-5"/></button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* STEP 4: UPSCALE & EDIT */}
-                        {step === 4 && (
-                            <div className="glass-panel p-8 rounded-2xl animate-in fade-in slide-in-from-right-8 text-center">
-                                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                    <Icon name="check-circle" className="w-10 h-10 text-green-400"/>
-                                </div>
-                                <h3 className="text-2xl font-bold text-white mb-2">Produção Finalizada!</h3>
-                                <p className="text-slate-400 mb-8 max-w-md mx-auto">Agora passe os vídeos pelo Topaz Labs para qualidade 4K e monte a edição final no CapCut sincronizando com a música.</p>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
-                                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-yellow-600 rounded flex items-center justify-center text-white font-bold">T</div>
-                                        <div className="text-left">
-                                            <h4 className="font-bold text-white">Topaz Video AI</h4>
-                                            <p className="text-xs text-slate-400">Upscale para 4K 60fps</p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-black border border-white/20 rounded flex items-center justify-center text-white font-bold">C</div>
-                                        <div className="text-left">
-                                            <h4 className="font-bold text-white">CapCut Desktop</h4>
-                                            <p className="text-xs text-slate-400">Cortes, Legendas e Áudio</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button onClick={() => {setStep(1); setGeneratedScenes([]); setProductData({niche:'',product:'',target:''})}} className="text-blue-400 hover:text-blue-300 underline">Criar Nova VSL</button>
+                                <button onClick={()=>{setStep(1); setProductData({niche:'',product:'',target:''}); setGeneratedScenes([]);}} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold flex items-center gap-2 mx-auto"><Icon name="refresh-cw" className="w-4 h-4"/> Nova VSL</button>
                             </div>
                         )}
                     </div>
@@ -342,47 +291,38 @@
             );
         }
 
-        // --- COMPONENTE MIND MAP EVOLUÍDO ---
-        function MindMapView({ user }) {
-            const [maps, setMaps] = React.useState([]);
-            const [currentMap, setCurrentMap] = React.useState(null);
-            
-            const [nodes, setNodes] = React.useState([]); // Post-its, Textos, Frames, Comentários
-            const [edges, setEdges] = React.useState([]); // Linhas de conexão
-            const [drawings, setDrawings] = React.useState([]); // Desenhos à mão livre
-            
-            const [view, setView] = React.useState({ x: 0, y: 0, scale: 1 });
-            const [isDraggingCanvas, setIsDraggingCanvas] = React.useState(false);
-            const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
-            
-            const [selectedId, setSelectedId] = React.useState(null);
-            const [activeTool, setActiveTool] = React.useState('cursor');
-            
-            const [drawingPath, setDrawingPath] = React.useState(null);
-            const [connectionStart, setConnectionStart] = React.useState(null);
-            const [isEditingText, setIsEditingText] = React.useState(null);
-            const [nodeDrag, setNodeDrag] = React.useState(null);
-            
-            const [loadingMap, setLoadingMap] = React.useState(false);
+        // --- VIEW: MIND MAP AVANÇADO (MIRO STYLE) ---
+        function MindMapView() {
+            const [maps, setMaps] = useState([]);
+            const [currentMap, setCurrentMap] = useState(null);
+            const [nodes, setNodes] = useState([]);
+            const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
+            const [activeTool, setActiveTool] = useState('cursor');
+            const [selectedId, setSelectedId] = useState(null);
+            const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
+            const [isDraggingNode, setIsDraggingNode] = useState(false);
+            const [dragStart, setDragStart] = useState({x:0, y:0});
+            const [dragNodeId, setDragNodeId] = useState(null);
+            const [loadingMap, setLoadingMap] = useState(false);
 
-            // Carregar lista de mapas
-            React.useEffect(() => {
-                const unsubscribe = db.collection(MINDMAP_COLLECTION).orderBy('createdAt', 'desc').onSnapshot(snap => {
-                    setMaps(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                });
-                return () => unsubscribe();
+            // Carregar Mapas
+            useEffect(() => {
+                if(db) {
+                    const unsubscribe = db.collection(MINDMAP_COLLECTION).orderBy('createdAt', 'desc').onSnapshot(snap => {
+                        setMaps(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    });
+                    return () => unsubscribe();
+                }
             }, []);
 
-            // Salvar automaticamente (Debounce)
-            React.useEffect(() => {
-                if (!currentMap || loadingMap) return;
+            // Salvar Nós (Auto-Save)
+            useEffect(() => {
+                if (!currentMap || loadingMap || !db) return;
                 const timer = setTimeout(() => {
-                    db.collection(MINDMAP_COLLECTION).doc(currentMap.id).update({ 
-                        nodes, edges, drawings, updatedAt: new Date().toISOString() 
-                    });
+                    db.collection(MINDMAP_COLLECTION).doc(currentMap.id).update({ nodes, updatedAt: new Date().toISOString() });
                 }, 1000);
                 return () => clearTimeout(timer);
-            }, [nodes, edges, drawings, currentMap]);
+            }, [nodes, currentMap]);
 
             // CRUD Mapas
             const createNewMap = async () => {
@@ -390,72 +330,70 @@
                 if (!name) return;
                 setLoadingMap(true);
                 try {
-                    const newMap = { name, createdAt: new Date().toISOString(), nodes: [], edges: [], drawings: [] };
+                    const newMap = { name, createdAt: new Date().toISOString(), nodes: [] };
                     const docRef = await db.collection(MINDMAP_COLLECTION).add(newMap);
                     openMap({ id: docRef.id, ...newMap });
-                } catch (error) { alert("Erro: " + error.message); } finally { setLoadingMap(false); }
-            };
-
-            const deleteMap = async (e, mapId) => {
-                e.stopPropagation();
-                if (!confirm("Tem certeza que deseja EXCLUIR este quadro?")) return;
-                try { await db.collection(MINDMAP_COLLECTION).doc(mapId).delete(); } catch (err) { alert("Erro: " + err.message); }
-            };
-
-            const duplicateMap = async (e, map) => {
-                e.stopPropagation();
-                if (!confirm("Duplicar este quadro?")) return;
-                try {
-                    const { id, ...data } = map;
-                    await db.collection(MINDMAP_COLLECTION).add({ ...data, name: data.name + " (Cópia)", createdAt: new Date().toISOString() });
-                } catch (err) { alert("Erro: " + err.message); }
+                } catch (e) { alert("Erro ao criar: " + e.message); } finally { setLoadingMap(false); }
             };
 
             const openMap = (map) => {
                 setLoadingMap(true);
                 setCurrentMap(map);
                 setNodes(map.nodes || []);
-                setEdges(map.edges || []);
-                setDrawings(map.drawings || []);
-                setView({ x: window.innerWidth / 2 - 400, y: window.innerHeight / 2 - 300, scale: 1 });
+                setView({ x: window.innerWidth/2 - 200, y: window.innerHeight/2 - 200, scale: 1 });
                 setLoadingMap(false);
             };
 
-            // INTERAÇÕES CANVAS
-            const getWorldPos = (e) => ({
-                x: (e.clientX - view.x) / view.scale,
-                y: (e.clientY - view.y) / view.scale
-            });
+            const deleteMap = async (e, id) => {
+                e.stopPropagation();
+                if(confirm("Excluir este quadro permanentemente?")) {
+                    await db.collection(MINDMAP_COLLECTION).doc(id).delete();
+                }
+            };
+            
+            const duplicateMap = async (e, map) => {
+                e.stopPropagation();
+                if(confirm("Duplicar este quadro?")) {
+                    const {id, ...data} = map;
+                    await db.collection(MINDMAP_COLLECTION).add({...data, name: data.name + " (Cópia)", createdAt: new Date().toISOString()});
+                }
+            };
+
+            // Canvas Logic
+            const createObject = (type, x, y) => {
+                const id = Math.random().toString(36).substr(2, 9);
+                let newNode = { id, x, y, type };
+                if (type === 'sticky') newNode = { ...newNode, text: '', color: '#fef3c7', width: 200, height: 200 };
+                else if (type === 'text') newNode = { ...newNode, text: 'Novo Texto', color: 'transparent', fontSize: 24 };
+                else if (type === 'frame') newNode = { ...newNode, text: 'Frame', width: 400, height: 300, zIndex: -1 };
+                setNodes(prev => [...prev, newNode]);
+                setSelectedId(id);
+                setActiveTool('cursor');
+            };
 
             const handleMouseDown = (e) => {
-                const { x, y } = getWorldPos(e);
-                if (e.button === 2 || activeTool === 'cursor') {
-                    if (!e.target.closest('.wb-obj') && !e.target.closest('.control-btn')) {
-                        setIsDraggingCanvas(true);
-                        setDragStart({ x: e.clientX, y: e.clientY, origViewX: view.x, origViewY: view.y });
-                        return;
-                    }
-                }
-                if (activeTool !== 'cursor') {
-                    if (activeTool === 'pen') {
-                        setDrawingPath({ id: Math.random().toString(36), points: [{x, y}], color: '#ef4444', width: 3 });
-                    } else if (activeTool === 'line') {
-                        const target = e.target.closest('.wb-obj');
-                        setConnectionStart({ x, y, startId: target ? target.dataset.id : null });
-                    } else {
-                        createObject(activeTool, x, y);
-                        setActiveTool('cursor');
-                    }
+                // Ferramenta Mover Canvas
+                if (activeTool === 'cursor' && (e.button === 2 || e.target.classList.contains('whiteboard-grid'))) {
+                    setIsDraggingCanvas(true);
+                    setDragStart({ x: e.clientX, y: e.clientY, origViewX: view.x, origViewY: view.y });
                     return;
                 }
+                // Ferramentas de Criação
+                if (activeTool !== 'cursor') {
+                    const x = (e.clientX - view.x) / view.scale;
+                    const y = (e.clientY - view.y) / view.scale;
+                    createObject(activeTool, x, y);
+                    return;
+                }
+                // Selecionar Nó
                 const target = e.target.closest('.wb-obj');
                 if (target) {
                     const id = target.dataset.id;
                     setSelectedId(id);
                     const node = nodes.find(n => n.id === id);
-                    if (node && node.type !== 'line') {
-                        setNodeDrag({ id, startX: e.clientX, startY: e.clientY, origX: node.x, origY: node.y });
-                    }
+                    setDragNodeId(id);
+                    setIsDraggingNode(true);
+                    setDragStart({ x: e.clientX, y: e.clientY, origNodeX: node.x, origNodeY: node.y });
                     e.stopPropagation();
                 } else {
                     setSelectedId(null);
@@ -463,33 +401,21 @@
             };
 
             const handleMouseMove = (e) => {
-                const { x, y } = getWorldPos(e);
                 if (isDraggingCanvas) {
                     const dx = e.clientX - dragStart.x;
                     const dy = e.clientY - dragStart.y;
                     setView(prev => ({ ...prev, x: dragStart.origViewX + dx, y: dragStart.origViewY + dy }));
-                }
-                if (drawingPath) setDrawingPath(prev => ({ ...prev, points: [...prev.points, {x, y}] }));
-                if (nodeDrag) {
-                    const dx = (e.clientX - nodeDrag.startX) / view.scale;
-                    const dy = (e.clientY - nodeDrag.startY) / view.scale;
-                    setNodes(prev => prev.map(n => n.id === nodeDrag.id ? { ...n, x: nodeDrag.origX + dx, y: nodeDrag.origY + dy } : n));
+                } else if (isDraggingNode && dragNodeId) {
+                    const dx = (e.clientX - dragStart.x) / view.scale;
+                    const dy = (e.clientY - dragStart.y) / view.scale;
+                    setNodes(prev => prev.map(n => n.id === dragNodeId ? { ...n, x: dragStart.origNodeX + dx, y: dragStart.origNodeY + dy } : n));
                 }
             };
 
-            const handleMouseUp = (e) => {
-                if (drawingPath) { setDrawings(prev => [...prev, drawingPath]); setDrawingPath(null); }
-                if (connectionStart) {
-                    const target = e.target.closest('.wb-obj');
-                    const endId = target ? target.dataset.id : null;
-                    if (connectionStart.startId && endId && connectionStart.startId !== endId) {
-                        setEdges(prev => [...prev, { id: Math.random().toString(36), from: connectionStart.startId, to: endId }]);
-                    }
-                    setConnectionStart(null);
-                    setActiveTool('cursor');
-                }
+            const handleMouseUp = () => {
                 setIsDraggingCanvas(false);
-                setNodeDrag(null);
+                setIsDraggingNode(false);
+                setDragNodeId(null);
             };
 
             const handleWheel = (e) => {
@@ -503,130 +429,36 @@
                 }
             };
 
-            const createObject = (type, x, y) => {
-                const id = Math.random().toString(36).substr(2, 9);
-                let newNode = { id, x, y, type };
-                if (type === 'sticky') newNode = { ...newNode, text: '', color: '#fef3c7', width: 160, height: 160 };
-                else if (type === 'text') newNode = { ...newNode, text: 'Novo Texto', color: 'transparent', fontSize: 24 };
-                else if (type === 'frame') newNode = { ...newNode, text: 'Novo Frame', width: 400, height: 300, zIndex: -1 };
-                else if (type === 'comment') newNode = { ...newNode, text: 'Comentário...', width: 32, height: 32, color: '#ef4444' };
-                setNodes(prev => [...prev, newNode]);
-                setSelectedId(id);
-                if(type === 'sticky' || type === 'text') setTimeout(() => setIsEditingText(id), 50);
-            };
-
             const deleteSelected = () => {
-                if (!selectedId) return;
-                setNodes(prev => prev.filter(n => n.id !== selectedId));
-                setEdges(prev => prev.filter(e => e.from !== selectedId && e.to !== selectedId));
-                setSelectedId(null);
-            };
-
-            React.useEffect(() => {
-                const handleKeyDown = (e) => {
-                    if (isEditingText || !currentMap) return;
-                    if (e.key.toLowerCase() === 'v') setActiveTool('cursor');
-                    if (e.key.toLowerCase() === 'n') setActiveTool('sticky');
-                    if (e.key.toLowerCase() === 't') setActiveTool('text');
-                    if (e.key.toLowerCase() === 'l') setActiveTool('line');
-                    if (e.key.toLowerCase() === 'p') setActiveTool('pen');
-                    if (e.key.toLowerCase() === 'f') setActiveTool('frame');
-                    if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
-                };
-                window.addEventListener('keydown', handleKeyDown);
-                return () => window.removeEventListener('keydown', handleKeyDown);
-            }, [currentMap, selectedId, isEditingText]);
-
-            // Renderização
-            const renderEdges = () => {
-                return edges.map(edge => {
-                    const fromNode = nodes.find(n => n.id === edge.from);
-                    const toNode = nodes.find(n => n.id === edge.to);
-                    if (!fromNode || !toNode) return null;
-                    const startX = fromNode.x + (fromNode.width || 100)/2;
-                    const startY = fromNode.y + (fromNode.height || 50)/2;
-                    const endX = toNode.x + (toNode.width || 100)/2;
-                    const endY = toNode.y + (toNode.height || 50)/2;
-                    return <line key={edge.id} x1={startX} y1={startY} x2={endX} y2={endY} stroke="#64748b" strokeWidth="2" markerEnd="url(#arrowhead)" />;
-                });
-            };
-
-            const renderDrawings = () => {
-                return [...drawings, drawingPath].filter(Boolean).map(d => {
-                    if (d.points.length < 2) return null;
-                    const pathData = `M ${d.points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
-                    return <path key={d.id} d={pathData} stroke={d.color} strokeWidth={d.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
-                });
-            };
-
-            const renderNode = (node) => {
-                const isSelected = node.id === selectedId;
-                if (node.type === 'sticky') {
-                    return (
-                        <div key={node.id} data-id={node.id} className={`wb-obj sticky-note ${isSelected ? 'selected' : ''}`} style={{ left: node.x, top: node.y, width: node.width, height: node.height, backgroundColor: node.color, transform: isSelected ? 'scale(1.02)' : 'rotate(-1deg)' }} onDoubleClick={() => setIsEditingText(node.id)}>
-                            {isEditingText === node.id ? (
-                                <textarea autoFocus className="w-full h-full bg-transparent outline-none resize-none text-center" value={node.text} onChange={e => setNodes(nodes.map(n => n.id===node.id ? {...n, text: e.target.value} : n))} onBlur={() => setIsEditingText(null)} />
-                            ) : (
-                                <span className="pointer-events-none break-words w-full">{node.text || <span className="opacity-30">Digite...</span>}</span>
-                            )}
-                        </div>
-                    );
-                }
-                if (node.type === 'text') {
-                    return (
-                        <div key={node.id} data-id={node.id} className={`wb-obj text-obj ${isSelected ? 'selected' : ''}`} style={{ left: node.x, top: node.y, minWidth: '100px', color: '#e2e8f0', fontSize: node.fontSize || 16 }} onDoubleClick={() => setIsEditingText(node.id)}>
-                            {isEditingText === node.id ? (
-                                <textarea autoFocus className="w-full bg-transparent outline-none resize-none" rows={1} value={node.text} onChange={e => setNodes(nodes.map(n => n.id===node.id ? {...n, text: e.target.value} : n))} onBlur={() => setIsEditingText(null)} />
-                            ) : (
-                                <div className="font-bold pointer-events-none whitespace-nowrap">{node.text || "Texto"}</div>
-                            )}
-                        </div>
-                    );
-                }
-                if (node.type === 'frame') {
-                    return (
-                        <div key={node.id} data-id={node.id} className={`wb-obj frame-obj ${isSelected ? 'selected' : ''}`} style={{ left: node.x, top: node.y, width: node.width, height: node.height, zIndex: 0 }}>
-                            <div className="frame-label">{node.text}</div>
-                        </div>
-                    );
-                }
-                if (node.type === 'comment') {
-                    return (
-                        <div key={node.id} data-id={node.id} className={`wb-obj rounded-full flex items-center justify-center shadow-lg ${isSelected ? 'selected' : ''}`} style={{ left: node.x, top: node.y, width: 32, height: 32, backgroundColor: node.color, zIndex: 100 }} title={node.text}>
-                            <Icon name="message-square" className="w-4 h-4 text-white" />
-                        </div>
-                    );
+                if(selectedId) {
+                    setNodes(prev => prev.filter(n => n.id !== selectedId));
+                    setSelectedId(null);
                 }
             };
 
-            // TELA DE SELEÇÃO DE MAPAS
+            useEffect(() => {
+                const handleKey = (e) => { if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected(); };
+                window.addEventListener('keydown', handleKey);
+                return () => window.removeEventListener('keydown', handleKey);
+            }, [selectedId]);
+
+            // LISTA DE MAPAS
             if (!currentMap) {
                 return (
-                    <div className="flex flex-col items-center justify-center h-full text-white animate-in fade-in zoom-in duration-300 relative">
-                        <div className="bg-slate-900/90 p-8 rounded-3xl border border-slate-700 shadow-2xl text-center max-w-4xl w-full relative overflow-hidden">
-                            <h2 className="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">Meus Quadros</h2>
-                            <p className="text-slate-400 mb-8">Selecione um projeto ou inicie um novo brainstorm.</p>
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-2">
-                                <button onClick={createNewMap} className="aspect-video p-6 bg-blue-600/10 border-2 border-dashed border-blue-500/30 hover:border-blue-500 hover:bg-blue-600/20 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all group">
-                                    <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform"><Icon name="plus" className="w-6 h-6 text-blue-400" /></div>
-                                    <span className="font-bold text-blue-200">Novo Quadro</span>
-                                </button>
+                    <div className="flex flex-col items-center justify-center h-full text-white p-6">
+                        <div className="bg-slate-900/90 p-10 rounded-3xl border border-slate-700 text-center max-w-4xl w-full shadow-2xl relative overflow-hidden">
+                            <h2 className="text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">Meus Quadros</h2>
+                            <button onClick={createNewMap} className="px-8 py-4 btn-primary text-white rounded-xl font-bold mb-8 inline-flex items-center gap-2 shadow-lg hover:scale-105 transition-transform"><Icon name="plus" className="w-5 h-5"/> Criar Novo Quadro</button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto p-2">
                                 {maps.map(map => (
-                                    <div key={map.id} onClick={() => openMap(map)} className="aspect-video p-4 bg-slate-800 border border-slate-700 hover:border-slate-500 hover:bg-slate-750 rounded-2xl flex flex-col justify-between transition-all group relative cursor-pointer text-left">
-                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                            <button onClick={(e) => duplicateMap(e, map)} className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300" title="Duplicar"><Icon name="copy" className="w-3.5 h-3.5" /></button>
-                                            <button onClick={(e) => deleteMap(e, map.id)} className="p-1.5 bg-red-900/50 hover:bg-red-900 rounded-lg text-red-300" title="Excluir"><Icon name="trash-2" className="w-3.5 h-3.5" /></button>
+                                    <div key={map.id} onClick={() => openMap(map)} className="aspect-video bg-slate-800 rounded-xl p-4 cursor-pointer hover:bg-slate-750 border border-slate-700 hover:border-slate-500 transition-all text-left relative group">
+                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={(e)=>duplicateMap(e, map)} className="p-1.5 bg-slate-600 hover:bg-slate-500 rounded text-slate-300" title="Duplicar"><Icon name="copy" className="w-4 h-4"/></button>
+                                            <button onClick={(e)=>deleteMap(e, map.id)} className="p-1.5 bg-red-900/50 hover:bg-red-900 rounded text-red-300" title="Excluir"><Icon name="trash-2" className="w-4 h-4"/></button>
                                         </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-2 bg-slate-700/50 rounded-lg"><Icon name="trello" className="w-5 h-5 text-slate-400" /></div>
-                                            <div>
-                                                <h3 className="font-bold text-white leading-tight line-clamp-2">{map.name}</h3>
-                                                <span className="text-[10px] text-slate-500">{formatDateShort(map.createdAt)}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-900/50 p-2 rounded-lg w-fit">
-                                            <Icon name="layers" className="w-3 h-3" /> {map.nodes?.length || 0} objetos
+                                        <div className="h-full flex flex-col justify-between">
+                                            <div><Icon name="layout" className="w-6 h-6 text-blue-400 mb-2"/><h3 className="font-bold text-white line-clamp-2">{map.name}</h3></div>
+                                            <span className="text-xs text-slate-500">{new Date(map.createdAt).toLocaleDateString()} • {map.nodes?.length || 0} objs</span>
                                         </div>
                                     </div>
                                 ))}
@@ -636,75 +468,77 @@
                 );
             }
 
-            // CANVAS
+            // CANVAS UI
             return (
-                <div 
-                    className={`w-full h-full relative overflow-hidden whiteboard-grid ${activeTool === 'pen' ? 'cursor-pen' : (activeTool !== 'cursor' ? 'cursor-crosshair' : (isDraggingCanvas ? 'cursor-grabbing' : 'cursor-grab'))}`}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onWheel={handleWheel}
-                    onContextMenu={(e) => e.preventDefault()}
-                >
+                <div className={`w-full h-full relative overflow-hidden whiteboard-grid ${activeTool === 'pen' ? 'cursor-pen' : (activeTool !== 'cursor' ? 'cursor-crosshair' : (isDraggingCanvas ? 'cursor-grabbing' : 'cursor-grab'))}`}
+                    onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onWheel={handleWheel} onContextMenu={e=>e.preventDefault()}>
+                    
                     {/* Toolbar */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 backdrop-blur border border-slate-600 p-1.5 rounded-xl shadow-2xl flex gap-1 items-center">
-                        <button onClick={() => setActiveTool('cursor')} className={`p-2 rounded-lg transition ${activeTool==='cursor' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Selecionar (V)"><Icon name="mouse-pointer-2" className="w-5 h-5"/></button>
-                        <div className="w-px h-6 bg-slate-600 mx-1"></div>
-                        <button onClick={() => setActiveTool('text')} className={`p-2 rounded-lg transition ${activeTool==='text' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Texto (T)"><Icon name="type" className="w-5 h-5"/></button>
-                        <button onClick={() => setActiveTool('sticky')} className={`p-2 rounded-lg transition ${activeTool==='sticky' ? 'bg-yellow-500 text-black shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Nota Adesiva (N)"><Icon name="sticky-note" className="w-5 h-5"/></button>
-                        <button onClick={() => setActiveTool('frame')} className={`p-2 rounded-lg transition ${activeTool==='frame' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Frame (F)"><Icon name="layout" className="w-5 h-5"/></button>
-                        <div className="w-px h-6 bg-slate-600 mx-1"></div>
-                        <button onClick={() => setActiveTool('line')} className={`p-2 rounded-lg transition ${activeTool==='line' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Conector (L)"><Icon name="arrow-up-right" className="w-5 h-5"/></button>
-                        <button onClick={() => setActiveTool('pen')} className={`p-2 rounded-lg transition ${activeTool==='pen' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Caneta (P)"><Icon name="pen-tool" className="w-5 h-5"/></button>
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 backdrop-blur border border-slate-600 p-1.5 rounded-xl shadow-2xl flex gap-1">
+                        <button onClick={()=>setActiveTool('cursor')} className={`p-2 rounded ${activeTool==='cursor'?'bg-blue-600':'text-slate-400 hover:bg-slate-700'}`} title="Mover (V)"><Icon name="mouse-pointer-2" className="w-5 h-5"/></button>
+                        <div className="w-px bg-slate-600 mx-1"></div>
+                        <button onClick={()=>setActiveTool('sticky')} className={`p-2 rounded ${activeTool==='sticky'?'bg-blue-600':'text-slate-400 hover:bg-slate-700'}`} title="Post-it (N)"><Icon name="sticky-note" className="w-5 h-5"/></button>
+                        <button onClick={()=>setActiveTool('text')} className={`p-2 rounded ${activeTool==='text'?'bg-blue-600':'text-slate-400 hover:bg-slate-700'}`} title="Texto (T)"><Icon name="type" className="w-5 h-5"/></button>
+                        <button onClick={()=>setActiveTool('frame')} className={`p-2 rounded ${activeTool==='frame'?'bg-blue-600':'text-slate-400 hover:bg-slate-700'}`} title="Frame (F)"><Icon name="layout" className="w-5 h-5"/></button>
+                        <div className="w-px bg-slate-600 mx-1"></div>
+                        <button onClick={deleteSelected} className="p-2 text-red-400 hover:bg-red-900/30 rounded" title="Deletar"><Icon name="trash-2" className="w-5 h-5"/></button>
                     </div>
 
                     <button onClick={() => setCurrentMap(null)} className="absolute top-4 left-4 z-50 p-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 shadow-lg"><Icon name="arrow-left" className="w-5 h-5"/></button>
 
-                    <div className="absolute bottom-4 right-4 z-50 bg-slate-800/80 backdrop-blur border border-slate-700 p-2 rounded-lg text-xs text-slate-400 flex flex-col gap-1 shadow-xl">
-                        <div className="font-bold text-white mb-1">{currentMap.name}</div>
-                        <div>Zoom: {(view.scale * 100).toFixed(0)}%</div>
-                        <div className="flex gap-2 mt-1"><button onClick={()=>deleteSelected()} className="hover:text-red-400"><Icon name="trash-2" className="w-4 h-4"/></button></div>
-                    </div>
-
                     <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0', width: '100%', height: '100%' }}>
-                        <svg className="absolute top-0 left-0 overflow-visible w-full h-full pointer-events-none" style={{zIndex: 0}}>
-                            <defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#64748b" /></marker></defs>
-                            {renderEdges()}
-                            {renderDrawings()}
-                            {connectionStart && <line x1={connectionStart.x} y1={connectionStart.y} x2={connectionStart.x} y2={connectionStart.y} stroke="#3b82f6" strokeWidth="2" strokeDasharray="5,5" />}
-                        </svg>
-                        {nodes.map(node => renderNode(node))}
+                        {nodes.map(node => (
+                            <div key={node.id} data-id={node.id}
+                                className={`wb-obj ${selectedId === node.id ? 'selected' : ''} ${node.type === 'sticky' ? 'sticky-note' : (node.type === 'frame' ? 'frame-obj' : 'text-obj')}`}
+                                style={{ 
+                                    left: node.x, top: node.y, width: node.width, height: node.height, 
+                                    backgroundColor: node.color || (node.type==='sticky'?'#fef3c7':'transparent'),
+                                    color: node.type==='text' ? '#e2e8f0' : '#1e293b',
+                                    fontSize: node.fontSize || 16,
+                                    zIndex: node.type==='frame' ? 0 : 1
+                                }}>
+                                {node.type === 'sticky' ? (
+                                    <textarea className="w-full h-full bg-transparent outline-none resize-none text-center" placeholder="Digite..." value={node.text} onChange={e=>setNodes(nodes.map(n=>n.id===node.id?{...n,text:e.target.value}:n))} />
+                                ) : node.type === 'frame' ? (
+                                    <div className="frame-label">{node.text}</div>
+                                ) : (
+                                    <input className="bg-transparent outline-none w-full" value={node.text} onChange={e=>setNodes(nodes.map(n=>n.id===node.id?{...n,text:e.target.value}:n))} />
+                                )}
+                            </div>
+                        ))}
                     </div>
                 </div>
             );
         }
 
-        // --- SUBCOMPONENTES DE TAREFAS (CALENDAR, KANBAN, MODAL) ---
+        // --- VIEW: CALENDAR ---
         function CalendarView({ tasks, onTaskClick, onDateClick }) {
-            const [currentDate, setCurrentDate] = React.useState(new Date());
+            const [currentDate, setCurrentDate] = useState(new Date());
             const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
             const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            
+            const monthName = currentDate.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
+
             const cells = [];
-            for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className="min-h-[100px] bg-slate-900/40 border border-slate-700/30"></div>);
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const dayTasks = tasks.filter(t => t.date === dateStr).sort((a,b) => a.time.localeCompare(b.time));
-                const isToday = dateStr === new Date().toISOString().split('T')[0];
+            for(let i=0; i<firstDay; i++) cells.push(<div key={`empty-${i}`} className="bg-slate-800/30 border border-slate-800 min-h-[100px]"></div>);
+            
+            for(let day=1; day<=daysInMonth; day++) {
+                const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const dayTasks = tasks.filter(t => t.date === dateStr);
+                const isToday = new Date().toDateString() === new Date(dateStr).toDateString();
+                
                 cells.push(
-                    <div key={day} className={`min-h-[100px] p-2 border border-slate-700/30 group hover:bg-slate-800/30 ${isToday ? 'bg-blue-900/10' : ''}`}>
+                    <div key={day} className={`border border-slate-800 bg-slate-900/50 min-h-[100px] p-2 hover:bg-slate-800/80 transition-colors group relative ${isToday ? 'ring-2 ring-blue-500' : ''}`} onClick={()=>onDateClick(dateStr)}>
                         <div className="flex justify-between mb-2">
-                            <span className={`text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>{day}</span>
-                            <button onClick={(e)=>{e.stopPropagation();onDateClick(dateStr)}} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white"><Icon name="plus" className="w-4 h-4" /></button>
+                            <span className={`font-bold ${isToday ? 'text-blue-400' : 'text-slate-500'}`}>{day}</span>
+                            <button className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white"><Icon name="plus" className="w-4 h-4"/></button>
                         </div>
                         <div className="flex flex-col gap-1">
-                            {dayTasks.map(task => {
-                                const typeData = getTaskType(task.type);
-                                const pautaData = PAUTA_TYPES[task.pauta];
+                            {dayTasks.map(t => {
+                                const typeInfo = TYPES[t.type] || TYPES['reels'];
                                 return (
-                                    <div key={task.id} onClick={(e)=>{e.stopPropagation();onTaskClick(task)}} className={`text-[10px] p-1 rounded border-l-2 cursor-pointer truncate ${typeData.color} bg-opacity-10 hover:brightness-125 flex items-center gap-1`}>
-                                        {pautaData && <div className={`w-1.5 h-1.5 rounded-full ${pautaData.bg}`} title={pautaData.label}></div>}
-                                        <span className="truncate">{task.time} {task.title}</span>
+                                    <div key={t.id} onClick={(e)=>{e.stopPropagation();onTaskClick(t)}} className="text-[10px] bg-slate-800 text-slate-200 p-1 rounded border-l-2 border-blue-500 truncate cursor-pointer hover:bg-slate-700" title={t.title}>
+                                        {t.title}
                                     </div>
                                 );
                             })}
@@ -712,96 +546,66 @@
                     </div>
                 );
             }
+
             return (
-                <div className="glass-panel rounded-xl overflow-hidden h-full flex flex-col">
-                    <div className="p-4 bg-slate-800/50 flex justify-between items-center shrink-0">
-                        <h2 className="text-lg font-bold">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
-                        <div className="flex gap-1">
-                            <button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1))} className="p-2 hover:bg-slate-700 rounded"><Icon name="chevron-left" className="w-5 h-5" /></button>
-                            <button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1))} className="p-2 hover:bg-slate-700 rounded"><Icon name="chevron-right" className="w-5 h-5" /></button>
+                <div className="glass-panel h-full flex flex-col p-6 rounded-xl m-4 overflow-hidden">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-bold text-white flex gap-2"><Icon name="calendar" className="w-6 h-6 text-blue-400"/> Calendário</h2>
+                        <div className="flex gap-2 items-center bg-slate-800 p-1 rounded-lg">
+                            <button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1))} className="p-2 hover:bg-slate-700 rounded text-white"><Icon name="chevron-left" className="w-5 h-5"/></button>
+                            <span className="px-4 font-bold text-white capitalize w-40 text-center">{monthName}</span>
+                            <button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1))} className="p-2 hover:bg-slate-700 rounded text-white"><Icon name="chevron-right" className="w-5 h-5"/></button>
                         </div>
                     </div>
-                    <div className="grid grid-cols-7 bg-slate-900 text-center text-xs font-bold text-slate-500 py-2 shrink-0">
-                        <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+                    <div className="grid grid-cols-7 bg-slate-800 text-center text-xs font-bold text-slate-400 py-2 rounded-t-lg">
+                        <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
                     </div>
-                    <div className="grid grid-cols-7 overflow-y-auto flex-1">{cells}</div>
+                    <div className="grid grid-cols-7 auto-rows-fr flex-1 overflow-y-auto border border-slate-700 rounded-b-lg">
+                        {cells}
+                    </div>
                 </div>
             );
         }
 
-        function KanbanView({ tasks, onTaskClick, onStatusChange, isSelectionMode, selectedTasks, toggleTaskSelection, columnDateFilters, setColumnDateFilters }) {
-            const [openFilterColumn, setOpenFilterColumn] = React.useState(null);
-            const [filterType, setFilterType] = React.useState(null); 
-            const handleDrop = (e, statusId) => { const taskId = e.dataTransfer.getData('taskId'); if (taskId) onStatusChange(taskId, statusId); };
-            const toggleColumnFilter = (colId, type) => { if (openFilterColumn === colId && filterType === type) { setOpenFilterColumn(null); setFilterType(null); } else { setOpenFilterColumn(colId); setFilterType(type); } };
-            const applyColumnFilter = (colId, date) => { setColumnDateFilters(prev => ({ ...prev, [colId]: { date, type: filterType } })); };
-            const confirmFilter = () => { setOpenFilterColumn(null); setFilterType(null); };
-            const clearColumnFilter = (colId) => { const newFilters = {...columnDateFilters}; delete newFilters[colId]; setColumnDateFilters(newFilters); };
+        // --- VIEW: KANBAN ---
+        function KanbanView({tasks, onTaskClick, onDropTask, columnSearchTexts, setColumnSearchTexts}) {
+            const handleDragStart = (e, taskId) => e.dataTransfer.setData("taskId", taskId);
+            const handleDrop = (e, statusId) => {
+                const taskId = e.dataTransfer.getData("taskId");
+                if(taskId) onDropTask(taskId, statusId);
+            };
 
             return (
-                <div className="flex gap-4 overflow-x-auto pb-6 h-full">
+                <div className="flex gap-4 overflow-x-auto h-full p-4 items-start">
                     {COLUMNS.map(col => {
-                        const activeFilter = columnDateFilters[col.id]; 
-                        const colTasks = tasks.filter(t => {
-                            if (t.status !== col.id) return false;
-                            if (activeFilter && activeFilter.date) {
-                                if (activeFilter.type === 'posting') return t.date === activeFilter.date;
-                                if (activeFilter.type === 'edition') return t.deadlineDate === activeFilter.date;
-                            }
-                            return true;
-                        });
-                        let borderClass = col.color;
-                        if (activeFilter) {
-                            if (activeFilter.type === 'edition') borderClass = 'border-green-500 shadow-[0_-4px_0_0_rgba(34,197,94,1)]';
-                            if (activeFilter.type === 'posting') borderClass = 'border-purple-500 shadow-[0_-4px_0_0_rgba(168,85,247,1)]';
-                        }
+                        const searchText = (columnSearchTexts[col.id] || '').toLowerCase();
+                        const colTasks = tasks.filter(t => t.status === col.id && t.title.toLowerCase().includes(searchText));
                         return (
-                            <div key={col.id} onDragOver={e=>e.preventDefault()} onDrop={(e)=>handleDrop(e, col.id)} className={`min-w-[320px] w-[320px] flex flex-col glass-panel rounded-xl h-full border-t-4 transition-all duration-300 ${borderClass} relative`}>
-                                <div className="p-3 bg-slate-800/60 rounded-t flex justify-between items-center relative">
-                                    <div className="flex items-center gap-2"><span className="font-bold text-sm">{col.title}</span><span className="text-xs bg-slate-700 px-2 rounded-full text-slate-300">{colTasks.length}</span></div>
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => toggleColumnFilter(col.id, 'edition')} className={`p-1.5 rounded hover:bg-green-900/30 transition-colors ${activeFilter?.type === 'edition' ? 'text-green-400 bg-green-900/20' : 'text-slate-500 hover:text-green-400'}`} title="Prazo Edição"><Icon name="search" className="w-3.5 h-3.5" /></button>
-                                        <button onClick={() => toggleColumnFilter(col.id, 'posting')} className={`p-1.5 rounded hover:bg-purple-900/30 transition-colors ${activeFilter?.type === 'posting' ? 'text-purple-400 bg-purple-900/20' : 'text-slate-500 hover:text-purple-400'}`} title="Postagem"><Icon name="search" className="w-3.5 h-3.5" /></button>
+                            <div key={col.id} onDragOver={e=>e.preventDefault()} onDrop={(e)=>handleDrop(e, col.id)} 
+                                className="min-w-[320px] w-[320px] flex flex-col glass-panel rounded-xl max-h-full border-t-4" style={{borderTopColor: col.color.replace('border-', '')}}>
+                                <div className="p-4 bg-slate-800/60 rounded-t-xl border-b border-slate-700 shrink-0">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="font-bold text-white">{col.title}</span>
+                                        <span className="text-xs bg-slate-700 px-2 py-1 rounded-full text-slate-300">{colTasks.length}</span>
                                     </div>
-                                    {openFilterColumn === col.id && (
-                                        <div className="absolute top-10 right-2 z-50 bg-slate-900 border border-slate-600 p-3 rounded-lg shadow-xl w-56 animate-in fade-in zoom-in-95 duration-100">
-                                            <p className={`text-[10px] uppercase font-bold mb-2 flex items-center gap-1 ${filterType === 'edition' ? 'text-green-400' : 'text-purple-400'}`}><Icon name="filter" className="w-3 h-3" />{filterType === 'edition' ? 'Prazo de Edição' : 'Data de Postagem'}</p>
-                                            <input type="date" className={`w-full bg-slate-800 border rounded p-1.5 text-xs text-white mb-2 [color-scheme:dark] outline-none focus:ring-1 ${filterType === 'edition' ? 'border-green-800 focus:ring-green-500' : 'border-purple-800 focus:ring-purple-500'}`} onChange={(e) => applyColumnFilter(col.id, e.target.value)} value={activeFilter?.type === filterType ? (activeFilter?.date || '') : ''} autoFocus />
-                                            <div className="flex gap-2">
-                                                {activeFilter && (<button onClick={() => clearColumnFilter(col.id)} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs py-1.5 rounded flex items-center justify-center gap-1 transition-colors"><Icon name="x" className="w-3 h-3" /> Limpar</button>)}
-                                                <button onClick={confirmFilter} className={`flex-1 text-white text-xs py-1.5 rounded flex items-center justify-center gap-1 transition-colors ${filterType === 'edition' ? 'bg-green-600 hover:bg-green-500' : 'bg-purple-600 hover:bg-purple-500'}`}><Icon name="check" className="w-3 h-3" /> OK</button>
+                                    <input type="text" placeholder="Filtrar..." className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
+                                        value={searchText} onChange={(e)=>setColumnSearchTexts({...columnSearchTexts, [col.id]: e.target.value})} />
+                                </div>
+                                <div className="p-3 flex-1 overflow-y-auto space-y-3 bg-slate-900/20 min-h-0">
+                                    {colTasks.map(task => (
+                                        <div key={task.id} draggable onDragStart={(e)=>handleDragStart(e, task.id)} onClick={()=>onTaskClick(task)}
+                                            className="task-card bg-slate-800 p-4 rounded-lg border border-slate-700 hover:border-slate-500 relative shadow-lg">
+                                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${TYPES[task.type]?.color.split(' ')[0].replace('text-','bg-')}`}></div>
+                                            <div className="pl-3">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className={`text-[10px] px-2 py-1 rounded border font-bold uppercase ${TYPES[task.type]?.color}`}>{TYPES[task.type]?.label}</span>
+                                                    {task.date && <span className="text-[10px] text-slate-400 flex gap-1"><Icon name="calendar" className="w-3 h-3"/>{formatDateShort(task.date)}</span>}
+                                                </div>
+                                                <p className="text-sm font-medium text-white line-clamp-2 mb-2">{task.title}</p>
+                                                {task.expert && <div className="text-[10px] text-slate-400 uppercase font-bold flex gap-1"><Icon name="user" className="w-3 h-3"/>{task.expert}</div>}
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                                {activeFilter && (<div className={`px-3 py-1 text-[10px] font-bold flex justify-between items-center ${activeFilter.type === 'edition' ? 'bg-green-900/20 text-green-400' : 'bg-purple-900/20 text-purple-400'}`}><span>{activeFilter.type === 'edition' ? 'PRAZO EDIÇÃO:' : 'POSTAGEM:'} {formatDateShort(activeFilter.date)}</span><button onClick={() => clearColumnFilter(col.id)} className="hover:text-white"><Icon name="x" className="w-3 h-3" /></button></div>)}
-                                <div className="p-3 flex-1 overflow-y-auto space-y-3">
-                                    {colTasks.map(task => {
-                                        const typeStyle = getTaskType(task.type);
-                                        const assignee = TEAM[task.assignee] || {initials:'?'};
-                                        const isSelected = selectedTasks.has(task.id);
-                                        const pautaData = PAUTA_TYPES[task.pauta];
-                                        return (
-                                            <div key={task.id} draggable={!isSelectionMode} onDragStart={(e)=>e.dataTransfer.setData('taskId', task.id)} onClick={(e) => { if (isSelectionMode) { e.stopPropagation(); toggleTaskSelection(task.id); } else { onTaskClick(task); } }} className={`task-card bg-slate-800 p-3 rounded border cursor-pointer relative overflow-hidden transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500 bg-blue-900/20 border-blue-500' : 'border-slate-700'}`}>
-                                                {isSelectionMode && (<div className="absolute top-2 right-2 z-20 p-2" onClick={(e) => { e.stopPropagation(); toggleTaskSelection(task.id); }}><div className={`w-5 h-5 border-2 rounded transition-colors flex items-center justify-center ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-500 bg-slate-900/80 hover:border-blue-400'}`}>{isSelected && <Icon name="check" className="w-3.5 h-3.5 text-white stroke-[3]" />}</div></div>)}
-                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${typeStyle.color.split(' ')[0].replace('text-','bg-')}`}></div>
-                                                <div className="flex justify-between items-start mb-2 pl-2">
-                                                    <div className="flex gap-1"><span className={`text-[9px] font-bold px-1 rounded border ${typeStyle.color}`}>{typeStyle.label}</span></div>
-                                                    <div className="flex items-center gap-2">{pautaData && (<Icon name="megaphone" className={`w-3.5 h-3.5 ${pautaData.color}`} />)}{task.priority==='high' && <Icon name="flame" className="w-3.5 h-3.5 text-red-500 animate-pulse" />}</div>
-                                                </div>
-                                                <p className="text-sm font-medium pl-2 mb-1 line-clamp-2">{task.title}</p>
-                                                {task.creator && (<div className="pl-2 mb-2"><span className="text-[10px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1 w-fit"><Icon name="lightbulb" className="w-2.5 h-2.5 text-yellow-500" /> {task.creator}</span></div>)}
-                                                {task.expert && (<div className="pl-2 mb-2"><span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">{task.expert}</span></div>)}
-                                                <div className="flex justify-between items-end pl-2 pt-2 border-t border-slate-700">
-                                                    <div className="text-[10px] text-slate-400">
-                                                        <div className="text-purple-300"><Icon name="calendar" className="inline w-3 h-3" /> Post: {formatDateShort(task.date)}</div>
-                                                        <div className="text-green-300"><Icon name="clock" className="inline w-3 h-3" /> Edit: {formatDateShort(task.deadlineDate)}</div>
-                                                    </div>
-                                                    <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${assignee.color} ${assignee.text}`}>{assignee.initials}</div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                    ))}
                                 </div>
                             </div>
                         );
@@ -810,54 +614,32 @@
             );
         }
 
-        function TaskModal({ task, onClose, onSave, onDelete, experts, onAddExpert }) {
-            const [formData, setFormData] = React.useState(task || {});
-            const [newExpertName, setNewExpertName] = React.useState('');
-            const [showAddExpert, setShowAddExpert] = React.useState(false);
-            const handleChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
-            const handleAddExpert = () => { if(newExpertName.trim()) { onAddExpert(newExpertName.trim()); setFormData({...formData, expert: newExpertName.trim()}); setNewExpertName(''); setShowAddExpert(false); } };
-
+        // --- MODAL TAREFA (CRIAR/EDITAR) ---
+        function TaskModal({onClose, task, experts, onSave, onDelete}) { 
+            const [data, setData] = useState(task || { title: '', status: 'backlog', type: 'reels', expert: '' });
+            
             return (
-                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={onClose}>
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden" onClick={e=>e.stopPropagation()}>
-                        <div className="p-4 bg-slate-800 border-b border-slate-700 flex justify-between">
-                            <h2 className="font-bold text-white">{task.id ? 'Editar' : 'Nova Tarefa'}</h2>
-                            <button onClick={onClose}><Icon name="x" className="w-5 h-5" /></button>
+                <div className="modal-overlay animate-in" onClick={onClose}>
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-8 relative shadow-2xl" onClick={e=>e.stopPropagation()}>
+                        <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white"><Icon name="x" className="w-6 h-6"/></button>
+                        <h2 className="text-2xl font-bold text-white mb-6 flex gap-2"><Icon name={data.id ? "edit-3" : "plus-circle"} className="w-6 h-6 text-blue-400"/> {data.id ? 'Editar Tarefa' : 'Nova Tarefa'}</h2>
+                        <div className="space-y-4">
+                            <div><label className="text-sm font-bold text-slate-400 block mb-1">Título</label><input className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none" value={data.title} onChange={e=>setData({...data, title: e.target.value})} autoFocus /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-sm font-bold text-slate-400 block mb-1">Status</label><select className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white" value={data.status} onChange={e=>setData({...data, status: e.target.value})}>{COLUMNS.map(c=><option key={c.id} value={c.id}>{c.title}</option>)}</select></div>
+                                <div><label className="text-sm font-bold text-slate-400 block mb-1">Tipo</label><select className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white" value={data.type} onChange={e=>setData({...data, type: e.target.value})}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-sm font-bold text-slate-400 block mb-1">Data</label><input type="date" className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white" value={data.date || ''} onChange={e=>setData({...data, date: e.target.value})} /></div>
+                                <div><label className="text-sm font-bold text-slate-400 block mb-1">Expert</label><select className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white" value={data.expert || ''} onChange={e=>setData({...data, expert: e.target.value})}><option value="">Selecione...</option>{experts.map(e=><option key={e} value={e}>{e}</option>)}</select></div>
+                            </div>
+                            <div><label className="text-sm font-bold text-slate-400 block mb-1">Descrição</label><textarea className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white h-24 resize-none" value={data.description || ''} onChange={e=>setData({...data, description: e.target.value})} /></div>
                         </div>
-                        <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="col-span-2"><label className="block text-xs font-bold text-slate-400 mb-1">TÍTULO</label><input name="title" value={formData.title||''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white" placeholder="Ex: Reels sobre Marketing" autoFocus /></div>
-                                <div><label className="block text-xs font-bold text-yellow-500 mb-1">QUEM DEU A IDEIA?</label><input name="creator" value={formData.creator||''} onChange={handleChange} className="w-full bg-slate-800 border border-yellow-500/30 rounded p-2 text-white placeholder-slate-600" placeholder="Seu nome" /></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-slate-400">EXPERT</label><button onClick={()=>setShowAddExpert(!showAddExpert)} className="text-[10px] text-blue-400 hover:text-blue-300 underline">+ Novo</button></div>{showAddExpert ? (<div className="flex gap-2 mb-2"><input value={newExpertName} onChange={e=>setNewExpertName(e.target.value)} className="flex-1 bg-slate-900 border border-blue-500 rounded p-2 text-white text-sm" placeholder="Nome" /><button onClick={handleAddExpert} className="px-2 bg-blue-600 text-white rounded font-bold text-xs">OK</button></div>) : (<select name="expert" value={formData.expert} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{experts.map(exp => <option key={exp} value={exp}>{exp}</option>)}</select>)}</div>
-                                <div><label className="text-xs font-bold text-slate-400 block mb-1">TEMPERATURA DA PAUTA</label><select name="pauta" value={formData.pauta || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white"><option value="">Selecione...</option>{Object.entries(PAUTA_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
-                            </div>
-                            <div><label className="block text-xs font-bold text-slate-400 mb-1">DESCRIÇÃO / ROTEIRO</label><textarea name="description" value={formData.description||''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white h-24" placeholder="Cole o roteiro aqui..." /></div>
-                            <div className="bg-green-900/10 p-3 rounded border border-green-500/20"><label className="block text-xs font-bold text-green-400 mb-1 flex items-center gap-2"><Icon name="link" className="w-3 h-3" /> ATUALIZAÇÕES / LINKS (Drive, Prévias)</label><textarea name="updates" value={formData.updates||''} onChange={handleChange} className="w-full bg-slate-900 border border-green-700/50 rounded p-2 text-white h-20 text-sm font-mono" placeholder="Cole aqui links do Drive, status da edição..." /></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs text-slate-400 font-bold block mb-1">Tipo</label><select name="type" value={formData.type} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
-                                <div><label className="text-xs text-slate-400 font-bold block mb-1">Status</label><select name="status" value={formData.status} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{COLUMNS.map(c=><option key={c.id} value={c.id}>{c.title}</option>)}</select></div>
-                            </div>
-                            {formData.type === 'reels' && (<div className="bg-purple-900/20 p-2 rounded border border-purple-500/30"><label className="text-xs text-purple-300 font-bold block mb-1">FORMATO DO REELS</label><div className="flex gap-2 flex-wrap">{REELS_FORMATS.map(fmt => (<button key={fmt.id} onClick={()=>setFormData({...formData, reelsFormat: fmt.id})} className={`text-[10px] px-2 py-1 rounded border transition-colors ${formData.reelsFormat === fmt.id ? 'bg-purple-600 border-purple-600 text-white' : 'border-purple-500/50 text-purple-200 hover:bg-purple-800/50'}`}>{fmt.label}</button>))}</div></div>)}
-                            <div className="p-3 bg-blue-900/20 rounded border border-blue-500/30 grid grid-cols-2 gap-4">
-                                <div><label className="text-xs text-blue-300 font-bold">DATA POSTAGEM</label><input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" /></div>
-                                <div><label className="text-xs text-blue-300 font-bold">HORA</label><input type="time" name="time" value={formData.time} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" /></div>
-                            </div>
-                            <div className="p-3 bg-orange-900/20 rounded border border-orange-500/30 grid grid-cols-2 gap-4">
-                                <div><label className="text-xs text-orange-300 font-bold">DEADLINE EDIÇÃO</label><input type="date" name="deadlineDate" value={formData.deadlineDate} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" /></div>
-                                <div><label className="text-xs text-orange-300 font-bold">HORA</label><input type="time" name="deadlineTime" value={formData.deadlineTime} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" /></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs text-slate-400 font-bold">Responsável</label><select name="assignee" value={formData.assignee} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{Object.entries(TEAM).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select></div>
-                                <div><label className="text-xs text-slate-400 font-bold">Prioridade</label><select name="priority" value={formData.priority} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white"><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div>
-                            </div>
-                        </div>
-                        <div className="p-4 bg-slate-800 flex justify-between">
-                            {task.id ? <button onClick={()=>onDelete(task.id)} className="text-red-400 hover:text-red-300 text-sm"><Icon name="trash-2" className="inline w-4 h-4"/> Deletar</button> : <div></div>}
-                            <div className="flex gap-2">
-                                <button onClick={onClose} className="px-4 py-2 text-slate-300 hover:bg-slate-700 rounded text-sm">Cancelar</button>
-                                <button onClick={()=>onSave(formData)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded text-sm flex items-center gap-2"><Icon name="save" className="w-4 h-4"/> Salvar</button>
+                        <div className="flex justify-between items-center mt-8 pt-6 border-t border-slate-700">
+                            {data.id && onDelete ? <button onClick={()=>{if(confirm('Excluir?')) onDelete(data.id)}} className="text-red-400 hover:text-red-300 flex gap-2"><Icon name="trash-2" className="w-4 h-4"/> Excluir</button> : <div></div>}
+                            <div className="flex gap-3">
+                                <button onClick={onClose} className="px-6 py-2 text-slate-300 hover:bg-slate-800 rounded-lg">Cancelar</button>
+                                <button onClick={()=>{if(!data.title) return alert('Título obrigatório'); onSave(data);}} className="px-6 py-2 btn-primary text-white rounded-lg font-bold flex gap-2"><Icon name="save" className="w-4 h-4"/> Salvar</button>
                             </div>
                         </div>
                     </div>
@@ -865,146 +647,75 @@
             );
         }
 
-        // --- APP DEFINIÇÃO FINAL ---
+        // --- APP PRINCIPAL ---
         function App() {
-            const [user, setUser] = React.useState(null);
-            const [tasks, setTasks] = React.useState([]);
-            const [experts, setExperts] = React.useState(DEFAULT_EXPERTS);
-            
-            // VIEW MODE: 'kanban', 'calendar', 'mindmap', 'workflow'
-            const [viewMode, setViewMode] = React.useState('kanban'); 
-            
-            const [loading, setLoading] = React.useState(true);
-            const [statusMsg, setStatusMsg] = React.useState("Iniciando...");
-            const [statusColor, setStatusColor] = React.useState("text-yellow-500");
-            
-            // ... (Estados de Filtros e Modais mantidos) ...
-            const [filterExpert, setFilterExpert] = React.useState('');
-            const [filterType, setFilterType] = React.useState('');
-            const [filterPauta, setFilterPauta] = React.useState('');
-            const [columnDateFilters, setColumnDateFilters] = React.useState({});
-            const [isModalOpen, setIsModalOpen] = React.useState(false);
-            const [editingTask, setEditingTask] = React.useState(null);
-            const [isPacksModalOpen, setIsPacksModalOpen] = React.useState(false);
-            const [isSelectionMode, setIsSelectionMode] = React.useState(false);
-            const [selectedTasks, setSelectedTasks] = React.useState(new Set());
+            const [activeView, setActiveView] = useState('kanban');
+            const [tasks, setTasks] = useState([]);
+            const [experts, setExperts] = useState(DEFAULT_EXPERTS);
+            const [selectedTask, setSelectedTask] = useState(null);
+            const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+            const [columnSearchTexts, setColumnSearchTexts] = useState({});
+            const [loading, setLoading] = useState(true);
+            const [statusMsg, setStatusMsg] = useState("Iniciando...");
+            const [statusColor, setStatusColor] = useState("text-yellow-500");
 
-            // ... (Efeitos de Auth e Firestore mantidos) ...
-            React.useEffect(() => {
+            // Filtros Globais
+            const [filterExpert, setFilterExpert] = useState('');
+            const [filterType, setFilterType] = useState('');
+            const [filterPauta, setFilterPauta] = useState('');
+            const [isPacksModalOpen, setIsPacksModalOpen] = useState(false);
+
+            useEffect(() => {
                 const timer = setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
                 return () => clearTimeout(timer);
-            }, [tasks, viewMode, isModalOpen, isPacksModalOpen, isSelectionMode, filterExpert, filterType, filterPauta, columnDateFilters, selectedTasks]); 
+            }, [activeView, showNewTaskModal, selectedTask]); 
 
-            React.useEffect(() => {
-                const unsubscribeAuth = auth.onAuthStateChanged(async (u) => {
-                    if (u) { setUser(u); setStatusMsg("Conectado"); setStatusColor("text-green-400"); } 
-                    else { await auth.signInAnonymously(); }
-                });
-                return () => unsubscribeAuth();
-            }, []);
-
-            React.useEffect(() => {
-                const unsubscribe = db.collection(COLLECTION_NAME).onSnapshot((snapshot) => {
-                    setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    setLoading(false);
-                });
-                return () => unsubscribe();
-            }, []);
-
-            // ... (Funções Auxiliares mantidas: saveTask, deleteTask, etc) ...
-            const addNewExpertToDb = async (newExpertName) => {
-                if (!newExpertName || experts.includes(newExpertName)) return;
-                try {
-                    const newExpertsList = [...experts, newExpertName];
-                    await db.collection(EXPERTS_COLLECTION).doc('list').set({ names: newExpertsList }, { merge: true });
-                    setExperts(newExpertsList);
-                } catch (e) { alert("Erro ao salvar novo expert: " + e.message); }
-            };
-
-            const saveTask = async (taskData) => {
-                try {
-                    setStatusMsg("Salvando...");
-                    const payload = { ...taskData, updatedAt: new Date().toISOString() };
-                    if (taskData.id) await db.collection(COLLECTION_NAME).doc(taskData.id).update(payload);
-                    else await db.collection(COLLECTION_NAME).add({ ...payload, createdAt: new Date().toISOString() });
-                    setIsModalOpen(false); setEditingTask(null); setStatusMsg("Salvo com sucesso!"); setTimeout(() => setStatusMsg("Conectado"), 2000);
-                } catch (error) { alert("Falha ao salvar: " + error.message); }
-            };
-
-            const deleteTask = async (taskId) => {
-                if(!confirm("Tem certeza que deseja excluir esta tarefa?")) return;
-                try { await db.collection(COLLECTION_NAME).doc(taskId).delete(); setIsModalOpen(false); } catch (error) { alert("Erro ao deletar: " + error.message); }
-            };
-
-            const updateStatus = async (taskId, newStatus) => {
-                try { await db.collection(COLLECTION_NAME).doc(taskId).update({ status: newStatus, updatedAt: new Date().toISOString() }); } catch(e) { console.error(e); }
-            };
-
-            const toggleTaskSelection = (taskId) => {
-                setSelectedTasks(prev => {
-                    const newSet = new Set(prev);
-                    if (newSet.has(taskId)) newSet.delete(taskId); else newSet.add(taskId);
-                    return newSet;
-                });
-            };
-
-            const toggleSelectionMode = () => { if (isSelectionMode) { setIsSelectionMode(false); setSelectedTasks(new Set()); } else { setIsSelectionMode(true); } };
-
-            const deleteSelectedTasks = async () => {
-                if (selectedTasks.size === 0) return;
-                if (!confirm(`Tem certeza que deseja EXCLUIR ${selectedTasks.size} tarefas?`)) return;
-                setStatusMsg("Excluindo...");
-                const batch = db.batch();
-                const tasksToDelete = Array.from(selectedTasks);
-                tasksToDelete.forEach(taskId => { const ref = db.collection(COLLECTION_NAME).doc(taskId); batch.delete(ref); });
-                try { await batch.commit(); setSelectedTasks(new Set()); setIsSelectionMode(false); setStatusMsg("Tarefas excluídas!"); setTimeout(() => setStatusMsg("Conectado"), 2000); } catch (error) { alert("Erro ao excluir: " + error.message); }
-            };
-
-            const duplicateSelectedTasks = async () => {
-                if (selectedTasks.size === 0) return;
-                if (!confirm(`Deseja DUPLICAR ${selectedTasks.size} tarefas?`)) return;
-                setStatusMsg("Duplicando...");
-                const batch = db.batch();
-                const tasksToDuplicate = Array.from(selectedTasks);
-                let count = 0;
-                tasksToDuplicate.forEach(taskId => {
-                    const originalTask = tasks.find(t => t.id === taskId);
-                    if (originalTask) {
-                        const newRef = db.collection(COLLECTION_NAME).doc();
-                        const { id, ...data } = originalTask;
-                        batch.set(newRef, { ...data, title: `${data.title} (Cópia)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-                        count++;
-                    }
-                });
-                if (count === 0) return;
-                try { await batch.commit(); setSelectedTasks(new Set()); setIsSelectionMode(false); setStatusMsg("Tarefas duplicadas!"); setTimeout(() => setStatusMsg("Conectado"), 2000); } catch (error) { alert("Erro ao duplicar: " + error.message); }
-            };
-            
-            const generatePlanning = async () => {
-                if (!confirm("Gerar planejamento automático da semana?")) return;
-                const batch = db.batch();
-                const today = new Date();
-                const formatDateLocal = (d) => { const offset = d.getTimezoneOffset(); return new Date(d.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0]; };
-                for (let i = 0; i < 7; i++) {
-                    const postDate = new Date(today); postDate.setDate(today.getDate() + i); const dateStr = formatDateLocal(postDate);
-                    const deadline = new Date(postDate); deadline.setDate(postDate.getDate() - 1); const deadlineStr = formatDateLocal(deadline);
-                    const createTask = (title, type, assignee, time, priority) => {
-                        const ref = db.collection(COLLECTION_NAME).doc();
-                        batch.set(ref, { title, type, assignee, priority, status: 'backlog', date: dateStr, time, deadlineDate: deadlineStr, deadlineTime: '18:00', description: 'Gerado automaticamente pelo sistema.', updates: '', expert: 'DRX', creator: 'Sistema', reelsFormat: '', pauta: 'fria', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-                    };
-                    ['09:00', '11:00', '19:00'].forEach(t => createTask('Reels Rotina', 'reels', 'victor', t, 'high'));
-                    createTask('Teste Criativo', 'teste', 'gabriel', '15:00', 'medium');
+            useEffect(() => {
+                if(auth) {
+                    auth.onAuthStateChanged(async (u) => {
+                        if (u) { setStatusMsg("Conectado"); setStatusColor("text-green-400"); } 
+                        else { await auth.signInAnonymously(); }
+                    });
                 }
-                try { await batch.commit(); alert("Planejamento gerado!"); } catch(e) { alert("Erro ao gerar: " + e.message); }
+            }, []);
+
+            useEffect(() => {
+                if(db) {
+                    const unsubscribe = db.collection(COLLECTION_NAME).onSnapshot((snapshot) => {
+                        setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                        setLoading(false);
+                    });
+                    return () => unsubscribe();
+                } else { setLoading(false); }
+            }, []);
+
+            const handleSaveTask = async (task) => {
+                const payload = { ...task, updatedAt: new Date().toISOString() };
+                if(!task.id) { // Nova
+                    payload.id = `task-${Date.now()}`;
+                    payload.createdAt = new Date().toISOString();
+                    if(db) await db.collection(COLLECTION_NAME).doc(payload.id).set(payload);
+                    else setTasks([...tasks, payload]);
+                } else { // Edição
+                    if(db) await db.collection(COLLECTION_NAME).doc(task.id).update(payload);
+                    else setTasks(tasks.map(t => t.id === task.id ? payload : t));
+                }
+                setShowNewTaskModal(false);
+                setSelectedTask(null);
             };
 
-            const openNewTask = (date = null) => {
-                const today = new Date().toISOString().split('T')[0];
-                setEditingTask({ status: 'backlog', type: 'reels', priority: 'medium', date: date || today, time: '09:00', deadlineDate: today, deadlineTime: '18:00', assignee: 'bruno', description: '', updates: '', expert: 'DRX', creator: '', reelsFormat: '', pauta: '' });
-                setIsModalOpen(true);
+            const handleDeleteTask = async (id) => {
+                if(db) await db.collection(COLLECTION_NAME).doc(id).delete();
+                else setTasks(tasks.filter(t => t.id !== id));
+                setSelectedTask(null);
             };
 
-            const baseFilteredTasks = tasks.filter(t => 
+            const handleDropTask = async (id, newStatus) => {
+                if(db) await db.collection(COLLECTION_NAME).doc(id).update({status: newStatus});
+                else setTasks(tasks.map(t => t.id === id ? {...t, status: newStatus} : t));
+            };
+
+            const filteredTasks = tasks.filter(t => 
                 (!filterExpert || t.expert === filterExpert) && 
                 (!filterType || t.type === filterType) &&
                 (!filterPauta || t.pauta === filterPauta)
@@ -1013,63 +724,84 @@
             if (loading) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white"><div className="spinner"></div></div>;
 
             return (
-                <div className="min-h-screen pb-10 flex flex-col h-screen">
-                    <header className="glass-panel sticky top-0 z-30 px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 border-b border-slate-700/50 gap-4 shrink-0">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center font-bold text-2xl text-white">D</div>
+                <div className="flex h-screen bg-[#0f172a] overflow-hidden">
+                    {/* SIDEBAR (DO BACKUP) */}
+                    <aside className="w-20 flex flex-col items-center py-6 bg-slate-900 border-r border-slate-800 z-50 shadow-2xl shrink-0">
+                        <div className="mb-10 w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-blue-900/50">D</div>
+                        <nav className="flex flex-col gap-3 w-full px-3">
+                            <button onClick={()=>setActiveView('kanban')} className={`p-3 rounded-xl transition-all ${activeView==='kanban' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Kanban"><Icon name="layout-kanban" className="w-6 h-6" /></button>
+                            <button onClick={()=>setActiveView('calendar')} className={`p-3 rounded-xl transition-all ${activeView==='calendar' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Calendário"><Icon name="calendar" className="w-6 h-6" /></button>
+                            <button onClick={()=>setActiveView('mindmap')} className={`p-3 rounded-xl transition-all ${activeView==='mindmap' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="Whiteboard"><Icon name="presentation" className="w-6 h-6" /></button>
+                            <button onClick={()=>setActiveView('workflow')} className={`p-3 rounded-xl transition-all ${activeView==='workflow' ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} title="VSL AI"><Icon name="wand-2" className="w-6 h-6" /></button>
+                        </nav>
+                        <div className="mt-auto">
+                            <div className="w-12 h-12 rounded-full bg-slate-700 overflow-hidden border-2 border-slate-600 hover:border-blue-500 transition-colors cursor-pointer"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" className="w-full h-full object-cover" /></div>
+                        </div>
+                    </aside>
+
+                    {/* MAIN CONTENT */}
+                    <main className="flex-1 relative overflow-hidden flex flex-col">
+                        {/* HEADER (COM FILTROS REINSTAURADOS) */}
+                        <header className="h-20 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-sm shadow-lg z-40 shrink-0">
                             <div>
-                                <h1 className="text-xl font-bold text-white">DRX Operação</h1>
-                                <div className={`text-xs font-mono flex items-center gap-2 ${statusColor}`}><span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>{statusMsg}</div>
+                                <h1 className="text-2xl font-bold text-white capitalize flex items-center gap-3">
+                                    {activeView === 'workflow' && <span className="text-3xl">🎬</span>}
+                                    {activeView === 'workflow' ? 'AI Factory' : activeView === 'mindmap' ? 'Whiteboard' : activeView === 'kanban' ? 'Kanban Board' : 'Calendário'}
+                                </h1>
+                                <p className="text-sm text-slate-400 mt-1 flex gap-2 items-center">
+                                    <span className={`w-2 h-2 rounded-full ${statusColor === 'text-green-400' ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></span>
+                                    {statusMsg}
+                                </p>
                             </div>
-                        </div>
 
-                        <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 overflow-x-auto">
-                            <button onClick={() => setViewMode('calendar')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='calendar'?'bg-blue-600 text-white':'text-slate-400 hover:text-white'}`}><Icon name="calendar" className="w-4 h-4" /> Calendário</button>
-                            <button onClick={() => setViewMode('kanban')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='kanban'?'bg-blue-600 text-white':'text-slate-400 hover:text-white'}`}><Icon name="kanban" className="w-4 h-4" /> Kanban</button>
-                            <button onClick={() => setViewMode('mindmap')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='mindmap'?'bg-cyan-600 text-white':'text-slate-400 hover:text-cyan-400'}`}><Icon name="brain-circuit" className="w-4 h-4" /> Mind Map</button>
-                            {/* BOTÃO DA NOVA ABA */}
-                            <button onClick={() => setViewMode('workflow')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='workflow'?'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]':'text-slate-400 hover:text-purple-400'}`}><Icon name="bot" className="w-4 h-4" /> VSL AI</button>
-                        </div>
+                            {/* FILTROS (Só mostra em Kanban/Calendar) */}
+                            {(activeView === 'kanban' || activeView === 'calendar') && (
+                                <div className="flex gap-3 items-center">
+                                    <div className="flex items-center gap-2 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
+                                        <div className="flex items-center px-2 border-r border-slate-700"><Icon name="filter" className="w-4 h-4 text-slate-400"/></div>
+                                        <select value={filterExpert} onChange={e=>setFilterExpert(e.target.value)} className="bg-transparent text-sm text-white outline-none w-24 p-2 cursor-pointer"><option value="">Experts</option>{experts.map(e=><option key={e} value={e}>{e}</option>)}</select>
+                                        <select value={filterType} onChange={e=>setFilterType(e.target.value)} className="bg-transparent text-sm text-white outline-none w-24 p-2 cursor-pointer"><option value="">Tipos</option>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select>
+                                        {(filterExpert || filterType) && <button onClick={()=>{setFilterExpert('');setFilterType('')}} className="p-2 text-red-400 hover:text-white"><Icon name="x" className="w-3 h-3"/></button>}
+                                    </div>
+                                    <button onClick={()=>setIsPacksModalOpen(true)} className="btn-primary text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg"><Icon name="package" className="w-4 h-4" /> Packs</button>
+                                    <button onClick={() => setShowNewTaskModal(true)} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg"><Icon name="plus" className="w-4 h-4" /> Nova</button>
+                                </div>
+                            )}
+                        </header>
 
-                        <div className="flex gap-3 items-center">
-                            {viewMode === 'kanban' || viewMode === 'calendar' ? (
-                                <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-bold flex gap-2 shadow-lg"><Icon name="plus" className="w-4 h-4" /> Nova</button>
-                            ) : null}
+                        {/* CONTENT AREA */}
+                        <div className="flex-1 overflow-hidden relative p-0 bg-slate-900">
+                            {activeView === 'kanban' && <KanbanView tasks={filteredTasks} onTaskClick={setSelectedTask} onDropTask={handleDropTask} columnSearchTexts={columnSearchTexts} setColumnSearchTexts={setColumnSearchTexts} />}
+                            {activeView === 'calendar' && <CalendarView tasks={filteredTasks} onTaskClick={setSelectedTask} onDateClick={(date) => { setShowNewTaskModal(true); /* Pré-preencher data se possível */ }} />}
+                            {activeView === 'mindmap' && <MindMapView />}
+                            {activeView === 'workflow' && <WorkflowView />}
                         </div>
-                    </header>
-
-                    <main className="px-6 flex-1 overflow-hidden relative">
-                        {viewMode === 'mindmap' ? <MindMapView user={user} /> : 
-                         viewMode === 'workflow' ? <WorkflowView /> :
-                         viewMode === 'calendar' ? <CalendarView tasks={baseFilteredTasks} onTaskClick={setEditingTask} onDateClick={() => setIsModalOpen(true)} /> : 
-                         <KanbanView tasks={baseFilteredTasks} onTaskClick={(t) => {setEditingTask(t); setIsModalOpen(true);}} onStatusChange={updateStatus} isSelectionMode={false} selectedTasks={new Set()} toggleTaskSelection={()=>{}} columnDateFilters={{}} setColumnDateFilters={()=>{}} />
-                        }
                     </main>
 
-                    {isModalOpen && <TaskModal task={editingTask || {}} experts={experts} onAddExpert={addNewExpertToDb} onClose={()=>setIsModalOpen(false)} onSave={saveTask} onDelete={deleteTask} />}
+                    {/* MODALS */}
+                    {(showNewTaskModal || selectedTask) && (
+                        <TaskModal 
+                            onClose={() => { setShowNewTaskModal(false); setSelectedTask(null); }} 
+                            task={selectedTask} 
+                            experts={experts} 
+                            onSave={handleSaveTask}
+                            onDelete={selectedTask ? handleDeleteTask : null}
+                        />
+                    )}
                     
-                    {/* Modais Globais */}
                     {isPacksModalOpen && (
                         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setIsPacksModalOpen(false)}>
-                            <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                                <div className="p-6 border-b border-slate-700 bg-slate-800 flex justify-between items-center sticky top-0 z-10">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg">
-                                            <Icon name="package" className="w-6 h-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-xl font-bold text-white">Banco de Ativos 4K</h2>
-                                            <p className="text-xs text-slate-400">30.000+ Vídeos Ultra HD para Criativos</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => setIsPacksModalOpen(false)} className="text-slate-400 hover:text-white p-2 hover:bg-slate-700 rounded-lg transition"><Icon name="x" className="w-6 h-6" /></button>
+                            <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl p-6 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-xl font-bold text-white flex gap-2"><Icon name="package" className="w-6 h-6 text-purple-400"/> Packs 4K</h2>
+                                    <button onClick={() => setIsPacksModalOpen(false)}><Icon name="x" className="w-6 h-6 text-slate-400"/></button>
                                 </div>
-                                <div className="p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 bg-slate-900">
-                                    {VIDEO_PACKS.map((pack, index) => (
-                                        <a key={index} href={pack.url} target="_blank" rel="noopener noreferrer" className="group bg-slate-800 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-800/80 p-4 rounded-xl flex flex-col items-center justify-center gap-3 transition-all hover:-translate-y-1 shadow-lg hover:shadow-purple-900/20 text-center">
-                                            <div className="w-12 h-12 bg-slate-700/50 rounded-full flex items-center justify-center group-hover:bg-purple-500/20 group-hover:text-purple-400 transition-colors text-slate-400"><Icon name={pack.icon} className="w-6 h-6" /></div>
-                                            <span className="font-bold text-sm text-slate-200 group-hover:text-white">{pack.name}</span>
-                                            <span className="text-[10px] text-slate-500 bg-slate-900 px-2 py-1 rounded-full flex items-center gap-1 group-hover:text-purple-300"><Icon name="external-link" className="w-3 h-3" /> Abrir Drive</span>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {VIDEO_PACKS.map((pack, i) => (
+                                        <a key={i} href={pack.url} target="_blank" className="bg-slate-800 p-4 rounded-xl border border-slate-700 hover:border-purple-500 flex flex-col items-center gap-2 text-center group">
+                                            <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition"><Icon name={pack.icon} className="w-5 h-5"/></div>
+                                            <span className="font-bold text-sm text-white">{pack.name}</span>
+                                            <span className="text-[10px] text-slate-500">Abrir Drive ↗</span>
                                         </a>
                                     ))}
                                 </div>
