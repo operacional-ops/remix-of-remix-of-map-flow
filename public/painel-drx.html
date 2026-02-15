@@ -63,20 +63,53 @@
         
         .footer-input:focus-within { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.15); }
 
+        /* Truncate helpers */
+        .name-truncate { 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            white-space: nowrap; 
+            max-width: 100%; 
+            display: block;
+        }
+
         /* Mobile-first responsive fixes */
         @media (max-width: 768px) {
             .login-board-grid { grid-template-columns: repeat(2, 1fr) !important; }
             .login-team-grid { grid-template-columns: 1fr !important; }
-            .login-wrapper { padding: 1rem !important; }
-            .login-title { font-size: 1.75rem !important; }
-            .workspace-header { padding: 0.75rem 1rem !important; }
+            .login-wrapper { padding: 0.75rem !important; }
+            .login-title { font-size: 1.5rem !important; }
+            .workspace-header { padding: 0.5rem 0.75rem !important; }
             .workspace-header nav { display: none !important; }
             .workspace-mobile-nav { display: flex !important; }
             .prep-grid { grid-template-columns: 1fr !important; }
             .prep-details { max-height: none !important; }
+            
+            /* GodView mobile */
+            .godview-members-grid { grid-template-columns: repeat(2, 1fr) !important; max-height: 120px !important; }
+            .godview-main-flex { flex-direction: column !important; }
+            .godview-kanban-panel { min-height: 300px !important; }
+            .godview-inbox-panel { min-height: 250px !important; max-height: 300px !important; }
+            
+            /* Kanban mobile */
+            .kanban-columns { flex-direction: column !important; overflow-x: visible !important; gap: 0.5rem !important; }
+            .kanban-columns > div { min-width: 100% !important; max-height: 280px !important; }
+            
+            /* Inbox mobile */
+            .inbox-main { padding: 0.75rem !important; }
+            .inbox-main h2 { font-size: 1rem !important; margin-bottom: 0.75rem !important; }
+
+            /* Login cards mobile */
+            .login-card-inner { gap: 0.5rem !important; padding: 0.625rem !important; }
+            .login-card-inner .login-avatar { width: 2rem !important; height: 2rem !important; font-size: 0.7rem !important; }
+            .login-card-inner .login-name { font-size: 0.7rem !important; }
+            .login-card-inner .login-role { font-size: 8px !important; }
         }
         @media (min-width: 769px) {
             .workspace-mobile-nav { display: none !important; }
+        }
+        @media (max-width: 480px) {
+            .login-board-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.375rem !important; }
+            .godview-members-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.375rem !important; }
         }
     </style>
 </head>
@@ -412,8 +445,8 @@
             const [activeMsgId, setActiveMsgId] = React.useState(null);
 
             return (
-                <div className="flex-1 overflow-hidden bg-[#0b1121] rounded-2xl border border-slate-800 p-4 flex flex-col">
-                    <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Icon name="inbox" className="w-5 h-5 text-yellow-500" /> Central de Chamados ({openMessages.length})</h3>
+                <div className="flex-1 overflow-hidden bg-[#0b1121] rounded-xl border border-slate-800 p-3 flex flex-col">
+                    <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><Icon name="inbox" className="w-4 h-4 text-yellow-500" /> Chamados ({openMessages.length})</h3>
                     <div className="flex-1 overflow-y-auto space-y-3">
                         {openMessages.length === 0 ? <div className="text-center text-slate-600 py-10">Nenhum chamado pendente.</div> : openMessages.map(msg => (
                             <div key={msg.id} className="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
@@ -452,27 +485,28 @@
 
                     {viewMode === 'supervision' ? (
                         <>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4 overflow-y-auto max-h-[160px] pr-2">
+                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-4 overflow-y-auto max-h-[130px] pr-1 godview-members-grid">
                                 {allMembers.map(member => {
                                     const stats = globalTasks[member.id] || { todo: [], doing: [], done: [] };
                                     const doingCount = stats.doing.length;
                                     const isSelected = selectedMemberId === member.id;
                                     const pendingMsg = messages.some(m => m.fromUser.id === member.id && m.status === 'open');
+                                    const firstName = member.name.split(' ')[0];
                                     return (
-                                        <button key={member.id} onClick={() => setSelectedMemberId(member.id)} className={`glass-panel p-3 rounded-lg border text-left transition-all relative overflow-hidden ${isSelected ? 'border-blue-500 bg-blue-900/20' : 'border-slate-800 hover:bg-slate-800'}`}>
-                                            {pendingMsg && <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>}
-                                            <div className="flex items-center gap-2 mb-2"><div className={`w-6 h-6 ${member.color} rounded-full flex items-center justify-center text-[10px] font-bold text-white`}>{member.avatar}</div><div className="flex-1 min-w-0"><div className="text-xs font-bold text-slate-200 truncate">{member.name}</div><div className="text-[8px] text-slate-500 truncate uppercase">{member.role}</div></div></div>
-                                            <div className="flex items-center justify-between"><span className="text-[10px] text-slate-500">Fluxo:</span>{doingCount > 0 ? <span className="text-[10px] font-bold text-blue-400 animate-pulse">{doingCount} Ativos</span> : <span className="text-[10px] text-slate-600">Parado</span>}</div>
-                                            <div className="w-full h-1 bg-slate-800 mt-2 rounded-full overflow-hidden"><div className="h-full bg-blue-500" style={{ width: `${(stats.done.length / (stats.todo.length + stats.doing.length + stats.done.length || 1)) * 100}%` }}></div></div>
+                                        <button key={member.id} onClick={() => setSelectedMemberId(member.id)} className={`glass-panel p-2 rounded-lg border text-left transition-all relative overflow-hidden ${isSelected ? 'border-blue-500 bg-blue-900/20' : 'border-slate-800 hover:bg-slate-800'}`}>
+                                            {pendingMsg && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span>}
+                                            <div className="flex items-center gap-1.5 mb-1"><div className={`w-5 h-5 ${member.color} rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0`}>{member.avatar}</div><div className="flex-1 min-w-0"><div className="text-[11px] font-bold text-slate-200 name-truncate">{firstName}</div></div></div>
+                                            <div className="flex items-center justify-between"><span className="text-[9px] text-slate-500">Fluxo:</span>{doingCount > 0 ? <span className="text-[9px] font-bold text-blue-400">{doingCount}</span> : <span className="text-[9px] text-slate-600">—</span>}</div>
+                                            <div className="w-full h-0.5 bg-slate-800 mt-1 rounded-full overflow-hidden"><div className="h-full bg-blue-500" style={{ width: `${(stats.done.length / (stats.todo.length + stats.doing.length + stats.done.length || 1)) * 100}%` }}></div></div>
                                         </button>
                                     );
                                 })}
                             </div>
-                            <div className="flex-1 flex gap-4 overflow-hidden">
-                                <div className="flex-[2] bg-[#0b1121] rounded-2xl border border-slate-800 p-4 overflow-hidden flex flex-col relative">
+                            <div className="flex-1 flex gap-3 overflow-hidden godview-main-flex">
+                                <div className="flex-[2] bg-[#0b1121] rounded-xl border border-slate-800 p-3 overflow-hidden flex flex-col relative godview-kanban-panel">
                                     {selectedMemberId ? (
                                         <>
-                                            <div className="mb-4 flex items-center gap-3 pb-3 border-b border-slate-800/50 relative z-10"><div className={`w-8 h-8 ${TEAM_DATA.find(m => m.id === selectedMemberId).color} rounded-full flex items-center justify-center text-xs font-bold text-white`}>{TEAM_DATA.find(m => m.id === selectedMemberId).avatar}</div><div><h3 className="text-base font-bold text-white">Quadro de {TEAM_DATA.find(m => m.id === selectedMemberId).name}</h3><p className="text-[10px] text-slate-400">{TEAM_DATA.find(m => m.id === selectedMemberId).role}</p></div></div>
+                                            <div className="mb-3 flex items-center gap-2 pb-2 border-b border-slate-800/50 relative z-10"><div className={`w-6 h-6 ${TEAM_DATA.find(m => m.id === selectedMemberId).color} rounded-full flex items-center justify-center text-[10px] font-bold text-white`}>{TEAM_DATA.find(m => m.id === selectedMemberId).avatar}</div><div className="min-w-0"><h3 className="text-sm font-bold text-white name-truncate">Quadro de {TEAM_DATA.find(m => m.id === selectedMemberId).name.split(' ')[0]}</h3><p className="text-[9px] text-slate-400 name-truncate">{TEAM_DATA.find(m => m.id === selectedMemberId).role}</p></div></div>
                                             <div className="flex-1 overflow-hidden relative z-10">
                                                 <KanbanBoard 
                                                     tasks={selectedTasks} 
@@ -486,10 +520,10 @@
                                             </div>
                                         </>
                                     ) : (
-                                        <div className="h-full flex flex-col items-center justify-center text-slate-600"><Icon name="mouse-pointer-click" className="w-12 h-12 mb-3 opacity-50" /><p className="text-sm">Selecione um colaborador acima para auditar.</p></div>
+                                        <div className="h-full flex flex-col items-center justify-center text-slate-600"><Icon name="mouse-pointer-click" className="w-10 h-10 mb-2 opacity-50" /><p className="text-xs">Selecione um colaborador acima.</p></div>
                                     )}
                                 </div>
-                                <div className="flex-1 flex flex-col h-full overflow-hidden"><DirectorInbox messages={messages} onReply={onReply} /></div>
+                                <div className="flex-1 flex flex-col h-full overflow-hidden godview-inbox-panel"><DirectorInbox messages={messages} onReply={onReply} /></div>
                             </div>
                         </>
                     ) : (
@@ -514,7 +548,7 @@
 
         const KanbanColumn = ({ title, status, items, color, icon, readOnly, onAddClick, onTaskClick, isSelectMode, selectedTasks, onSelectTask, onMoveTask }) => {
             return (
-                <div className="flex-1 min-w-[280px] bg-[#0b1121] border border-slate-800 rounded-xl flex flex-col h-full">
+                <div className="flex-1 min-w-[220px] bg-[#0b1121] border border-slate-800 rounded-xl flex flex-col h-full">
                     <div className={`p-3 border-b border-slate-800 flex justify-between items-center ${color} bg-slate-900/50`}>
                         <div className="flex items-center gap-2 font-bold text-slate-200 text-sm"><Icon name={icon} className="w-3.5 h-3.5 opacity-70" />{title}</div>
                         <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px] text-slate-400 font-mono">{items.length}</span>
@@ -598,7 +632,7 @@
                             </div>
                         </div>
                     )}
-                    <div className="flex gap-3 h-full overflow-x-auto pb-2">
+                    <div className="flex gap-2 h-full overflow-x-auto pb-2 kanban-columns">
                         <KanbanColumn title="A FAZER" status="todo" items={tasks.todo} color="border-t-2 border-t-slate-500" icon="circle" readOnly={readOnly} onAddClick={openNewTaskModal} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} />
                         <KanbanColumn title="FAZENDO" status="doing" items={tasks.doing} color="border-t-2 border-t-blue-500" icon="loader" readOnly={readOnly} onAddClick={() => {}} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} />
                         <KanbanColumn title="FEITO" status="done" items={tasks.done} color="border-t-2 border-t-emerald-500" icon="check-circle" readOnly={readOnly} onAddClick={() => {}} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} />
@@ -617,7 +651,7 @@
             const handleCardClick = (member) => { setSelectedUser(member); setError(""); setUsername(""); setPassword(""); };
             const handleAuth = (e) => { e.preventDefault(); if (username === selectedUser.user && password === selectedUser.pass) { onLogin(selectedUser); } else { setError("Credenciais inválidas."); } };
             const Card = ({ member }) => (
-                <button onClick={() => handleCardClick(member)} className="glass-panel p-4 rounded-xl hover:bg-slate-800/80 transition-all group text-left flex items-center gap-3 relative overflow-hidden w-full"><div className={`w-12 h-12 ${member.color} rounded-full flex items-center justify-center text-lg font-bold text-white shadow-lg shrink-0`}>{member.avatar}</div><div className="min-w-0"><h3 className="font-bold text-slate-100 text-sm truncate group-hover:text-blue-400 transition-colors">{member.name}</h3><p className="text-[10px] text-slate-400 uppercase font-semibold truncate">{member.role}</p></div>{member.isDirector && <div className="absolute top-2 right-2"><Icon name="eye" className="w-4 h-4 text-blue-500" /></div>}</button>
+                <button onClick={() => handleCardClick(member)} className="glass-panel p-3 rounded-xl hover:bg-slate-800/80 transition-all group text-left flex items-center gap-2.5 relative overflow-hidden w-full login-card-inner"><div className={`w-10 h-10 ${member.color} rounded-full flex items-center justify-center text-sm font-bold text-white shadow-lg shrink-0 login-avatar`}>{member.avatar}</div><div className="min-w-0 flex-1"><h3 className="font-bold text-slate-100 text-xs group-hover:text-blue-400 transition-colors name-truncate login-name">{member.name}</h3><p className="text-[9px] text-slate-400 uppercase font-semibold name-truncate login-role">{member.role}</p></div>{member.isDirector && <div className="absolute top-1.5 right-1.5"><Icon name="eye" className="w-3.5 h-3.5 text-blue-500" /></div>}</button>
             );
             if (selectedUser) {
                 return (
@@ -945,8 +979,8 @@
                                 ) : (
                                     <div className="flex-1 flex flex-col h-full animate-enter">
                                         {activeTab === 'inbox' ? (
-                                            <div className="flex-1 bg-[#0b1121] rounded-2xl border border-slate-800 p-6 overflow-hidden flex flex-col">
-                                                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Icon name="inbox" className="w-6 h-6 text-blue-500"/> Caixa de Entrada</h2>
+                                            <div className="flex-1 bg-[#0b1121] rounded-xl border border-slate-800 p-4 overflow-hidden flex flex-col inbox-main">
+                                                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Icon name="inbox" className="w-5 h-5 text-blue-500"/> Caixa de Entrada</h2>
                                                 <div className="space-y-4 overflow-y-auto pr-2">
                                                     {messages.filter(m => m.fromUser.id === currentUser.id).length === 0 ? <div className="text-slate-600 text-center py-10">Sua caixa de entrada está vazia.</div> : messages.filter(m => m.fromUser.id === currentUser.id).map(msg => (
                                                         <div key={msg.id} className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
