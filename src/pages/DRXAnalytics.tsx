@@ -53,6 +53,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SalesFunnelChart } from "@/components/analytics/SalesFunnelChart";
+import { UnitEconomicsCards } from "@/components/analytics/UnitEconomicsCards";
+import { TopPerformersHeatmap } from "@/components/analytics/TopPerformersHeatmap";
 
 // ── Sparkline Component ────────────────────────────────────
 function Sparkline({ data, color }: { data: { v: number }[]; color: string }) {
@@ -509,6 +512,26 @@ export default function DRXAnalytics() {
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          {/* ── Deep Dive Section ────────────────── */}
+          <div className="pt-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+              🔬 Deep Dive
+            </h2>
+          </div>
+
+          {/* ── Unit Economics ────────────────────── */}
+          <UnitEconomicsCards
+            cpa={kpis.totalVendas > 0 ? kpis.totalGastos / kpis.totalVendas : undefined}
+            aov={kpis.totalVendas > 0 ? kpis.totalResultado / kpis.totalVendas : undefined}
+            margin={kpis.totalVendas > 0 ? (kpis.totalResultado / kpis.totalVendas) - (kpis.totalGastos / kpis.totalVendas) : undefined}
+          />
+
+          {/* ── Funnel + Top Performers Row ──────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <SalesFunnelChart />
+            <TopPerformersHeatmap />
           </div>
 
           {/* ── Campaigns Table ──────────────────── */}
