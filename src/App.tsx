@@ -40,6 +40,7 @@ import DashboardOperacao from "./pages/DashboardOperacao";
 import DRXAnalytics from "./pages/DRXAnalytics";
 import PainelDRX from "./pages/PainelDRX";
 import CommandCenter from "./pages/CommandCenter";
+import FinancialDashboard from "./pages/FinancialDashboard";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,7 @@ const App = () => (
                           <Route path="/drx-analytics" element={<OperationalRoute><DRXAnalytics /></OperationalRoute>} />
                           <Route path="/painel-drx" element={<OperationalRoute><PainelDRX /></OperationalRoute>} />
                           <Route path="/command-center" element={<OperationalRoute><CommandCenter /></OperationalRoute>} />
+                          <Route path="/financeiro" element={<OperationalRoute><FinancialDashboard /></OperationalRoute>} />
                           <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
                           <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                           <Route path="*" element={<NotFound />} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Inbox, GitBranch, Target, Activity, Monitor, BookOpen } from 'lucide-react';
+import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Inbox, GitBranch, Target, Activity, Monitor, BookOpen, DollarSign } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useTheme } from 'next-themes';
 import { ThemeLogo } from '@/components/ThemeLogo';
@@ -41,6 +41,7 @@ const modulesNavItems = [
 const painelDrxNavItems = [
   { title: 'Painel DRX', url: '/painel-drx', icon: Monitor, tutorialId: 'painel-drx' },
   { title: 'Mapa Orgânico | Expert\'s', url: '/command-center', icon: BookOpen, tutorialId: 'command-center' },
+  { title: 'Financeiro', url: '/financeiro', icon: DollarSign, tutorialId: 'financeiro' },
 ];
 
 const drxNavItems = [
