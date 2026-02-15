@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
+import { OperationalRoute } from "@/components/OperationalRoute";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
 import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
@@ -84,9 +85,9 @@ const App = () => (
                           <Route path="/chamados" element={<TeamChamados />} />
                           <Route path="/fluxogramas" element={<FluxogramasProcessos />} />
                           <Route path="/matriz-decisoes" element={<MatrizDecisoes />} />
-                          <Route path="/dashboard-operacao" element={<DashboardOperacao />} />
-                          <Route path="/drx-analytics" element={<DRXAnalytics />} />
-                          <Route path="/painel-drx" element={<PainelDRX />} />
+                          <Route path="/dashboard-operacao" element={<OperationalRoute><DashboardOperacao /></OperationalRoute>} />
+                          <Route path="/drx-analytics" element={<OperationalRoute><DRXAnalytics /></OperationalRoute>} />
+                          <Route path="/painel-drx" element={<OperationalRoute><PainelDRX /></OperationalRoute>} />
                           <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
                           <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                           <Route path="*" element={<NotFound />} />

@@ -10,7 +10,7 @@ export const useUserRole = () => {
   return useQuery({
     queryKey: ['user-role', user?.id, activeWorkspace?.id],
     queryFn: async () => {
-      if (!user) return { isAdmin: false, isGlobalOwner: false, isOwner: false, role: null };
+      if (!user) return { isAdmin: false, isGlobalOwner: false, isOwner: false, isLimitedMember: false, role: null };
 
       // 1. Verificar roles globais (user_roles)
       const { data: globalRoles } = await supabase
@@ -24,7 +24,7 @@ export const useUserRole = () => {
 
       // Se tem role global de admin+, já é admin
       if (isGlobalOwner || isOwner || isGlobalAdmin) {
-        return { isAdmin: true, isGlobalOwner, isOwner, role: 'admin' as const };
+        return { isAdmin: true, isGlobalOwner, isOwner, isLimitedMember: false, role: 'admin' as const };
       }
 
       // 2. Verificar role no workspace ativo
@@ -37,11 +37,15 @@ export const useUserRole = () => {
           .single();
 
         if (membership?.role === 'admin') {
-          return { isAdmin: true, isGlobalOwner: false, isOwner: false, role: 'admin' as const };
+          return { isAdmin: true, isGlobalOwner: false, isOwner: false, isLimitedMember: false, role: 'admin' as const };
+        }
+
+        if (membership?.role === 'limited_member') {
+          return { isAdmin: false, isGlobalOwner: false, isOwner: false, isLimitedMember: true, role: 'limited_member' as const };
         }
       }
 
-      return { isAdmin: false, isGlobalOwner: false, isOwner: false, role: 'member' as const };
+      return { isAdmin: false, isGlobalOwner: false, isOwner: false, isLimitedMember: false, role: 'member' as const };
     },
     enabled: !!user,
   });
