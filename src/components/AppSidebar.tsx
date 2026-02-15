@@ -32,6 +32,7 @@ const everythingNavItem = { title: 'Tudo', url: '/everything', icon: Layers };
 
 const modulesNavItems = [
   { title: 'Chat', url: '/chat', icon: MessageSquare },
+  { title: 'Discord', url: '/discord', icon: MessageSquare },
   { title: 'Equipes', url: '/teams', icon: Users },
   { title: 'Documentos', url: '/documents', icon: FileText },
   { title: 'Painéis', url: '/dashboards', icon: BarChart3 },

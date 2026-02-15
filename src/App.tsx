@@ -41,6 +41,7 @@ import DRXAnalytics from "./pages/DRXAnalytics";
 import PainelDRX from "./pages/PainelDRX";
 import CommandCenter from "./pages/CommandCenter";
 import FinancialDashboard from "./pages/FinancialDashboard";
+import DiscordChat from "./pages/DiscordChat";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ const App = () => (
                           <Route path="/list/:listId" element={<ListDetailView />} />
                           <Route path="/task/:taskId" element={<TaskView />} />
                           <Route path="/chat" element={<Chat />} />
+                          <Route path="/discord" element={<DiscordChat />} />
                           <Route path="/teams" element={<Teams />} />
                           <Route path="/documents" element={<Documents />} />
                           <Route path="/documents/:id" element={<DocumentView />} />
