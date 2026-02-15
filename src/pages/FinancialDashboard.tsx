@@ -198,37 +198,79 @@ export default function FinancialDashboard() {
     setChatLoading(true);
 
     try {
-      const financialContext = `
-Dados Financeiros DRX (atualizado):
-- Saldo Atual: R$ ${kpis.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-- Total Entradas: R$ ${kpis.entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-- Total Saídas: R$ ${kpis.saidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-- Total a Pagar: R$ ${kpis.totalAPagar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-- Contas Pendentes: ${kpis.pendentes}
-- Saldo Projetado: R$ ${kpis.saldoProjetado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      // Build financial context for AI (data is injected server-side via context_data, 
+      // the AI prompt has strict rules to never expose raw values)
+      const financialContext = {
+        saldo_atual: kpis.saldoAtual,
+        total_entradas: kpis.entradas,
+        total_saidas: kpis.saidas,
+        total_a_pagar: kpis.totalAPagar,
+        contas_pendentes: kpis.pendentes,
+        saldo_projetado: kpis.saldoProjetado,
+        indice_cobertura: kpis.totalAPagar > 0 ? kpis.saldoAtual / kpis.totalAPagar : null,
+        categorias_despesa: categoryData.map(c => ({ categoria: c.name, valor: c.value })),
+        contas_a_pagar: payables.map(p => ({
+          vencimento: p.vencimento,
+          status: p.status,
+          categoria: p.nivel1,
+          valor: Number(p.valor),
+          dias: p.dias_vencer,
+        })),
+        movimentacoes_recentes: cashbook.slice(-10).map(c => ({
+          data: c.data,
+          tipo: c.tipo,
+          categoria: c.nivel1,
+          descricao: c.historico,
+          valor: Number(c.valor),
+        })),
+      };
 
-Últimas movimentações do Livro Caixa:
-${cashbook.slice(-10).map(c => `${c.data} | ${c.tipo} | ${c.nivel1} | ${c.historico || '-'} | R$ ${Number(c.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`).join('\n')}
-
-Contas a Pagar:
-${payables.map(p => `${p.vencimento} | ${p.status} | ${p.fornecedor || p.nivel1} | R$ ${Number(p.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`).join('\n')}
-
-Despesas por Categoria:
-${categoryData.map(c => `${c.name}: R$ ${c.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`).join('\n')}
-`;
-
-      const { data, error } = await supabase.functions.invoke('drx-ai-chat', {
+      const response = await supabase.functions.invoke('drx-ai-chat', {
         body: {
-          messages: [
-            { role: 'system', content: `Você é o assistente financeiro da DRX. Responda com base nos dados financeiros abaixo. Seja direto, objetivo e use formatação clara. Sempre em português.\n\n${financialContext}` },
-            ...newMessages.map(m => ({ role: m.role, content: m.content })),
-          ],
+          context_type: 'financial_advisor',
+          context_data: financialContext,
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
         },
       });
 
-      if (error) throw error;
-      const reply = data?.choices?.[0]?.message?.content || data?.reply || 'Desculpe, não consegui processar sua pergunta.';
-      setChatMessages([...newMessages, { role: 'assistant', content: reply }]);
+      // Handle streaming response
+      if (response.data instanceof ReadableStream) {
+        const reader = response.data.getReader();
+        const decoder = new TextDecoder();
+        let assistantContent = '';
+        setChatMessages([...newMessages, { role: 'assistant', content: '' }]);
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+          
+          for (const line of lines) {
+            const jsonStr = line.slice(6);
+            if (jsonStr === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const delta = parsed.choices?.[0]?.delta?.content || '';
+              assistantContent += delta;
+              setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: 'assistant', content: assistantContent };
+                return updated;
+              });
+            } catch {}
+          }
+        }
+        
+        if (!assistantContent) {
+          setChatMessages([...newMessages, { role: 'assistant', content: 'Não consegui gerar uma resposta. Tente novamente.' }]);
+        }
+      } else {
+        // Non-streaming fallback
+        const reply = response.data?.choices?.[0]?.message?.content || response.data?.reply || 'Erro ao processar.';
+        setChatMessages([...newMessages, { role: 'assistant', content: reply }]);
+      }
     } catch (err) {
       console.error('Chat error:', err);
       setChatMessages([...newMessages, { role: 'assistant', content: 'Erro ao processar. Tente novamente.' }]);
