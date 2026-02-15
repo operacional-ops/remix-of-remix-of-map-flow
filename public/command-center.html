@@ -45,16 +45,20 @@
         .wb-obj { position: absolute; transition: box-shadow 0.1s; user-select: none; }
         .wb-obj:hover { outline: 2px solid rgba(59, 130, 246, 0.5); }
         .wb-obj.selected { outline: 2px solid #2563eb; z-index: 50; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); }
-        .sticky-note { box-shadow: 2px 4px 6px rgba(0,0,0,0.1); font-family: 'Kalam', cursive, sans-serif; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; overflow: hidden; }
+        
+        .sticky-note { 
+            box-shadow: 2px 4px 6px rgba(0,0,0,0.1); 
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; 
+            display: flex; align-items: center; justify-content: center; 
+            text-align: center; padding: 10px; overflow: hidden; color: #1e293b;
+        }
         .text-obj { background: transparent; border: 1px solid transparent; padding: 4px; }
         .text-obj:hover { border: 1px dashed #cbd5e1; }
+        
         .frame-obj { border: 2px dashed #94a3b8; background: rgba(255,255,255,0.05); pointer-events: none; }
         .frame-obj .frame-label { position: absolute; top: -24px; left: 0; font-size: 12px; color: #94a3b8; font-weight: bold; pointer-events: auto; }
-        .cursor-pen { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 0 24, auto; }
         
-        .custom-checkbox { cursor: pointer; appearance: none; width: 20px; height: 20px; border: 2px solid #475569; border-radius: 4px; position: relative; background: rgba(15, 23, 42, 0.5); }
-        .custom-checkbox:checked { background-color: #3b82f6; border-color: #3b82f6; }
-        .custom-checkbox:checked::after { content: '✓'; position: absolute; color: white; font-size: 14px; top: -2px; left: 3px; font-weight: bold; }
+        .cursor-pen { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>') 0 24, auto; }
     </style>
 </head>
 <body class="dark">
@@ -167,7 +171,7 @@
             return <span ref={ref} style={{ display: 'contents' }}></span>;
         };
 
-        // --- COMPONENTE WORKFLOW AI ---
+        // --- COMPONENTE WORKFLOW AI (VSL GENERATOR) ---
         function WorkflowView() {
             const [step, setStep] = React.useState(1);
             const [productData, setProductData] = React.useState({ niche: '', product: '', target: '' });
@@ -177,7 +181,6 @@
             const handleGeneratePrompts = () => {
                 if(!productData.product) return alert("Preencha o nome do produto!");
                 setIsGenerating(true);
-                
                 setTimeout(() => {
                     const mockScenes = [
                         { id: 1, text: "Close-up cinematográfico do produto flutuando em gravidade zero, iluminação dramática.", status: 'pending' },
@@ -339,14 +342,30 @@
             );
         }
 
-        // --- COMPONENTE MIND MAP ---
+        // --- COMPONENTE MIND MAP EVOLUÍDO ---
         function MindMapView({ user }) {
             const [maps, setMaps] = React.useState([]);
             const [currentMap, setCurrentMap] = React.useState(null);
-            const [nodes, setNodes] = React.useState([]);
+            
+            const [nodes, setNodes] = React.useState([]); // Post-its, Textos, Frames, Comentários
+            const [edges, setEdges] = React.useState([]); // Linhas de conexão
+            const [drawings, setDrawings] = React.useState([]); // Desenhos à mão livre
+            
             const [view, setView] = React.useState({ x: 0, y: 0, scale: 1 });
+            const [isDraggingCanvas, setIsDraggingCanvas] = React.useState(false);
+            const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
+            
+            const [selectedId, setSelectedId] = React.useState(null);
+            const [activeTool, setActiveTool] = React.useState('cursor');
+            
+            const [drawingPath, setDrawingPath] = React.useState(null);
+            const [connectionStart, setConnectionStart] = React.useState(null);
+            const [isEditingText, setIsEditingText] = React.useState(null);
+            const [nodeDrag, setNodeDrag] = React.useState(null);
+            
             const [loadingMap, setLoadingMap] = React.useState(false);
 
+            // Carregar lista de mapas
             React.useEffect(() => {
                 const unsubscribe = db.collection(MINDMAP_COLLECTION).orderBy('createdAt', 'desc').onSnapshot(snap => {
                     setMaps(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -354,30 +373,261 @@
                 return () => unsubscribe();
             }, []);
 
+            // Salvar automaticamente (Debounce)
+            React.useEffect(() => {
+                if (!currentMap || loadingMap) return;
+                const timer = setTimeout(() => {
+                    db.collection(MINDMAP_COLLECTION).doc(currentMap.id).update({ 
+                        nodes, edges, drawings, updatedAt: new Date().toISOString() 
+                    });
+                }, 1000);
+                return () => clearTimeout(timer);
+            }, [nodes, edges, drawings, currentMap]);
+
+            // CRUD Mapas
             const createNewMap = async () => {
                 const name = prompt("Nome do novo Quadro:");
                 if (!name) return;
+                setLoadingMap(true);
                 try {
-                    const docRef = await db.collection(MINDMAP_COLLECTION).add({ name, createdAt: new Date().toISOString(), nodes: [] });
-                    setCurrentMap({ id: docRef.id, name, nodes: [] });
-                } catch(e) { alert(e.message); }
+                    const newMap = { name, createdAt: new Date().toISOString(), nodes: [], edges: [], drawings: [] };
+                    const docRef = await db.collection(MINDMAP_COLLECTION).add(newMap);
+                    openMap({ id: docRef.id, ...newMap });
+                } catch (error) { alert("Erro: " + error.message); } finally { setLoadingMap(false); }
+            };
+
+            const deleteMap = async (e, mapId) => {
+                e.stopPropagation();
+                if (!confirm("Tem certeza que deseja EXCLUIR este quadro?")) return;
+                try { await db.collection(MINDMAP_COLLECTION).doc(mapId).delete(); } catch (err) { alert("Erro: " + err.message); }
+            };
+
+            const duplicateMap = async (e, map) => {
+                e.stopPropagation();
+                if (!confirm("Duplicar este quadro?")) return;
+                try {
+                    const { id, ...data } = map;
+                    await db.collection(MINDMAP_COLLECTION).add({ ...data, name: data.name + " (Cópia)", createdAt: new Date().toISOString() });
+                } catch (err) { alert("Erro: " + err.message); }
             };
 
             const openMap = (map) => {
+                setLoadingMap(true);
                 setCurrentMap(map);
                 setNodes(map.nodes || []);
+                setEdges(map.edges || []);
+                setDrawings(map.drawings || []);
+                setView({ x: window.innerWidth / 2 - 400, y: window.innerHeight / 2 - 300, scale: 1 });
+                setLoadingMap(false);
             };
 
+            // INTERAÇÕES CANVAS
+            const getWorldPos = (e) => ({
+                x: (e.clientX - view.x) / view.scale,
+                y: (e.clientY - view.y) / view.scale
+            });
+
+            const handleMouseDown = (e) => {
+                const { x, y } = getWorldPos(e);
+                if (e.button === 2 || activeTool === 'cursor') {
+                    if (!e.target.closest('.wb-obj') && !e.target.closest('.control-btn')) {
+                        setIsDraggingCanvas(true);
+                        setDragStart({ x: e.clientX, y: e.clientY, origViewX: view.x, origViewY: view.y });
+                        return;
+                    }
+                }
+                if (activeTool !== 'cursor') {
+                    if (activeTool === 'pen') {
+                        setDrawingPath({ id: Math.random().toString(36), points: [{x, y}], color: '#ef4444', width: 3 });
+                    } else if (activeTool === 'line') {
+                        const target = e.target.closest('.wb-obj');
+                        setConnectionStart({ x, y, startId: target ? target.dataset.id : null });
+                    } else {
+                        createObject(activeTool, x, y);
+                        setActiveTool('cursor');
+                    }
+                    return;
+                }
+                const target = e.target.closest('.wb-obj');
+                if (target) {
+                    const id = target.dataset.id;
+                    setSelectedId(id);
+                    const node = nodes.find(n => n.id === id);
+                    if (node && node.type !== 'line') {
+                        setNodeDrag({ id, startX: e.clientX, startY: e.clientY, origX: node.x, origY: node.y });
+                    }
+                    e.stopPropagation();
+                } else {
+                    setSelectedId(null);
+                }
+            };
+
+            const handleMouseMove = (e) => {
+                const { x, y } = getWorldPos(e);
+                if (isDraggingCanvas) {
+                    const dx = e.clientX - dragStart.x;
+                    const dy = e.clientY - dragStart.y;
+                    setView(prev => ({ ...prev, x: dragStart.origViewX + dx, y: dragStart.origViewY + dy }));
+                }
+                if (drawingPath) setDrawingPath(prev => ({ ...prev, points: [...prev.points, {x, y}] }));
+                if (nodeDrag) {
+                    const dx = (e.clientX - nodeDrag.startX) / view.scale;
+                    const dy = (e.clientY - nodeDrag.startY) / view.scale;
+                    setNodes(prev => prev.map(n => n.id === nodeDrag.id ? { ...n, x: nodeDrag.origX + dx, y: nodeDrag.origY + dy } : n));
+                }
+            };
+
+            const handleMouseUp = (e) => {
+                if (drawingPath) { setDrawings(prev => [...prev, drawingPath]); setDrawingPath(null); }
+                if (connectionStart) {
+                    const target = e.target.closest('.wb-obj');
+                    const endId = target ? target.dataset.id : null;
+                    if (connectionStart.startId && endId && connectionStart.startId !== endId) {
+                        setEdges(prev => [...prev, { id: Math.random().toString(36), from: connectionStart.startId, to: endId }]);
+                    }
+                    setConnectionStart(null);
+                    setActiveTool('cursor');
+                }
+                setIsDraggingCanvas(false);
+                setNodeDrag(null);
+            };
+
+            const handleWheel = (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    const scaleAmount = -e.deltaY * 0.001;
+                    const newScale = Math.min(Math.max(0.1, view.scale + scaleAmount), 5);
+                    setView(prev => ({ ...prev, scale: newScale }));
+                } else {
+                    setView(prev => ({ ...prev, x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+                }
+            };
+
+            const createObject = (type, x, y) => {
+                const id = Math.random().toString(36).substr(2, 9);
+                let newNode = { id, x, y, type };
+                if (type === 'sticky') newNode = { ...newNode, text: '', color: '#fef3c7', width: 160, height: 160 };
+                else if (type === 'text') newNode = { ...newNode, text: 'Novo Texto', color: 'transparent', fontSize: 24 };
+                else if (type === 'frame') newNode = { ...newNode, text: 'Novo Frame', width: 400, height: 300, zIndex: -1 };
+                else if (type === 'comment') newNode = { ...newNode, text: 'Comentário...', width: 32, height: 32, color: '#ef4444' };
+                setNodes(prev => [...prev, newNode]);
+                setSelectedId(id);
+                if(type === 'sticky' || type === 'text') setTimeout(() => setIsEditingText(id), 50);
+            };
+
+            const deleteSelected = () => {
+                if (!selectedId) return;
+                setNodes(prev => prev.filter(n => n.id !== selectedId));
+                setEdges(prev => prev.filter(e => e.from !== selectedId && e.to !== selectedId));
+                setSelectedId(null);
+            };
+
+            React.useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (isEditingText || !currentMap) return;
+                    if (e.key.toLowerCase() === 'v') setActiveTool('cursor');
+                    if (e.key.toLowerCase() === 'n') setActiveTool('sticky');
+                    if (e.key.toLowerCase() === 't') setActiveTool('text');
+                    if (e.key.toLowerCase() === 'l') setActiveTool('line');
+                    if (e.key.toLowerCase() === 'p') setActiveTool('pen');
+                    if (e.key.toLowerCase() === 'f') setActiveTool('frame');
+                    if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [currentMap, selectedId, isEditingText]);
+
+            // Renderização
+            const renderEdges = () => {
+                return edges.map(edge => {
+                    const fromNode = nodes.find(n => n.id === edge.from);
+                    const toNode = nodes.find(n => n.id === edge.to);
+                    if (!fromNode || !toNode) return null;
+                    const startX = fromNode.x + (fromNode.width || 100)/2;
+                    const startY = fromNode.y + (fromNode.height || 50)/2;
+                    const endX = toNode.x + (toNode.width || 100)/2;
+                    const endY = toNode.y + (toNode.height || 50)/2;
+                    return <line key={edge.id} x1={startX} y1={startY} x2={endX} y2={endY} stroke="#64748b" strokeWidth="2" markerEnd="url(#arrowhead)" />;
+                });
+            };
+
+            const renderDrawings = () => {
+                return [...drawings, drawingPath].filter(Boolean).map(d => {
+                    if (d.points.length < 2) return null;
+                    const pathData = `M ${d.points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
+                    return <path key={d.id} d={pathData} stroke={d.color} strokeWidth={d.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+                });
+            };
+
+            const renderNode = (node) => {
+                const isSelected = node.id === selectedId;
+                if (node.type === 'sticky') {
+                    return (
+                        <div key={node.id} data-id={node.id} className={`wb-obj sticky-note ${isSelected ? 'selected' : ''}`} style={{ left: node.x, top: node.y, width: node.width, height: node.height, backgroundColor: node.color, transform: isSelected ? 'scale(1.02)' : 'rotate(-1deg)' }} onDoubleClick={() => setIsEditingText(node.id)}>
+                            {isEditingText === node.id ? (
+                                <textarea autoFocus className="w-full h-full bg-transparent outline-none resize-none text-center" value={node.text} onChange={e => setNodes(nodes.map(n => n.id===node.id ? {...n, text: e.target.value} : n))} onBlur={() => setIsEditingText(null)} />
+                            ) : (
+                                <span className="pointer-events-none break-words w-full">{node.text || <span className="opacity-30">Digite...</span>}</span>
+                            )}
+                        </div>
+                    );
+                }
+                if (node.type === 'text') {
+                    return (
+                        <div key={node.id} data-id={node.id} className={`wb-obj text-obj ${isSelected ? 'selected' : ''}`} style={{ left: node.x, top: node.y, minWidth: '100px', color: '#e2e8f0', fontSize: node.fontSize || 16 }} onDoubleClick={() => setIsEditingText(node.id)}>
+                            {isEditingText === node.id ? (
+                                <textarea autoFocus className="w-full bg-transparent outline-none resize-none" rows={1} value={node.text} onChange={e => setNodes(nodes.map(n => n.id===node.id ? {...n, text: e.target.value} : n))} onBlur={() => setIsEditingText(null)} />
+                            ) : (
+                                <div className="font-bold pointer-events-none whitespace-nowrap">{node.text || "Texto"}</div>
+                            )}
+                        </div>
+                    );
+                }
+                if (node.type === 'frame') {
+                    return (
+                        <div key={node.id} data-id={node.id} className={`wb-obj frame-obj ${isSelected ? 'selected' : ''}`} style={{ left: node.x, top: node.y, width: node.width, height: node.height, zIndex: 0 }}>
+                            <div className="frame-label">{node.text}</div>
+                        </div>
+                    );
+                }
+                if (node.type === 'comment') {
+                    return (
+                        <div key={node.id} data-id={node.id} className={`wb-obj rounded-full flex items-center justify-center shadow-lg ${isSelected ? 'selected' : ''}`} style={{ left: node.x, top: node.y, width: 32, height: 32, backgroundColor: node.color, zIndex: 100 }} title={node.text}>
+                            <Icon name="message-square" className="w-4 h-4 text-white" />
+                        </div>
+                    );
+                }
+            };
+
+            // TELA DE SELEÇÃO DE MAPAS
             if (!currentMap) {
                 return (
-                    <div className="flex flex-col items-center justify-center h-full text-white">
-                        <div className="bg-slate-900/90 p-8 rounded-3xl border border-slate-700 shadow-2xl text-center max-w-4xl w-full">
-                            <h2 className="text-4xl font-bold mb-8">Mind Maps</h2>
-                            <button onClick={createNewMap} className="p-4 bg-blue-600 rounded text-white font-bold mb-4">Novo Mapa</button>
-                            <div className="grid grid-cols-3 gap-4">
-                                {maps.map(m => (
-                                    <div key={m.id} onClick={() => openMap(m)} className="p-4 bg-slate-800 rounded cursor-pointer hover:bg-slate-700 border border-slate-600">
-                                        {m.name}
+                    <div className="flex flex-col items-center justify-center h-full text-white animate-in fade-in zoom-in duration-300 relative">
+                        <div className="bg-slate-900/90 p-8 rounded-3xl border border-slate-700 shadow-2xl text-center max-w-4xl w-full relative overflow-hidden">
+                            <h2 className="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">Meus Quadros</h2>
+                            <p className="text-slate-400 mb-8">Selecione um projeto ou inicie um novo brainstorm.</p>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-2">
+                                <button onClick={createNewMap} className="aspect-video p-6 bg-blue-600/10 border-2 border-dashed border-blue-500/30 hover:border-blue-500 hover:bg-blue-600/20 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all group">
+                                    <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform"><Icon name="plus" className="w-6 h-6 text-blue-400" /></div>
+                                    <span className="font-bold text-blue-200">Novo Quadro</span>
+                                </button>
+                                {maps.map(map => (
+                                    <div key={map.id} onClick={() => openMap(map)} className="aspect-video p-4 bg-slate-800 border border-slate-700 hover:border-slate-500 hover:bg-slate-750 rounded-2xl flex flex-col justify-between transition-all group relative cursor-pointer text-left">
+                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                            <button onClick={(e) => duplicateMap(e, map)} className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300" title="Duplicar"><Icon name="copy" className="w-3.5 h-3.5" /></button>
+                                            <button onClick={(e) => deleteMap(e, map.id)} className="p-1.5 bg-red-900/50 hover:bg-red-900 rounded-lg text-red-300" title="Excluir"><Icon name="trash-2" className="w-3.5 h-3.5" /></button>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2 bg-slate-700/50 rounded-lg"><Icon name="trello" className="w-5 h-5 text-slate-400" /></div>
+                                            <div>
+                                                <h3 className="font-bold text-white leading-tight line-clamp-2">{map.name}</h3>
+                                                <span className="text-[10px] text-slate-500">{formatDateShort(map.createdAt)}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-900/50 p-2 rounded-lg w-fit">
+                                            <Icon name="layers" className="w-3 h-3" /> {map.nodes?.length || 0} objetos
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -386,45 +636,264 @@
                 );
             }
 
+            // CANVAS
             return (
-                <div className="w-full h-full relative whiteboard-grid">
-                    <button onClick={() => setCurrentMap(null)} className="absolute top-4 left-4 z-50 p-2 bg-slate-800 rounded text-white">Voltar</button>
-                    <div className="flex items-center justify-center h-full text-slate-500">
-                        Canvas do Mapa Mental Ativo: {currentMap.name}
+                <div 
+                    className={`w-full h-full relative overflow-hidden whiteboard-grid ${activeTool === 'pen' ? 'cursor-pen' : (activeTool !== 'cursor' ? 'cursor-crosshair' : (isDraggingCanvas ? 'cursor-grabbing' : 'cursor-grab'))}`}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onWheel={handleWheel}
+                    onContextMenu={(e) => e.preventDefault()}
+                >
+                    {/* Toolbar */}
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 backdrop-blur border border-slate-600 p-1.5 rounded-xl shadow-2xl flex gap-1 items-center">
+                        <button onClick={() => setActiveTool('cursor')} className={`p-2 rounded-lg transition ${activeTool==='cursor' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Selecionar (V)"><Icon name="mouse-pointer-2" className="w-5 h-5"/></button>
+                        <div className="w-px h-6 bg-slate-600 mx-1"></div>
+                        <button onClick={() => setActiveTool('text')} className={`p-2 rounded-lg transition ${activeTool==='text' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Texto (T)"><Icon name="type" className="w-5 h-5"/></button>
+                        <button onClick={() => setActiveTool('sticky')} className={`p-2 rounded-lg transition ${activeTool==='sticky' ? 'bg-yellow-500 text-black shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Nota Adesiva (N)"><Icon name="sticky-note" className="w-5 h-5"/></button>
+                        <button onClick={() => setActiveTool('frame')} className={`p-2 rounded-lg transition ${activeTool==='frame' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Frame (F)"><Icon name="layout" className="w-5 h-5"/></button>
+                        <div className="w-px h-6 bg-slate-600 mx-1"></div>
+                        <button onClick={() => setActiveTool('line')} className={`p-2 rounded-lg transition ${activeTool==='line' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Conector (L)"><Icon name="arrow-up-right" className="w-5 h-5"/></button>
+                        <button onClick={() => setActiveTool('pen')} className={`p-2 rounded-lg transition ${activeTool==='pen' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} title="Caneta (P)"><Icon name="pen-tool" className="w-5 h-5"/></button>
+                    </div>
+
+                    <button onClick={() => setCurrentMap(null)} className="absolute top-4 left-4 z-50 p-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 shadow-lg"><Icon name="arrow-left" className="w-5 h-5"/></button>
+
+                    <div className="absolute bottom-4 right-4 z-50 bg-slate-800/80 backdrop-blur border border-slate-700 p-2 rounded-lg text-xs text-slate-400 flex flex-col gap-1 shadow-xl">
+                        <div className="font-bold text-white mb-1">{currentMap.name}</div>
+                        <div>Zoom: {(view.scale * 100).toFixed(0)}%</div>
+                        <div className="flex gap-2 mt-1"><button onClick={()=>deleteSelected()} className="hover:text-red-400"><Icon name="trash-2" className="w-4 h-4"/></button></div>
+                    </div>
+
+                    <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0', width: '100%', height: '100%' }}>
+                        <svg className="absolute top-0 left-0 overflow-visible w-full h-full pointer-events-none" style={{zIndex: 0}}>
+                            <defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#64748b" /></marker></defs>
+                            {renderEdges()}
+                            {renderDrawings()}
+                            {connectionStart && <line x1={connectionStart.x} y1={connectionStart.y} x2={connectionStart.x} y2={connectionStart.y} stroke="#3b82f6" strokeWidth="2" strokeDasharray="5,5" />}
+                        </svg>
+                        {nodes.map(node => renderNode(node))}
                     </div>
                 </div>
             );
         }
 
-        // --- APP PRINCIPAL ---
+        // --- SUBCOMPONENTES DE TAREFAS (CALENDAR, KANBAN, MODAL) ---
+        function CalendarView({ tasks, onTaskClick, onDateClick }) {
+            const [currentDate, setCurrentDate] = React.useState(new Date());
+            const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            const cells = [];
+            for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className="min-h-[100px] bg-slate-900/40 border border-slate-700/30"></div>);
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayTasks = tasks.filter(t => t.date === dateStr).sort((a,b) => a.time.localeCompare(b.time));
+                const isToday = dateStr === new Date().toISOString().split('T')[0];
+                cells.push(
+                    <div key={day} className={`min-h-[100px] p-2 border border-slate-700/30 group hover:bg-slate-800/30 ${isToday ? 'bg-blue-900/10' : ''}`}>
+                        <div className="flex justify-between mb-2">
+                            <span className={`text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>{day}</span>
+                            <button onClick={(e)=>{e.stopPropagation();onDateClick(dateStr)}} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white"><Icon name="plus" className="w-4 h-4" /></button>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            {dayTasks.map(task => {
+                                const typeData = getTaskType(task.type);
+                                const pautaData = PAUTA_TYPES[task.pauta];
+                                return (
+                                    <div key={task.id} onClick={(e)=>{e.stopPropagation();onTaskClick(task)}} className={`text-[10px] p-1 rounded border-l-2 cursor-pointer truncate ${typeData.color} bg-opacity-10 hover:brightness-125 flex items-center gap-1`}>
+                                        {pautaData && <div className={`w-1.5 h-1.5 rounded-full ${pautaData.bg}`} title={pautaData.label}></div>}
+                                        <span className="truncate">{task.time} {task.title}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            }
+            return (
+                <div className="glass-panel rounded-xl overflow-hidden h-full flex flex-col">
+                    <div className="p-4 bg-slate-800/50 flex justify-between items-center shrink-0">
+                        <h2 className="text-lg font-bold">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
+                        <div className="flex gap-1">
+                            <button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1))} className="p-2 hover:bg-slate-700 rounded"><Icon name="chevron-left" className="w-5 h-5" /></button>
+                            <button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1))} className="p-2 hover:bg-slate-700 rounded"><Icon name="chevron-right" className="w-5 h-5" /></button>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-7 bg-slate-900 text-center text-xs font-bold text-slate-500 py-2 shrink-0">
+                        <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+                    </div>
+                    <div className="grid grid-cols-7 overflow-y-auto flex-1">{cells}</div>
+                </div>
+            );
+        }
+
+        function KanbanView({ tasks, onTaskClick, onStatusChange, isSelectionMode, selectedTasks, toggleTaskSelection, columnDateFilters, setColumnDateFilters }) {
+            const [openFilterColumn, setOpenFilterColumn] = React.useState(null);
+            const [filterType, setFilterType] = React.useState(null); 
+            const handleDrop = (e, statusId) => { const taskId = e.dataTransfer.getData('taskId'); if (taskId) onStatusChange(taskId, statusId); };
+            const toggleColumnFilter = (colId, type) => { if (openFilterColumn === colId && filterType === type) { setOpenFilterColumn(null); setFilterType(null); } else { setOpenFilterColumn(colId); setFilterType(type); } };
+            const applyColumnFilter = (colId, date) => { setColumnDateFilters(prev => ({ ...prev, [colId]: { date, type: filterType } })); };
+            const confirmFilter = () => { setOpenFilterColumn(null); setFilterType(null); };
+            const clearColumnFilter = (colId) => { const newFilters = {...columnDateFilters}; delete newFilters[colId]; setColumnDateFilters(newFilters); };
+
+            return (
+                <div className="flex gap-4 overflow-x-auto pb-6 h-full">
+                    {COLUMNS.map(col => {
+                        const activeFilter = columnDateFilters[col.id]; 
+                        const colTasks = tasks.filter(t => {
+                            if (t.status !== col.id) return false;
+                            if (activeFilter && activeFilter.date) {
+                                if (activeFilter.type === 'posting') return t.date === activeFilter.date;
+                                if (activeFilter.type === 'edition') return t.deadlineDate === activeFilter.date;
+                            }
+                            return true;
+                        });
+                        let borderClass = col.color;
+                        if (activeFilter) {
+                            if (activeFilter.type === 'edition') borderClass = 'border-green-500 shadow-[0_-4px_0_0_rgba(34,197,94,1)]';
+                            if (activeFilter.type === 'posting') borderClass = 'border-purple-500 shadow-[0_-4px_0_0_rgba(168,85,247,1)]';
+                        }
+                        return (
+                            <div key={col.id} onDragOver={e=>e.preventDefault()} onDrop={(e)=>handleDrop(e, col.id)} className={`min-w-[320px] w-[320px] flex flex-col glass-panel rounded-xl h-full border-t-4 transition-all duration-300 ${borderClass} relative`}>
+                                <div className="p-3 bg-slate-800/60 rounded-t flex justify-between items-center relative">
+                                    <div className="flex items-center gap-2"><span className="font-bold text-sm">{col.title}</span><span className="text-xs bg-slate-700 px-2 rounded-full text-slate-300">{colTasks.length}</span></div>
+                                    <div className="flex items-center gap-1">
+                                        <button onClick={() => toggleColumnFilter(col.id, 'edition')} className={`p-1.5 rounded hover:bg-green-900/30 transition-colors ${activeFilter?.type === 'edition' ? 'text-green-400 bg-green-900/20' : 'text-slate-500 hover:text-green-400'}`} title="Prazo Edição"><Icon name="search" className="w-3.5 h-3.5" /></button>
+                                        <button onClick={() => toggleColumnFilter(col.id, 'posting')} className={`p-1.5 rounded hover:bg-purple-900/30 transition-colors ${activeFilter?.type === 'posting' ? 'text-purple-400 bg-purple-900/20' : 'text-slate-500 hover:text-purple-400'}`} title="Postagem"><Icon name="search" className="w-3.5 h-3.5" /></button>
+                                    </div>
+                                    {openFilterColumn === col.id && (
+                                        <div className="absolute top-10 right-2 z-50 bg-slate-900 border border-slate-600 p-3 rounded-lg shadow-xl w-56 animate-in fade-in zoom-in-95 duration-100">
+                                            <p className={`text-[10px] uppercase font-bold mb-2 flex items-center gap-1 ${filterType === 'edition' ? 'text-green-400' : 'text-purple-400'}`}><Icon name="filter" className="w-3 h-3" />{filterType === 'edition' ? 'Prazo de Edição' : 'Data de Postagem'}</p>
+                                            <input type="date" className={`w-full bg-slate-800 border rounded p-1.5 text-xs text-white mb-2 [color-scheme:dark] outline-none focus:ring-1 ${filterType === 'edition' ? 'border-green-800 focus:ring-green-500' : 'border-purple-800 focus:ring-purple-500'}`} onChange={(e) => applyColumnFilter(col.id, e.target.value)} value={activeFilter?.type === filterType ? (activeFilter?.date || '') : ''} autoFocus />
+                                            <div className="flex gap-2">
+                                                {activeFilter && (<button onClick={() => clearColumnFilter(col.id)} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs py-1.5 rounded flex items-center justify-center gap-1 transition-colors"><Icon name="x" className="w-3 h-3" /> Limpar</button>)}
+                                                <button onClick={confirmFilter} className={`flex-1 text-white text-xs py-1.5 rounded flex items-center justify-center gap-1 transition-colors ${filterType === 'edition' ? 'bg-green-600 hover:bg-green-500' : 'bg-purple-600 hover:bg-purple-500'}`}><Icon name="check" className="w-3 h-3" /> OK</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                {activeFilter && (<div className={`px-3 py-1 text-[10px] font-bold flex justify-between items-center ${activeFilter.type === 'edition' ? 'bg-green-900/20 text-green-400' : 'bg-purple-900/20 text-purple-400'}`}><span>{activeFilter.type === 'edition' ? 'PRAZO EDIÇÃO:' : 'POSTAGEM:'} {formatDateShort(activeFilter.date)}</span><button onClick={() => clearColumnFilter(col.id)} className="hover:text-white"><Icon name="x" className="w-3 h-3" /></button></div>)}
+                                <div className="p-3 flex-1 overflow-y-auto space-y-3">
+                                    {colTasks.map(task => {
+                                        const typeStyle = getTaskType(task.type);
+                                        const assignee = TEAM[task.assignee] || {initials:'?'};
+                                        const isSelected = selectedTasks.has(task.id);
+                                        const pautaData = PAUTA_TYPES[task.pauta];
+                                        return (
+                                            <div key={task.id} draggable={!isSelectionMode} onDragStart={(e)=>e.dataTransfer.setData('taskId', task.id)} onClick={(e) => { if (isSelectionMode) { e.stopPropagation(); toggleTaskSelection(task.id); } else { onTaskClick(task); } }} className={`task-card bg-slate-800 p-3 rounded border cursor-pointer relative overflow-hidden transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500 bg-blue-900/20 border-blue-500' : 'border-slate-700'}`}>
+                                                {isSelectionMode && (<div className="absolute top-2 right-2 z-20 p-2" onClick={(e) => { e.stopPropagation(); toggleTaskSelection(task.id); }}><div className={`w-5 h-5 border-2 rounded transition-colors flex items-center justify-center ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-500 bg-slate-900/80 hover:border-blue-400'}`}>{isSelected && <Icon name="check" className="w-3.5 h-3.5 text-white stroke-[3]" />}</div></div>)}
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${typeStyle.color.split(' ')[0].replace('text-','bg-')}`}></div>
+                                                <div className="flex justify-between items-start mb-2 pl-2">
+                                                    <div className="flex gap-1"><span className={`text-[9px] font-bold px-1 rounded border ${typeStyle.color}`}>{typeStyle.label}</span></div>
+                                                    <div className="flex items-center gap-2">{pautaData && (<Icon name="megaphone" className={`w-3.5 h-3.5 ${pautaData.color}`} />)}{task.priority==='high' && <Icon name="flame" className="w-3.5 h-3.5 text-red-500 animate-pulse" />}</div>
+                                                </div>
+                                                <p className="text-sm font-medium pl-2 mb-1 line-clamp-2">{task.title}</p>
+                                                {task.creator && (<div className="pl-2 mb-2"><span className="text-[10px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1 w-fit"><Icon name="lightbulb" className="w-2.5 h-2.5 text-yellow-500" /> {task.creator}</span></div>)}
+                                                {task.expert && (<div className="pl-2 mb-2"><span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">{task.expert}</span></div>)}
+                                                <div className="flex justify-between items-end pl-2 pt-2 border-t border-slate-700">
+                                                    <div className="text-[10px] text-slate-400">
+                                                        <div className="text-purple-300"><Icon name="calendar" className="inline w-3 h-3" /> Post: {formatDateShort(task.date)}</div>
+                                                        <div className="text-green-300"><Icon name="clock" className="inline w-3 h-3" /> Edit: {formatDateShort(task.deadlineDate)}</div>
+                                                    </div>
+                                                    <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${assignee.color} ${assignee.text}`}>{assignee.initials}</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        function TaskModal({ task, onClose, onSave, onDelete, experts, onAddExpert }) {
+            const [formData, setFormData] = React.useState(task || {});
+            const [newExpertName, setNewExpertName] = React.useState('');
+            const [showAddExpert, setShowAddExpert] = React.useState(false);
+            const handleChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
+            const handleAddExpert = () => { if(newExpertName.trim()) { onAddExpert(newExpertName.trim()); setFormData({...formData, expert: newExpertName.trim()}); setNewExpertName(''); setShowAddExpert(false); } };
+
+            return (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={onClose}>
+                    <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden" onClick={e=>e.stopPropagation()}>
+                        <div className="p-4 bg-slate-800 border-b border-slate-700 flex justify-between">
+                            <h2 className="font-bold text-white">{task.id ? 'Editar' : 'Nova Tarefa'}</h2>
+                            <button onClick={onClose}><Icon name="x" className="w-5 h-5" /></button>
+                        </div>
+                        <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-2"><label className="block text-xs font-bold text-slate-400 mb-1">TÍTULO</label><input name="title" value={formData.title||''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white" placeholder="Ex: Reels sobre Marketing" autoFocus /></div>
+                                <div><label className="block text-xs font-bold text-yellow-500 mb-1">QUEM DEU A IDEIA?</label><input name="creator" value={formData.creator||''} onChange={handleChange} className="w-full bg-slate-800 border border-yellow-500/30 rounded p-2 text-white placeholder-slate-600" placeholder="Seu nome" /></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-slate-400">EXPERT</label><button onClick={()=>setShowAddExpert(!showAddExpert)} className="text-[10px] text-blue-400 hover:text-blue-300 underline">+ Novo</button></div>{showAddExpert ? (<div className="flex gap-2 mb-2"><input value={newExpertName} onChange={e=>setNewExpertName(e.target.value)} className="flex-1 bg-slate-900 border border-blue-500 rounded p-2 text-white text-sm" placeholder="Nome" /><button onClick={handleAddExpert} className="px-2 bg-blue-600 text-white rounded font-bold text-xs">OK</button></div>) : (<select name="expert" value={formData.expert} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{experts.map(exp => <option key={exp} value={exp}>{exp}</option>)}</select>)}</div>
+                                <div><label className="text-xs font-bold text-slate-400 block mb-1">TEMPERATURA DA PAUTA</label><select name="pauta" value={formData.pauta || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white"><option value="">Selecione...</option>{Object.entries(PAUTA_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
+                            </div>
+                            <div><label className="block text-xs font-bold text-slate-400 mb-1">DESCRIÇÃO / ROTEIRO</label><textarea name="description" value={formData.description||''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white h-24" placeholder="Cole o roteiro aqui..." /></div>
+                            <div className="bg-green-900/10 p-3 rounded border border-green-500/20"><label className="block text-xs font-bold text-green-400 mb-1 flex items-center gap-2"><Icon name="link" className="w-3 h-3" /> ATUALIZAÇÕES / LINKS (Drive, Prévias)</label><textarea name="updates" value={formData.updates||''} onChange={handleChange} className="w-full bg-slate-900 border border-green-700/50 rounded p-2 text-white h-20 text-sm font-mono" placeholder="Cole aqui links do Drive, status da edição..." /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs text-slate-400 font-bold block mb-1">Tipo</label><select name="type" value={formData.type} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></div>
+                                <div><label className="text-xs text-slate-400 font-bold block mb-1">Status</label><select name="status" value={formData.status} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{COLUMNS.map(c=><option key={c.id} value={c.id}>{c.title}</option>)}</select></div>
+                            </div>
+                            {formData.type === 'reels' && (<div className="bg-purple-900/20 p-2 rounded border border-purple-500/30"><label className="text-xs text-purple-300 font-bold block mb-1">FORMATO DO REELS</label><div className="flex gap-2 flex-wrap">{REELS_FORMATS.map(fmt => (<button key={fmt.id} onClick={()=>setFormData({...formData, reelsFormat: fmt.id})} className={`text-[10px] px-2 py-1 rounded border transition-colors ${formData.reelsFormat === fmt.id ? 'bg-purple-600 border-purple-600 text-white' : 'border-purple-500/50 text-purple-200 hover:bg-purple-800/50'}`}>{fmt.label}</button>))}</div></div>)}
+                            <div className="p-3 bg-blue-900/20 rounded border border-blue-500/30 grid grid-cols-2 gap-4">
+                                <div><label className="text-xs text-blue-300 font-bold">DATA POSTAGEM</label><input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" /></div>
+                                <div><label className="text-xs text-blue-300 font-bold">HORA</label><input type="time" name="time" value={formData.time} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" /></div>
+                            </div>
+                            <div className="p-3 bg-orange-900/20 rounded border border-orange-500/30 grid grid-cols-2 gap-4">
+                                <div><label className="text-xs text-orange-300 font-bold">DEADLINE EDIÇÃO</label><input type="date" name="deadlineDate" value={formData.deadlineDate} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" /></div>
+                                <div><label className="text-xs text-orange-300 font-bold">HORA</label><input type="time" name="deadlineTime" value={formData.deadlineTime} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" /></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs text-slate-400 font-bold">Responsável</label><select name="assignee" value={formData.assignee} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{Object.entries(TEAM).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select></div>
+                                <div><label className="text-xs text-slate-400 font-bold">Prioridade</label><select name="priority" value={formData.priority} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white"><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-slate-800 flex justify-between">
+                            {task.id ? <button onClick={()=>onDelete(task.id)} className="text-red-400 hover:text-red-300 text-sm"><Icon name="trash-2" className="inline w-4 h-4"/> Deletar</button> : <div></div>}
+                            <div className="flex gap-2">
+                                <button onClick={onClose} className="px-4 py-2 text-slate-300 hover:bg-slate-700 rounded text-sm">Cancelar</button>
+                                <button onClick={()=>onSave(formData)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded text-sm flex items-center gap-2"><Icon name="save" className="w-4 h-4"/> Salvar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- APP DEFINIÇÃO FINAL ---
         function App() {
             const [user, setUser] = React.useState(null);
             const [tasks, setTasks] = React.useState([]);
             const [experts, setExperts] = React.useState(DEFAULT_EXPERTS);
+            
+            // VIEW MODE: 'kanban', 'calendar', 'mindmap', 'workflow'
             const [viewMode, setViewMode] = React.useState('kanban'); 
+            
             const [loading, setLoading] = React.useState(true);
             const [statusMsg, setStatusMsg] = React.useState("Iniciando...");
             const [statusColor, setStatusColor] = React.useState("text-yellow-500");
             
-            // Filtros
+            // ... (Estados de Filtros e Modais mantidos) ...
             const [filterExpert, setFilterExpert] = React.useState('');
             const [filterType, setFilterType] = React.useState('');
             const [filterPauta, setFilterPauta] = React.useState('');
-            const [filterFavorites, setFilterFavorites] = React.useState(false); // NOVO
-            
             const [columnDateFilters, setColumnDateFilters] = React.useState({});
-            const [columnSearchTexts, setColumnSearchTexts] = React.useState({}); // NOVO
-
             const [isModalOpen, setIsModalOpen] = React.useState(false);
             const [editingTask, setEditingTask] = React.useState(null);
             const [isPacksModalOpen, setIsPacksModalOpen] = React.useState(false);
             const [isSelectionMode, setIsSelectionMode] = React.useState(false);
             const [selectedTasks, setSelectedTasks] = React.useState(new Set());
 
+            // ... (Efeitos de Auth e Firestore mantidos) ...
             React.useEffect(() => {
                 const timer = setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
                 return () => clearTimeout(timer);
-            }, [tasks, viewMode, columnSearchTexts]); // Atualiza icons se busca mudar
+            }, [tasks, viewMode, isModalOpen, isPacksModalOpen, isSelectionMode, filterExpert, filterType, filterPauta, columnDateFilters, selectedTasks]); 
 
             React.useEffect(() => {
                 const unsubscribeAuth = auth.onAuthStateChanged(async (u) => {
@@ -442,38 +911,14 @@
                 return () => unsubscribe();
             }, []);
 
-            React.useEffect(() => {
-                const fetchExperts = async () => {
-                    try {
-                        const doc = await db.collection(EXPERTS_COLLECTION).doc('list').get();
-                        if (doc.exists) {
-                            const data = doc.data();
-                            const merged = Array.from(new Set([...DEFAULT_EXPERTS, ...(data.names || [])]));
-                            setExperts(merged);
-                        } else {
-                            await db.collection(EXPERTS_COLLECTION).doc('list').set({ names: DEFAULT_EXPERTS });
-                        }
-                    } catch (e) { console.error("Erro ao carregar experts", e); }
-                };
-                fetchExperts();
-            }, []);
-
+            // ... (Funções Auxiliares mantidas: saveTask, deleteTask, etc) ...
             const addNewExpertToDb = async (newExpertName) => {
                 if (!newExpertName || experts.includes(newExpertName)) return;
                 try {
                     const newExpertsList = [...experts, newExpertName];
                     await db.collection(EXPERTS_COLLECTION).doc('list').set({ names: newExpertsList }, { merge: true });
                     setExperts(newExpertsList);
-                    alert("Expert adicionado com sucesso!");
                 } catch (e) { alert("Erro ao salvar novo expert: " + e.message); }
-            };
-
-            // Função Wrapper para adicionar expert via prompt global
-            const handleAddExpertGlobal = () => {
-                const name = prompt("Nome do novo Expert:");
-                if (name && name.trim()) {
-                    addNewExpertToDb(name.trim());
-                }
             };
 
             const saveTask = async (taskData) => {
@@ -491,26 +936,79 @@
                 try { await db.collection(COLLECTION_NAME).doc(taskId).delete(); setIsModalOpen(false); } catch (error) { alert("Erro ao deletar: " + error.message); }
             };
 
-            const updateStatus = async (taskId, newStatus) => { db.collection(COLLECTION_NAME).doc(taskId).update({ status: newStatus }); };
-
-            const toggleTaskFavorite = async (taskId, currentStatus) => {
-                try {
-                    await db.collection(COLLECTION_NAME).doc(taskId).update({ isFavorite: !currentStatus });
-                } catch (e) { console.error("Erro ao favoritar", e); }
+            const updateStatus = async (taskId, newStatus) => {
+                try { await db.collection(COLLECTION_NAME).doc(taskId).update({ status: newStatus, updatedAt: new Date().toISOString() }); } catch(e) { console.error(e); }
             };
 
-            const baseFilteredTasks = React.useMemo(() => {
-                return tasks.filter(t => 
-                    (!filterExpert || t.expert === filterExpert) && 
-                    (!filterType || t.type === filterType) &&
-                    (!filterPauta || t.pauta === filterPauta) &&
-                    (!filterFavorites || t.isFavorite) // Filtro de Favoritos
-                );
-            }, [tasks, filterExpert, filterType, filterPauta, filterFavorites]);
+            const toggleTaskSelection = (taskId) => {
+                setSelectedTasks(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(taskId)) newSet.delete(taskId); else newSet.add(taskId);
+                    return newSet;
+                });
+            };
 
-            // Handlers para Selection Mode (mantidos simplificados aqui)
-            const toggleSelectionMode = () => setIsSelectionMode(!isSelectionMode);
-            const toggleTaskSelection = (id) => { const newSet = new Set(selectedTasks); if(newSet.has(id)) newSet.delete(id); else newSet.add(id); setSelectedTasks(newSet); };
+            const toggleSelectionMode = () => { if (isSelectionMode) { setIsSelectionMode(false); setSelectedTasks(new Set()); } else { setIsSelectionMode(true); } };
+
+            const deleteSelectedTasks = async () => {
+                if (selectedTasks.size === 0) return;
+                if (!confirm(`Tem certeza que deseja EXCLUIR ${selectedTasks.size} tarefas?`)) return;
+                setStatusMsg("Excluindo...");
+                const batch = db.batch();
+                const tasksToDelete = Array.from(selectedTasks);
+                tasksToDelete.forEach(taskId => { const ref = db.collection(COLLECTION_NAME).doc(taskId); batch.delete(ref); });
+                try { await batch.commit(); setSelectedTasks(new Set()); setIsSelectionMode(false); setStatusMsg("Tarefas excluídas!"); setTimeout(() => setStatusMsg("Conectado"), 2000); } catch (error) { alert("Erro ao excluir: " + error.message); }
+            };
+
+            const duplicateSelectedTasks = async () => {
+                if (selectedTasks.size === 0) return;
+                if (!confirm(`Deseja DUPLICAR ${selectedTasks.size} tarefas?`)) return;
+                setStatusMsg("Duplicando...");
+                const batch = db.batch();
+                const tasksToDuplicate = Array.from(selectedTasks);
+                let count = 0;
+                tasksToDuplicate.forEach(taskId => {
+                    const originalTask = tasks.find(t => t.id === taskId);
+                    if (originalTask) {
+                        const newRef = db.collection(COLLECTION_NAME).doc();
+                        const { id, ...data } = originalTask;
+                        batch.set(newRef, { ...data, title: `${data.title} (Cópia)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+                        count++;
+                    }
+                });
+                if (count === 0) return;
+                try { await batch.commit(); setSelectedTasks(new Set()); setIsSelectionMode(false); setStatusMsg("Tarefas duplicadas!"); setTimeout(() => setStatusMsg("Conectado"), 2000); } catch (error) { alert("Erro ao duplicar: " + error.message); }
+            };
+            
+            const generatePlanning = async () => {
+                if (!confirm("Gerar planejamento automático da semana?")) return;
+                const batch = db.batch();
+                const today = new Date();
+                const formatDateLocal = (d) => { const offset = d.getTimezoneOffset(); return new Date(d.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0]; };
+                for (let i = 0; i < 7; i++) {
+                    const postDate = new Date(today); postDate.setDate(today.getDate() + i); const dateStr = formatDateLocal(postDate);
+                    const deadline = new Date(postDate); deadline.setDate(postDate.getDate() - 1); const deadlineStr = formatDateLocal(deadline);
+                    const createTask = (title, type, assignee, time, priority) => {
+                        const ref = db.collection(COLLECTION_NAME).doc();
+                        batch.set(ref, { title, type, assignee, priority, status: 'backlog', date: dateStr, time, deadlineDate: deadlineStr, deadlineTime: '18:00', description: 'Gerado automaticamente pelo sistema.', updates: '', expert: 'DRX', creator: 'Sistema', reelsFormat: '', pauta: 'fria', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+                    };
+                    ['09:00', '11:00', '19:00'].forEach(t => createTask('Reels Rotina', 'reels', 'victor', t, 'high'));
+                    createTask('Teste Criativo', 'teste', 'gabriel', '15:00', 'medium');
+                }
+                try { await batch.commit(); alert("Planejamento gerado!"); } catch(e) { alert("Erro ao gerar: " + e.message); }
+            };
+
+            const openNewTask = (date = null) => {
+                const today = new Date().toISOString().split('T')[0];
+                setEditingTask({ status: 'backlog', type: 'reels', priority: 'medium', date: date || today, time: '09:00', deadlineDate: today, deadlineTime: '18:00', assignee: 'bruno', description: '', updates: '', expert: 'DRX', creator: '', reelsFormat: '', pauta: '' });
+                setIsModalOpen(true);
+            };
+
+            const baseFilteredTasks = tasks.filter(t => 
+                (!filterExpert || t.expert === filterExpert) && 
+                (!filterType || t.type === filterType) &&
+                (!filterPauta || t.pauta === filterPauta)
+            );
 
             if (loading) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white"><div className="spinner"></div></div>;
 
@@ -529,29 +1027,14 @@
                             <button onClick={() => setViewMode('calendar')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='calendar'?'bg-blue-600 text-white':'text-slate-400 hover:text-white'}`}><Icon name="calendar" className="w-4 h-4" /> Calendário</button>
                             <button onClick={() => setViewMode('kanban')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='kanban'?'bg-blue-600 text-white':'text-slate-400 hover:text-white'}`}><Icon name="kanban" className="w-4 h-4" /> Kanban</button>
                             <button onClick={() => setViewMode('mindmap')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='mindmap'?'bg-cyan-600 text-white':'text-slate-400 hover:text-cyan-400'}`}><Icon name="brain-circuit" className="w-4 h-4" /> Mind Map</button>
+                            {/* BOTÃO DA NOVA ABA */}
                             <button onClick={() => setViewMode('workflow')} className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${viewMode==='workflow'?'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]':'text-slate-400 hover:text-purple-400'}`}><Icon name="bot" className="w-4 h-4" /> VSL AI</button>
                         </div>
 
                         <div className="flex gap-3 items-center">
-                            {/* Filtros Globais */}
-                            {viewMode !== 'mindmap' && viewMode !== 'workflow' && (
-                                <>
-                                    <div className="flex items-center gap-2 border-r border-slate-700 pr-4 mr-2">
-                                        <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5">
-                                            <Icon name="users" className="w-3 h-3 text-slate-400" />
-                                            <select value={filterExpert} onChange={(e) => setFilterExpert(e.target.value)} className="bg-transparent text-xs text-slate-200 outline-none w-24 cursor-pointer">
-                                                <option value="" className="bg-slate-800">Experts</option>
-                                                {experts.map(e => <option key={e} value={e} className="bg-slate-800">{e}</option>)}
-                                            </select>
-                                            <button onClick={handleAddExpertGlobal} className="text-blue-400 hover:text-blue-300 font-bold ml-1" title="Novo Expert">+</button>
-                                        </div>
-                                        <button onClick={() => setFilterFavorites(!filterFavorites)} className={`p-2 rounded-lg transition-all ${filterFavorites ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50' : 'bg-slate-800 text-slate-400 border border-slate-600 hover:text-yellow-400'}`} title="Filtrar Favoritos">
-                                            <Icon name="star" className={`w-4 h-4 ${filterFavorites ? 'fill-current' : ''}`} />
-                                        </button>
-                                    </div>
-                                    <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-bold flex gap-2 shadow-lg"><Icon name="plus" className="w-4 h-4" /> Nova</button>
-                                </>
-                            )}
+                            {viewMode === 'kanban' || viewMode === 'calendar' ? (
+                                <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-bold flex gap-2 shadow-lg"><Icon name="plus" className="w-4 h-4" /> Nova</button>
+                            ) : null}
                         </div>
                     </header>
 
@@ -559,171 +1042,43 @@
                         {viewMode === 'mindmap' ? <MindMapView user={user} /> : 
                          viewMode === 'workflow' ? <WorkflowView /> :
                          viewMode === 'calendar' ? <CalendarView tasks={baseFilteredTasks} onTaskClick={setEditingTask} onDateClick={() => setIsModalOpen(true)} /> : 
-                         <KanbanView 
-                            tasks={baseFilteredTasks} 
-                            onTaskClick={(t) => {setEditingTask(t); setIsModalOpen(true);}} 
-                            onStatusChange={updateStatus} 
-                            isSelectionMode={isSelectionMode} 
-                            selectedTasks={selectedTasks} 
-                            toggleTaskSelection={toggleTaskSelection} 
-                            columnDateFilters={columnDateFilters} 
-                            setColumnDateFilters={setColumnDateFilters}
-                            columnSearchTexts={columnSearchTexts}
-                            setColumnSearchTexts={setColumnSearchTexts}
-                            toggleTaskFavorite={toggleTaskFavorite} // Passando função
-                         />
+                         <KanbanView tasks={baseFilteredTasks} onTaskClick={(t) => {setEditingTask(t); setIsModalOpen(true);}} onStatusChange={updateStatus} isSelectionMode={false} selectedTasks={new Set()} toggleTaskSelection={()=>{}} columnDateFilters={{}} setColumnDateFilters={()=>{}} />
                         }
                     </main>
 
                     {isModalOpen && <TaskModal task={editingTask || {}} experts={experts} onAddExpert={addNewExpertToDb} onClose={()=>setIsModalOpen(false)} onSave={saveTask} onDelete={deleteTask} />}
-                </div>
-            );
-        }
-
-        function CalendarView({tasks}) { return <div className="text-white">Calendar Component Placeholder</div> }
-        
-        // --- KANBAN ATUALIZADO ---
-        function KanbanView({tasks, onTaskClick, onStatusChange, columnDateFilters, setColumnDateFilters, columnSearchTexts, setColumnSearchTexts, toggleTaskFavorite}) {
-            const getTaskType = (type) => TYPES[type] || TYPES['reels'];
-            const formatDateShort = (dateStr) => dateStr ? dateStr.split('-').reverse().slice(0,2).join('/') : '--/--';
-
-            // Funções de filtro de coluna (Toggle Date Filter)
-            const toggleColumnFilter = (colId, type) => {
-                const current = columnDateFilters[colId];
-                if (current && current.type === type) {
-                    const newFilters = {...columnDateFilters};
-                    delete newFilters[colId];
-                    setColumnDateFilters(newFilters);
-                } else {
-                    setColumnDateFilters({...columnDateFilters, [colId]: { type, date: '' }}); // Inicia vazio, input aparece
-                }
-            };
-            const applyColumnFilterDate = (colId, date) => {
-                setColumnDateFilters(prev => ({ ...prev, [colId]: { ...prev[colId], date } }));
-            };
-
-            return (
-                <div className="flex gap-4 overflow-x-auto pb-6 h-full">
-                    {COLUMNS.map(col => {
-                        const searchText = (columnSearchTexts[col.id] || '').toLowerCase();
-                        const activeDateFilter = columnDateFilters[col.id];
-
-                        // Filtro Local da Coluna (Busca texto + Filtro Data)
-                        const colTasks = tasks.filter(t => {
-                            if (t.status !== col.id) return false;
-                            
-                            // 1. Busca por Texto
-                            if (searchText) {
-                                const matchTitle = t.title?.toLowerCase().includes(searchText);
-                                const matchDesc = t.description?.toLowerCase().includes(searchText);
-                                const matchExpert = t.expert?.toLowerCase().includes(searchText);
-                                if (!matchTitle && !matchDesc && !matchExpert) return false;
-                            }
-
-                            // 2. Filtro de Data
-                            if (activeDateFilter && activeDateFilter.date) {
-                                if (activeDateFilter.type === 'posting' && t.date !== activeDateFilter.date) return false;
-                                if (activeDateFilter.type === 'edition' && t.deadlineDate !== activeDateFilter.date) return false;
-                            }
-                            return true;
-                        });
-
-                        return (
-                            <div key={col.id} className="min-w-[320px] w-[320px] flex flex-col glass-panel rounded-xl h-full border-t-4 transition-all duration-300 border-slate-500 relative" style={{borderColor: col.color.replace('border-', '')}}>
-                                <div className="p-3 bg-slate-800/60 rounded-t space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-2"><span className="font-bold text-sm text-white">{col.title}</span><span className="text-xs bg-slate-700 px-2 rounded-full text-slate-300">{colTasks.length}</span></div>
-                                        <div className="flex items-center gap-1">
-                                            <button onClick={() => toggleColumnFilter(col.id, 'edition')} className={`p-1.5 rounded hover:bg-green-900/30 transition-colors ${activeDateFilter?.type === 'edition' ? 'text-green-400 bg-green-900/20' : 'text-slate-500 hover:text-green-400'}`} title="Prazo Edição"><Icon name="clock" className="w-3.5 h-3.5" /></button>
-                                            <button onClick={() => toggleColumnFilter(col.id, 'posting')} className={`p-1.5 rounded hover:bg-purple-900/30 transition-colors ${activeDateFilter?.type === 'posting' ? 'text-purple-400 bg-purple-900/20' : 'text-slate-500 hover:text-purple-400'}`} title="Postagem"><Icon name="calendar" className="w-3.5 h-3.5" /></button>
+                    
+                    {/* Modais Globais */}
+                    {isPacksModalOpen && (
+                        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setIsPacksModalOpen(false)}>
+                            <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                <div className="p-6 border-b border-slate-700 bg-slate-800 flex justify-between items-center sticky top-0 z-10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg">
+                                            <Icon name="package" className="w-6 h-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-bold text-white">Banco de Ativos 4K</h2>
+                                            <p className="text-xs text-slate-400">30.000+ Vídeos Ultra HD para Criativos</p>
                                         </div>
                                     </div>
-                                    
-                                    {/* CAMPO DE BUSCA NA COLUNA */}
-                                    <div className="relative">
-                                        <Icon name="search" className="absolute left-2 top-1.5 w-3.5 h-3.5 text-slate-500" />
-                                        <input 
-                                            type="text" 
-                                            placeholder="Buscar..." 
-                                            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-1 pl-7 pr-2 text-xs text-white focus:border-blue-500 outline-none"
-                                            value={columnSearchTexts[col.id] || ''}
-                                            onChange={(e) => setColumnSearchTexts({...columnSearchTexts, [col.id]: e.target.value})}
-                                        />
-                                    </div>
-
-                                    {/* Input de Data (Condicional) */}
-                                    {activeDateFilter && (
-                                        <div className="animate-in fade-in slide-in-from-top-2">
-                                            <input type="date" className="w-full bg-slate-800 border rounded p-1 text-xs text-white [color-scheme:dark]" onChange={(e) => applyColumnFilterDate(col.id, e.target.value)} value={activeDateFilter.date} autoFocus />
-                                        </div>
-                                    )}
+                                    <button onClick={() => setIsPacksModalOpen(false)} className="text-slate-400 hover:text-white p-2 hover:bg-slate-700 rounded-lg transition"><Icon name="x" className="w-6 h-6" /></button>
                                 </div>
-
-                                <div className="p-3 flex-1 overflow-y-auto space-y-3">
-                                    {colTasks.map(task => {
-                                        const typeStyle = getTaskType(task.type);
-                                        const pautaData = PAUTA_TYPES[task.pauta];
-                                        return (
-                                            <div key={task.id} draggable onDragStart={(e)=>e.dataTransfer.setData('taskId', task.id)} onClick={()=>onTaskClick(task)} className={`task-card bg-slate-800 p-3 rounded border cursor-pointer relative overflow-hidden border-slate-700 hover:border-slate-500 group`}>
-                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${typeStyle.color.split(' ')[0].replace('text-','bg-')}`}></div>
-                                                
-                                                {/* Botão Favorito */}
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); toggleTaskFavorite(task.id, task.isFavorite); }}
-                                                    className={`absolute top-2 right-2 p-1 rounded-full hover:bg-slate-700 transition-colors z-10 ${task.isFavorite ? 'text-yellow-400' : 'text-slate-600 hover:text-yellow-200'}`}
-                                                >
-                                                    <Icon name="star" className={`w-3.5 h-3.5 ${task.isFavorite ? 'fill-current' : ''}`} />
-                                                </button>
-
-                                                <div className="flex justify-between items-start mb-2 pl-2 pr-4">
-                                                    <div className="flex gap-1"><span className={`text-[9px] font-bold px-1 rounded border ${typeStyle.color}`}>{typeStyle.label}</span></div>
-                                                    <div className="flex items-center gap-2">{pautaData && (<Icon name="megaphone" className={`w-3.5 h-3.5 ${pautaData.color}`} />)}</div>
-                                                </div>
-                                                <p className="text-sm font-medium pl-2 mb-1 line-clamp-2 text-slate-200">{task.title}</p>
-                                                {task.expert && (<div className="pl-2 mb-2"><span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">{task.expert}</span></div>)}
-                                                
-                                                <div className="flex justify-between items-end pl-2 pt-2 border-t border-slate-700 mt-2">
-                                                    <div className="text-[10px] text-slate-400 flex gap-2">
-                                                        {task.date && <div className="text-purple-300 flex items-center gap-1"><Icon name="calendar" className="w-3 h-3" /> {formatDateShort(task.date)}</div>}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                <div className="p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 bg-slate-900">
+                                    {VIDEO_PACKS.map((pack, index) => (
+                                        <a key={index} href={pack.url} target="_blank" rel="noopener noreferrer" className="group bg-slate-800 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-800/80 p-4 rounded-xl flex flex-col items-center justify-center gap-3 transition-all hover:-translate-y-1 shadow-lg hover:shadow-purple-900/20 text-center">
+                                            <div className="w-12 h-12 bg-slate-700/50 rounded-full flex items-center justify-center group-hover:bg-purple-500/20 group-hover:text-purple-400 transition-colors text-slate-400"><Icon name={pack.icon} className="w-6 h-6" /></div>
+                                            <span className="font-bold text-sm text-slate-200 group-hover:text-white">{pack.name}</span>
+                                            <span className="text-[10px] text-slate-500 bg-slate-900 px-2 py-1 rounded-full flex items-center gap-1 group-hover:text-purple-300"><Icon name="external-link" className="w-3 h-3" /> Abrir Drive</span>
+                                        </a>
+                                    ))}
                                 </div>
                             </div>
-                        );
-                    })}
+                        </div>
+                    )}
                 </div>
             );
         }
-
-        function TaskModal({onClose, task, experts, onAddExpert}) { return (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg p-6 relative">
-                    <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><Icon name="x" className="w-6 h-6"/></button>
-                    <h2 className="text-xl font-bold text-white mb-4">Gerenciar Tarefa</h2>
-                    <p className="text-slate-400 text-sm mb-4">Edição simplificada (Placeholder)</p>
-                    {/* Exemplo de uso do onAddExpert dentro do modal também */}
-                    <div className="mb-4">
-                        <label className="text-xs font-bold text-slate-400 block mb-1">Expert</label>
-                        <div className="flex gap-2">
-                            <select className="bg-slate-800 border border-slate-600 rounded p-2 text-white flex-1">
-                                {experts.map(e => <option key={e}>{e}</option>)}
-                            </select>
-                            <button onClick={() => {
-                                const name = prompt("Novo Expert:");
-                                if(name) onAddExpert(name);
-                            }} className="px-3 bg-blue-600 text-white rounded text-xs font-bold">+ Novo</button>
-                        </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                        <button onClick={onClose} className="px-4 py-2 text-slate-300 hover:bg-slate-800 rounded">Cancelar</button>
-                        <button onClick={onClose} className="px-4 py-2 bg-blue-600 text-white rounded font-bold">Salvar</button>
-                    </div>
-                </div>
-            </div>
-        )}
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
