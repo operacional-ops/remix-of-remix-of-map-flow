@@ -63,6 +63,52 @@
         
         .footer-input:focus-within { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.15); }
 
+        /* Tutorial styles */
+        .tut-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.35); pointer-events: none; }
+        .tut-card { 
+            position: fixed; z-index: 201; 
+            background: rgba(15, 23, 42, 0.92); 
+            backdrop-filter: blur(16px); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 12px; 
+            padding: 16px; 
+            max-width: 300px; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            cursor: grab;
+            user-select: none;
+            pointer-events: all;
+        }
+        .tut-card.dragging { cursor: grabbing; }
+        .tut-arrow { 
+            color: #3b82f6; 
+            filter: drop-shadow(0 0 6px rgba(59,130,246,0.5)); 
+            animation: tut-bounce 1s infinite; 
+        }
+        @keyframes tut-bounce {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(-8px); }
+        }
+        @keyframes tut-bounce-down {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(8px); }
+        }
+        .tut-arrow-down { animation: tut-bounce-down 1s infinite; }
+        .tut-dot { width: 6px; height: 6px; border-radius: 50%; background: #334155; transition: all 0.3s; }
+        .tut-dot.active { width: 16px; border-radius: 3px; background: #3b82f6; }
+        .tut-dot.done { background: rgba(59,130,246,0.4); }
+        .tut-highlight { position: relative; z-index: 201 !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.5), 0 0 16px rgba(59,130,246,0.3) !important; border-radius: 8px; }
+        .tut-btn { 
+            background: linear-gradient(135deg, #3b82f6, #6366f1); 
+            border: none; color: white; 
+            padding: 4px 12px; border-radius: 6px; 
+            font-size: 11px; font-weight: 700; 
+            cursor: pointer; 
+            display: flex; align-items: center; gap: 4px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+        }
+        .tut-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
         /* Truncate helpers */
         .name-truncate { 
             overflow: hidden; 
@@ -663,7 +709,7 @@
                     <div className="max-w-5xl w-full animate-enter py-8">
                         <div className="text-center mb-10">
                             <div className="inline-flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-red-900/30">D</div>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden"><img src="/logo-drx-white.png" alt="DRX" className="w-full h-full object-contain" /></div>
                                 <div className="text-left">
                                     <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight login-title">Painel DRX</h1>
                                     <p className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Operacional</p>
@@ -742,6 +788,94 @@
             );
         }
 
+        // --- TUTORIAL COMPONENT ---
+        function PainelTutorial({ onClose, isSupervisor, setActiveTab }) {
+            const [step, setStep] = React.useState(0);
+            const [offset, setOffset] = React.useState({ x: 0, y: 0 });
+            const dragging = React.useRef(false);
+            const dragStart = React.useRef({ x: 0, y: 0, ox: 0, oy: 0 });
+
+            const steps = [
+                { title: '👋 Bem-vindo ao Painel DRX!', tip: 'Tour rápido pelo sistema operacional. Arraste este card se tampar algo.', pos: 'center', arrow: 'none' },
+                { title: '📋 Workflow', tip: 'Aba principal. Seu Kanban com as tarefas do dia.', pos: 'top-left', arrow: 'up', action: () => setActiveTab('workflow') },
+                { title: '📌 Kanban: 3 Colunas', tip: 'A FAZER → FAZENDO → FEITO.\nAs tarefas fluem da esquerda pra direita.', pos: 'top-center', arrow: 'down' },
+                { title: '➕ Criar Tarefa', tip: 'Clique em "+ Adicionar Tarefa" na coluna A FAZER.\nPreencha título, descrição e link.', pos: 'top-left', arrow: 'down' },
+                { title: '◀ ▶ Mover Tarefa', tip: 'Use as setas que aparecem embaixo de cada tarefa para avançar ou voltar o status.', pos: 'top-center', arrow: 'down' },
+                { title: '✏️ Gerenciar', tip: 'Clique em "Gerenciar" para selecionar tarefas e deletar ou duplicar em lote.', pos: 'top-right', arrow: 'down' },
+                ...(isSupervisor ? [
+                    { title: '👁️ Visão Geral', tip: 'Como supervisor, você vê o quadro de TODOS os membros. Clique em um avatar para abrir.', pos: 'top-center', arrow: 'down' },
+                    { title: '📨 Chamados', tip: 'No painel lateral, responda mensagens da equipe em tempo real.', pos: 'top-right', arrow: 'left' },
+                ] : [
+                    { title: '📨 Inbox', tip: 'Envie mensagens para a diretoria. Veja respostas aqui.', pos: 'top-left', arrow: 'up', action: () => setActiveTab('inbox') },
+                    { title: '💬 Mensagem Rápida', tip: 'Use o campo no rodapé para enviar alertas rápidos à diretoria.', pos: 'bottom-center', arrow: 'down' },
+                ]),
+                { title: '☀️ Daily', tip: 'Estrutura das reuniões diárias e semanais. Regras, papéis e outputs.', pos: 'top-left', arrow: 'up', action: () => setActiveTab('daily') },
+                { title: '💬 Discord', tip: 'No canto inferior direito, acesse o Discord da equipe direto pelo site para comunicação em tempo real.', pos: 'bottom-right', arrow: 'down' },
+                { title: '🎓 Detalhes do Cargo', tip: 'Após o login, a tela de Preparação mostra:\n• Missão do cargo\n• Não-negociáveis\n• Limites\n• Checklist diário', pos: 'center', arrow: 'none' },
+                { title: '🎉 Tutorial Concluído!', tip: 'Você domina o Painel DRX!\nReabra a qualquer momento pelo botão Tutorial no cabeçalho.', pos: 'center', arrow: 'none' },
+            ];
+
+            const cur = steps[step];
+
+            React.useEffect(() => { setOffset({ x: 0, y: 0 }); if (cur.action) cur.action(); }, [step]);
+
+            const posStyles = {
+                'center': { top: '50%', left: '50%', transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))` },
+                'top-left': { top: `${80 + offset.y}px`, left: `${280 + offset.x}px` },
+                'top-center': { top: `${80 + offset.y}px`, left: `calc(50% + ${offset.x}px)`, transform: 'translateX(-50%)' },
+                'top-right': { top: `${80 + offset.y}px`, right: `${24 - offset.x}px` },
+                'bottom-center': { bottom: `${80 - offset.y}px`, left: `calc(50% + ${offset.x}px)`, transform: 'translateX(-50%)' },
+                'bottom-right': { bottom: `${100 - offset.y}px`, right: `${24 - offset.x}px` },
+            };
+
+            const handlePointerDown = (e) => {
+                if (e.target.closest('button')) return;
+                dragging.current = true;
+                dragStart.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+                e.currentTarget.setPointerCapture(e.pointerId);
+            };
+            const handlePointerMove = (e) => {
+                if (!dragging.current) return;
+                setOffset({ x: dragStart.current.ox + (e.clientX - dragStart.current.x), y: dragStart.current.oy + (e.clientY - dragStart.current.y) });
+            };
+            const handlePointerUp = () => { dragging.current = false; };
+
+            const next = () => step < steps.length - 1 ? setStep(step + 1) : onClose();
+            const prev = () => step > 0 && setStep(step - 1);
+
+            return (
+                <>
+                    <div className="tut-overlay"></div>
+                    <div className="tut-card" style={posStyles[cur.pos] || posStyles['center']} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+                        {cur.arrow !== 'none' && (
+                            <div style={{ position: 'absolute', ...(cur.arrow === 'up' ? { top: '-28px', left: '20px' } : cur.arrow === 'down' ? { bottom: '-28px', left: '50%', transform: 'translateX(-50%)' } : cur.arrow === 'left' ? { left: '-28px', top: '50%', transform: 'translateY(-50%)' } : { right: '-28px', top: '50%', transform: 'translateY(-50%)' }) }}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={cur.arrow === 'down' || cur.arrow === 'up' ? 'tut-arrow tut-arrow-down' : 'tut-arrow'}>
+                                    {cur.arrow === 'up' && <><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></>}
+                                    {cur.arrow === 'down' && <><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></>}
+                                    {cur.arrow === 'left' && <><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>}
+                                    {cur.arrow === 'right' && <><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></>}
+                                </svg>
+                            </div>
+                        )}
+                        <button onClick={onClose} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 4 }}><Icon name="x" className="w-3.5 h-3.5"/></button>
+                        <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>{cur.title}</h3>
+                        <p style={{ fontSize: '11px', color: '#94a3b8', lineHeight: 1.5, whiteSpace: 'pre-line' }}>{cur.tip}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ display: 'flex', gap: 3 }}>
+                                {steps.map((_, i) => <div key={i} className={`tut-dot ${i === step ? 'active' : i < step ? 'done' : ''}`}></div>)}
+                            </div>
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                {step > 0 && <button onClick={prev} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px 6px' }}><Icon name="chevron-left" className="w-4 h-4"/></button>}
+                                <button onClick={next} style={{ background: '#3b82f6', border: 'none', color: 'white', padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    {step === steps.length - 1 ? 'Concluir ✅' : 'Próximo'} {step < steps.length - 1 && <Icon name="chevron-right" className="w-3 h-3"/>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            );
+        }
+
         // --- 5. APP CONTROLLER ---
         function App() {
             const [view, setView] = React.useState('login');
@@ -759,8 +893,8 @@
             const [globalTasks, setGlobalTasks] = React.useState({});
             const [messages, setMessages] = React.useState([]);
             const [inputText, setInputText] = React.useState("");
+            const [showPainelTutorial, setShowPainelTutorial] = React.useState(false);
             
-            // NAVIGATION STATE: 'workflow' | 'inbox' | 'daily'
             const [activeTab, setActiveTab] = React.useState('workflow');
 
             // Listener de Tarefas
@@ -938,7 +1072,7 @@
                             <header className="border-b border-slate-800 bg-[#0f172a] flex items-center justify-between px-3 md:px-6 py-3 shrink-0 workspace-header">
                                 <div className="flex items-center gap-3 md:gap-6">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-blue-900/20 text-sm">D</div>
+                                         <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center overflow-hidden shadow-lg"><img src="/logo-drx-white.png" alt="DRX" className="w-full h-full object-contain" /></div>
                                         <div><h1 className="font-bold text-white text-sm md:text-lg tracking-tight">DRX.OS</h1><p className="text-[9px] md:text-[10px] text-slate-500 uppercase tracking-widest">Sistema Operacional</p></div>
                                     </div>
                                     <nav className="hidden md:flex items-center gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
@@ -946,6 +1080,8 @@
                                         {!isSupervisor && <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'inbox' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('inbox')}><Icon name="inbox" className="w-3.5 h-3.5"/> Inbox {messages.filter(m => m.fromUser.id === currentUser.id && m.reply).length > 0 && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}</button>}
                                         <button className={`px-4 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${activeTab === 'daily' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} onClick={() => setActiveTab('daily')}><Icon name="sun" className="w-3.5 h-3.5"/> Daily</button>
                                     </nav>
+                                    <button className="tut-btn hidden md:flex" onClick={() => setShowPainelTutorial(true)}><Icon name="book-open" className="w-3.5 h-3.5"/> Tutorial</button>
+                                    <a href="https://discord.gg/lovable-dev" target="_blank" rel="noopener" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#5865F2]/20 border border-[#5865F2]/30 rounded-lg text-[#5865F2] text-xs font-bold hover:bg-[#5865F2]/30 transition-all"><Icon name="message-circle" className="w-3.5 h-3.5"/> Discord</a>
                                 </div>
                                 <div className="flex items-center gap-3 md:gap-6">
                                     <div className="hidden md:block"><Clock /></div>
@@ -961,6 +1097,7 @@
                                 <button className={`px-3 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all whitespace-nowrap ${activeTab === 'workflow' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'}`} onClick={() => setActiveTab('workflow')}><Icon name="activity" className="w-3 h-3"/> Workflow</button>
                                 {!isSupervisor && <button className={`px-3 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all whitespace-nowrap ${activeTab === 'inbox' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'}`} onClick={() => setActiveTab('inbox')}><Icon name="inbox" className="w-3 h-3"/> Inbox</button>}
                                 <button className={`px-3 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all whitespace-nowrap ${activeTab === 'daily' ? 'bg-blue-600 text-white shadow' : 'text-slate-400'}`} onClick={() => setActiveTab('daily')}><Icon name="sun" className="w-3 h-3"/> Daily</button>
+                                <button className="tut-btn ml-auto" onClick={() => setShowPainelTutorial(true)}><Icon name="book-open" className="w-3 h-3"/> Tutorial</button>
                             </div>
                             
                             <main className="flex-1 overflow-auto p-3 md:p-6 relative flex flex-col">
@@ -1018,6 +1155,7 @@
                                     </div>
                                 )}
                             </main>
+                            {showPainelTutorial && <PainelTutorial onClose={() => setShowPainelTutorial(false)} isSupervisor={isSupervisor} setActiveTab={setActiveTab} />}
                         </div>
                     )}
                 </>
