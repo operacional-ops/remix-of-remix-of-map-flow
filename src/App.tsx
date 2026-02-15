@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
+import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import HomePage from "./pages/HomePage";
 import WorkspaceOverview from "./pages/WorkspaceOverview";
 import SpacesView from "./pages/SpacesView";
@@ -31,8 +32,6 @@ import NotFound from "./pages/NotFound";
 import AcceptInvite from "./pages/AcceptInvite";
 import TaskView from "./pages/TaskView";
 import EverythingView from "./pages/EverythingView";
-import DailyPrep from "./pages/DailyPrep";
-import GodView from "./pages/GodView";
 import TeamChamados from "./pages/TeamChamados";
 import FluxogramasProcessos from "./pages/FluxogramasProcessos";
 import MatrizDecisoes from "./pages/MatrizDecisoes";
@@ -65,6 +64,7 @@ const App = () => (
                       <div className="flex flex-1 overflow-hidden">
                         <AppSidebar />
                         <main className="flex-1 overflow-auto">
+                          <TutorialOverlay />
                           <Routes>
                           <Route path="/" element={<HomePage />} />
                           <Route path="/workspaces" element={<WorkspaceOverview />} />
@@ -80,8 +80,7 @@ const App = () => (
                           <Route path="/documents/:id" element={<DocumentView />} />
                           <Route path="/dashboards" element={<Dashboards />} />
                           <Route path="/dashboards/:id" element={<DashboardView />} />
-                          <Route path="/daily-prep" element={<DailyPrep />} />
-                          <Route path="/god-view" element={<GodView />} />
+                          
                           <Route path="/chamados" element={<TeamChamados />} />
                           <Route path="/fluxogramas" element={<FluxogramasProcessos />} />
                           <Route path="/matriz-decisoes" element={<MatrizDecisoes />} />
