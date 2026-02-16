@@ -337,6 +337,12 @@
             const [link, setLink] = React.useState("");
             const [priority, setPriority] = React.useState("normal");
             const [dueDate, setDueDate] = React.useState("");
+            const [createdDate, setCreatedDate] = React.useState("");
+
+            const getTodayStr = () => {
+                const t = new Date();
+                return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+            };
 
             React.useEffect(() => {
                 if (isOpen && task) {
@@ -345,8 +351,10 @@
                     setLink(task.link || "");
                     setPriority(task.priority || "normal");
                     setDueDate(task.dueDate || "");
+                    setCreatedDate(task.createdDate || getTodayStr());
                 } else {
                     setTitle(""); setDesc(""); setLink(""); setPriority("normal"); setDueDate("");
+                    setCreatedDate(getTodayStr());
                 }
             }, [isOpen, task]);
 
@@ -363,7 +371,8 @@
                     description: desc, 
                     link: link,
                     priority: priority,
-                    dueDate: dueDate || null
+                    dueDate: dueDate || null,
+                    createdDate: createdDate || getTodayStr()
                 });
                 onClose();
             };
@@ -390,22 +399,32 @@
                                 <textarea rows="3" disabled={!canEdit} className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-slate-300 text-sm focus:border-blue-500 focus:outline-none resize-none" placeholder="Detalhes, contexto, instruções..." value={desc} onChange={e => setDesc(e.target.value)} />
                             </div>
 
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Prioridade</label>
+                                <div className="grid grid-cols-4 gap-1.5">
+                                    {PRIORITY_OPTIONS.map(opt => (
+                                        <button key={opt.value} type="button" disabled={!canEdit} onClick={() => setPriority(opt.value)}
+                                            className={`flex items-center gap-1 px-2 py-2 rounded-lg border text-xs font-bold transition-all ${priority === opt.value ? opt.color + ' border-current ring-1 ring-current/30' : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'}`}>
+                                            <Icon name={opt.icon} className="w-3 h-3" />
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Prioridade</label>
-                                    <div className="grid grid-cols-2 gap-1.5">
-                                        {PRIORITY_OPTIONS.map(opt => (
-                                            <button key={opt.value} type="button" disabled={!canEdit} onClick={() => setPriority(opt.value)}
-                                                className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-xs font-bold transition-all ${priority === opt.value ? opt.color + ' border-current ring-1 ring-current/30' : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'}`}>
-                                                <Icon name={opt.icon} className="w-3 h-3" />
-                                                {opt.label}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
+                                        <Icon name="calendar-plus" className="w-3 h-3" /> Data de Criação
+                                    </label>
+                                    <input type="date" disabled={!canEdit} className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-white focus:border-blue-500 focus:outline-none text-sm" value={createdDate} onChange={e => setCreatedDate(e.target.value)} />
+                                    <div className="mt-1 text-[10px] text-slate-600">Dia em que a tarefa foi registrada</div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Prazo de Entrega</label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
+                                        <Icon name="calendar-clock" className="w-3 h-3" /> Prazo de Entrega
+                                    </label>
                                     <input type="date" disabled={!canEdit} className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-white focus:border-blue-500 focus:outline-none text-sm" value={dueDate} onChange={e => setDueDate(e.target.value)} />
                                     {dueDate && (() => {
                                         const today = new Date(); today.setHours(0,0,0,0);
@@ -707,23 +726,32 @@
                                     </div>
                                     <p className="text-sm text-slate-200 leading-snug font-medium mb-1">{task.text}</p>
                                     {task.description && <p className="text-[10px] text-slate-500 line-clamp-2">{task.description}</p>}
-                                    <div className="mt-2 flex justify-between items-center text-[10px]">
-                                        {task.dueDate ? (() => {
-                                            const today = new Date(); today.setHours(0,0,0,0);
-                                            const due = new Date(task.dueDate + 'T00:00:00');
-                                            const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-                                            const isOverdue = diffDays < 0;
-                                            const isToday = diffDays === 0;
-                                            const isSoon = diffDays > 0 && diffDays <= 2;
-                                            const formatted = due.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                                            return (
-                                                <span className={`flex items-center gap-1 font-bold ${isOverdue ? 'text-red-400' : isToday ? 'text-yellow-400' : isSoon ? 'text-orange-400' : 'text-slate-500'}`}>
-                                                    <Icon name="calendar" className="w-3 h-3" /> {formatted}
-                                                    {isOverdue && <span className="text-red-500">!</span>}
+                                    <div className="mt-2 space-y-1 text-[10px]">
+                                        <div className="flex justify-between items-center">
+                                            {task.dueDate ? (() => {
+                                                const today = new Date(); today.setHours(0,0,0,0);
+                                                const due = new Date(task.dueDate + 'T00:00:00');
+                                                const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+                                                const isOverdue = diffDays < 0;
+                                                const isToday = diffDays === 0;
+                                                const isSoon = diffDays > 0 && diffDays <= 2;
+                                                const formatted = due.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                                                return (
+                                                    <span className={`flex items-center gap-1 font-bold ${isOverdue ? 'text-red-400' : isToday ? 'text-yellow-400' : isSoon ? 'text-orange-400' : 'text-slate-500'}`}>
+                                                        <Icon name="calendar-clock" className="w-3 h-3" /> {formatted}
+                                                        {isOverdue && <span className="text-red-500">!</span>}
+                                                    </span>
+                                                );
+                                            })() : <span></span>}
+                                            {task.createdDate ? (
+                                                <span className="text-slate-600 flex items-center gap-1">
+                                                    <Icon name="calendar-plus" className="w-3 h-3" />
+                                                    {new Date(task.createdDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                                                 </span>
-                                            );
-                                        })() : <span></span>}
-                                        <span className="text-slate-600">{formatDate(task.timestamp)}</span>
+                                            ) : (
+                                                <span className="text-slate-600">{formatDate(task.timestamp)}</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -745,7 +773,8 @@
             const [selectedTasks, setSelectedTasks] = React.useState([]);
             const [modalOpen, setModalOpen] = React.useState(false);
             const [currentTask, setCurrentTask] = React.useState(null);
-            const [dateFilter, setDateFilter] = React.useState('');
+            const [activeFilter, setActiveFilter] = React.useState('');
+            const [pendingDate, setPendingDate] = React.useState('');
 
             const handleSelectTask = (taskId) => setSelectedTasks(prev => prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]);
             const toggleSelectMode = () => { setIsSelectMode(!isSelectMode); setSelectedTasks([]); };
@@ -754,6 +783,13 @@
             const openEditTaskModal = (task) => { setCurrentTask(task); setModalOpen(true); };
 
             const executeBulkAction = async (action) => { await onBulkAction(action, selectedTasks); setSelectedTasks([]); setIsSelectMode(false); };
+
+            const toDateStr = (d) => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${dd}`;
+            };
 
             const formatDateLabel = (dateStr) => {
                 if (!dateStr) return '';
@@ -771,29 +807,41 @@
             };
 
             const shiftDate = (direction) => {
-                const base = dateFilter ? new Date(dateFilter + 'T00:00:00') : new Date();
+                const base = pendingDate ? new Date(pendingDate + 'T00:00:00') : new Date();
                 base.setDate(base.getDate() + direction);
-                const y = base.getFullYear();
-                const m = String(base.getMonth() + 1).padStart(2, '0');
-                const dd = String(base.getDate()).padStart(2, '0');
-                setDateFilter(`${y}-${m}-${dd}`);
+                setPendingDate(toDateStr(base));
             };
 
             const goToToday = () => {
-                const t = new Date();
-                const y = t.getFullYear();
-                const m = String(t.getMonth() + 1).padStart(2, '0');
-                const dd = String(t.getDate()).padStart(2, '0');
-                setDateFilter(`${y}-${m}-${dd}`);
+                const todayStr = toDateStr(new Date());
+                setPendingDate(todayStr);
+                setActiveFilter(todayStr);
+            };
+
+            const confirmFilter = () => {
+                if (pendingDate) setActiveFilter(pendingDate);
+            };
+
+            const clearFilter = () => {
+                setActiveFilter('');
+                setPendingDate('');
             };
 
             const filterByDate = (items) => {
-                if (!dateFilter) return items;
-                return items.filter(task => task.dueDate === dateFilter);
+                if (!activeFilter) return items;
+                return items.filter(task => {
+                    // Match by createdDate OR dueDate
+                    const matchCreated = task.createdDate === activeFilter;
+                    const matchDue = task.dueDate === activeFilter;
+                    return matchCreated || matchDue;
+                });
             };
 
-            const isFiltered = !!dateFilter;
-            const dateInfo = dateFilter ? formatDateLabel(dateFilter) : null;
+            const isFiltered = !!activeFilter;
+            const hasPending = !!pendingDate;
+            const pendingInfo = pendingDate ? formatDateLabel(pendingDate) : null;
+            const activeInfo = activeFilter ? formatDateLabel(activeFilter) : null;
+            const pendingDiffers = pendingDate !== activeFilter;
 
             return (
                 <div className="flex flex-col h-full relative">
@@ -811,10 +859,10 @@
                                 <button onClick={() => shiftDate(-1)} className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors" title="Dia anterior">
                                     <Icon name="chevron-left" className="w-4 h-4" />
                                 </button>
-                                {dateInfo ? (
+                                {hasPending ? (
                                     <div className="text-center px-2 min-w-[140px]">
-                                        <div className="text-xs font-bold text-white leading-tight">{dateInfo.label}</div>
-                                        <div className="text-[9px] text-slate-400 leading-tight">{dateInfo.formatted}</div>
+                                        <div className="text-xs font-bold text-white leading-tight">{pendingInfo.label}</div>
+                                        <div className="text-[9px] text-slate-400 leading-tight">{pendingInfo.formatted}</div>
                                     </div>
                                 ) : (
                                     <button onClick={goToToday} className="text-center px-2 min-w-[140px] hover:bg-slate-800 rounded py-1 transition-colors">
@@ -826,12 +874,24 @@
                                     <Icon name="chevron-right" className="w-4 h-4" />
                                 </button>
                             </div>
-                            {isFiltered && (
-                                <button onClick={() => setDateFilter('')} className="bg-yellow-900/30 text-yellow-400 px-2.5 py-1 rounded text-[10px] font-bold border border-yellow-900/50 hover:bg-yellow-900/50 flex items-center gap-1 transition-colors">
-                                    <Icon name="filter-x" className="w-3 h-3"/> Ver tudo
+                            {/* Confirm button */}
+                            {hasPending && pendingDiffers && (
+                                <button onClick={confirmFilter} className="bg-green-900/30 text-green-400 px-3 py-1.5 rounded-lg text-[11px] font-bold border border-green-900/50 hover:bg-green-900/50 flex items-center gap-1 transition-all animate-enter">
+                                    <Icon name="check" className="w-3.5 h-3.5"/> Confirmar
                                 </button>
                             )}
-                            {!isFiltered && (
+                            {/* Active filter indicator */}
+                            {isFiltered && (
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-900/20 border border-emerald-900/40 px-2 py-1 rounded flex items-center gap-1">
+                                        <Icon name="filter" className="w-3 h-3"/> Filtrando: {activeInfo.label}
+                                    </span>
+                                    <button onClick={clearFilter} className="bg-yellow-900/30 text-yellow-400 px-2.5 py-1 rounded text-[10px] font-bold border border-yellow-900/50 hover:bg-yellow-900/50 flex items-center gap-1 transition-colors">
+                                        <Icon name="filter-x" className="w-3 h-3"/> Ver tudo
+                                    </button>
+                                </div>
+                            )}
+                            {!isFiltered && !hasPending && (
                                 <button onClick={goToToday} className="bg-blue-900/20 text-blue-400 px-2.5 py-1 rounded text-[10px] font-bold border border-blue-900/40 hover:bg-blue-900/40 flex items-center gap-1 transition-colors">
                                     <Icon name="calendar" className="w-3 h-3"/> Hoje
                                 </button>
@@ -1138,6 +1198,11 @@
 
                         // 2. Garantimos que só salvamos campos definidos (limpeza de segurança)
                         // Mas mantemos status, prioridade e assignedTo caso precisemos recriar a tarefa
+                        const getTodayStr = () => {
+                            const t = new Date();
+                            return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+                        };
+
                         const safeData = {
                             text: dataToSave.text,
                             description: dataToSave.description || "",
@@ -1145,12 +1210,18 @@
                             status: dataToSave.status || 'todo',
                             priority: dataToSave.priority || 'normal',
                             dueDate: dataToSave.dueDate || null,
+                            createdDate: dataToSave.createdDate || getTodayStr(),
                             assignedTo: dataToSave.assignedTo || targetUserId,
                         };
 
                         await db.collection('drx_tasks').doc(id).set(safeData, { merge: true });
 
                     } else {
+                        const getTodayStr = () => {
+                            const t = new Date();
+                            return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+                        };
+
                         await db.collection('drx_tasks').add({
                             text: taskData.text,
                             description: taskData.description || "",
@@ -1158,6 +1229,7 @@
                             status: 'todo',
                             priority: taskData.priority || 'normal',
                             dueDate: taskData.dueDate || null,
+                            createdDate: taskData.createdDate || getTodayStr(),
                             assignedTo: targetUserId || currentUser.id,
                             timestamp: firebase.firestore.FieldValue.serverTimestamp()
                         });
