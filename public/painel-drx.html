@@ -131,10 +131,10 @@
             .prep-details { max-height: none !important; }
             
             /* GodView mobile */
-            .godview-members-grid { grid-template-columns: repeat(2, 1fr) !important; max-height: 120px !important; }
+            .godview-members-strip { flex-wrap: wrap !important; overflow-x: visible !important; }
             .godview-main-flex { flex-direction: column !important; }
-            .godview-kanban-panel { min-height: 300px !important; }
-            .godview-inbox-panel { min-height: 250px !important; max-height: 300px !important; }
+            .godview-kanban-panel { min-height: 350px !important; }
+            .godview-inbox-panel { width: 100% !important; min-height: 250px !important; max-height: 300px !important; }
             
             /* Kanban mobile */
             .kanban-columns { flex-direction: column !important; overflow-x: visible !important; gap: 0.5rem !important; }
@@ -155,7 +155,6 @@
         }
         @media (max-width: 480px) {
             .login-board-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.375rem !important; }
-            .godview-members-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.375rem !important; }
         }
     </style>
 </head>
@@ -562,44 +561,71 @@
         const GodView = ({ currentUser, globalTasks, messages, onSaveTask, onMoveTask, onBulkAction, onReply }) => {
             const [selectedMemberId, setSelectedMemberId] = React.useState(null);
             const [viewMode, setViewMode] = React.useState('supervision');
+            const [inboxOpen, setInboxOpen] = React.useState(false);
             
             const allMembers = TEAM_DATA.filter(m => m.id !== currentUser.id);
             const selectedTasks = (selectedMemberId && globalTasks[selectedMemberId]) ? globalTasks[selectedMemberId] : { todo: [], doing: [], done: [] };
             const canEdit = TASK_EDITORS.includes(currentUser.id);
+            const openMsgCount = messages.filter(m => m.status === 'open').length;
 
             return (
-                <div className="h-full flex flex-col animate-enter">
-                    <div className="flex justify-center mb-6">
+                <div className="h-full flex flex-col animate-enter overflow-hidden">
+                    {/* Top bar: mode toggle + inbox toggle */}
+                    <div className="flex items-center justify-between mb-3 flex-shrink-0">
                         <div className="bg-slate-900/50 p-1 rounded-lg border border-slate-800 flex">
-                            <button onClick={() => setViewMode('supervision')} className={`px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${viewMode === 'supervision' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Icon name="layout-grid" className="w-4 h-4"/> Visão Geral (Todos)</button>
-                            <button onClick={() => setViewMode('personal')} className={`px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${viewMode === 'personal' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Icon name="list-todo" className="w-4 h-4"/> Meu Workflow</button>
+                            <button onClick={() => setViewMode('supervision')} className={`px-3 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all ${viewMode === 'supervision' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Icon name="layout-grid" className="w-3.5 h-3.5"/> Visão Geral</button>
+                            <button onClick={() => setViewMode('personal')} className={`px-3 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all ${viewMode === 'personal' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}><Icon name="list-todo" className="w-3.5 h-3.5"/> Meu Workflow</button>
                         </div>
+                        {viewMode === 'supervision' && (
+                            <button onClick={() => setInboxOpen(!inboxOpen)} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 border transition-all ${inboxOpen ? 'bg-yellow-600/20 border-yellow-600/40 text-yellow-400' : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-white'}`}>
+                                <Icon name="inbox" className="w-3.5 h-3.5" />
+                                Chamados
+                                {openMsgCount > 0 && <span className="bg-yellow-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{openMsgCount}</span>}
+                            </button>
+                        )}
                     </div>
 
                     {viewMode === 'supervision' ? (
                         <>
-                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-4 overflow-y-auto max-h-[130px] pr-1 godview-members-grid">
+                            {/* Members: compact horizontal scroll strip */}
+                            <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 flex-shrink-0 godview-members-strip">
                                 {allMembers.map(member => {
                                     const stats = globalTasks[member.id] || { todo: [], doing: [], done: [] };
                                     const doingCount = stats.doing.length;
+                                    const totalTasks = stats.todo.length + stats.doing.length + stats.done.length;
+                                    const donePercent = totalTasks > 0 ? Math.round((stats.done.length / totalTasks) * 100) : 0;
                                     const isSelected = selectedMemberId === member.id;
                                     const pendingMsg = messages.some(m => m.fromUser.id === member.id && m.status === 'open');
                                     const firstName = member.name.split(' ')[0];
                                     return (
-                                        <button key={member.id} onClick={() => setSelectedMemberId(member.id)} className={`glass-panel p-2 rounded-lg border text-left transition-all relative overflow-hidden ${isSelected ? 'border-blue-500 bg-blue-900/20' : 'border-slate-800 hover:bg-slate-800'}`}>
-                                            {pendingMsg && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span>}
-                                            <div className="flex items-center gap-1.5 mb-1"><div className={`w-5 h-5 ${member.color} rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0`}>{member.avatar}</div><div className="flex-1 min-w-0"><div className="text-[11px] font-bold text-slate-200 name-truncate">{firstName}</div></div></div>
-                                            <div className="flex items-center justify-between"><span className="text-[9px] text-slate-500">Fluxo:</span>{doingCount > 0 ? <span className="text-[9px] font-bold text-blue-400">{doingCount}</span> : <span className="text-[9px] text-slate-600">—</span>}</div>
-                                            <div className="w-full h-0.5 bg-slate-800 mt-1 rounded-full overflow-hidden"><div className="h-full bg-blue-500" style={{ width: `${(stats.done.length / (stats.todo.length + stats.doing.length + stats.done.length || 1)) * 100}%` }}></div></div>
+                                        <button key={member.id} onClick={() => setSelectedMemberId(member.id)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-left transition-all relative shrink-0 ${isSelected ? 'border-blue-500 bg-blue-900/20' : 'border-slate-800 bg-slate-900/30 hover:bg-slate-800'}`}>
+                                            {pendingMsg && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>}
+                                            <div className={`w-6 h-6 ${member.color} rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>{member.avatar}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[11px] font-bold text-slate-200 whitespace-nowrap">{firstName}</div>
+                                                <div className="flex items-center gap-1.5">
+                                                    {doingCount > 0 && <span className="text-[9px] font-bold text-blue-400">{doingCount} ativo</span>}
+                                                    <span className="text-[9px] text-slate-600">{donePercent}%</span>
+                                                </div>
+                                            </div>
                                         </button>
                                     );
                                 })}
                             </div>
-                            <div className="flex-1 flex gap-3 overflow-hidden godview-main-flex">
-                                <div className="flex-[2] bg-[#0b1121] rounded-xl border border-slate-800 p-3 overflow-hidden flex flex-col relative godview-kanban-panel">
+
+                            {/* Main area: Kanban (full) + Inbox (slide panel) */}
+                            <div className="flex-1 flex gap-3 overflow-hidden min-h-0 godview-main-flex">
+                                {/* Kanban takes all available space */}
+                                <div className="flex-1 bg-[#0b1121] rounded-xl border border-slate-800 p-3 overflow-hidden flex flex-col relative godview-kanban-panel">
                                     {selectedMemberId ? (
                                         <>
-                                            <div className="mb-3 flex items-center gap-2 pb-2 border-b border-slate-800/50 relative z-10"><div className={`w-6 h-6 ${TEAM_DATA.find(m => m.id === selectedMemberId).color} rounded-full flex items-center justify-center text-[10px] font-bold text-white`}>{TEAM_DATA.find(m => m.id === selectedMemberId).avatar}</div><div className="min-w-0"><h3 className="text-sm font-bold text-white name-truncate">Quadro de {TEAM_DATA.find(m => m.id === selectedMemberId).name.split(' ')[0]}</h3><p className="text-[9px] text-slate-400 name-truncate">{TEAM_DATA.find(m => m.id === selectedMemberId).role}</p></div></div>
+                                            <div className="mb-2 flex items-center gap-2 pb-2 border-b border-slate-800/50 relative z-10">
+                                                <div className={`w-6 h-6 ${TEAM_DATA.find(m => m.id === selectedMemberId).color} rounded-full flex items-center justify-center text-[10px] font-bold text-white`}>{TEAM_DATA.find(m => m.id === selectedMemberId).avatar}</div>
+                                                <div className="min-w-0 flex-1">
+                                                    <h3 className="text-sm font-bold text-white name-truncate">Quadro de {TEAM_DATA.find(m => m.id === selectedMemberId).name.split(' ')[0]}</h3>
+                                                    <p className="text-[9px] text-slate-400 name-truncate">{TEAM_DATA.find(m => m.id === selectedMemberId).role}</p>
+                                                </div>
+                                            </div>
                                             <div className="flex-1 overflow-hidden relative z-10">
                                                 <KanbanBoard 
                                                     tasks={selectedTasks} 
@@ -616,12 +642,18 @@
                                         <div className="h-full flex flex-col items-center justify-center text-slate-600"><Icon name="mouse-pointer-click" className="w-10 h-10 mb-2 opacity-50" /><p className="text-xs">Selecione um colaborador acima.</p></div>
                                     )}
                                 </div>
-                                <div className="flex-1 flex flex-col h-full overflow-hidden godview-inbox-panel"><DirectorInbox messages={messages} onReply={onReply} /></div>
+
+                                {/* Inbox: collapsible side panel */}
+                                {inboxOpen && (
+                                    <div className="w-[320px] shrink-0 flex flex-col h-full overflow-hidden godview-inbox-panel animate-enter">
+                                        <DirectorInbox messages={messages} onReply={onReply} />
+                                    </div>
+                                )}
                             </div>
                         </>
                     ) : (
-                        <div className="flex-1 overflow-hidden bg-slate-900/30 rounded-xl border border-slate-800 p-4 mb-4">
-                            <div className="flex justify-between items-center mb-4 px-2">
+                        <div className="flex-1 overflow-hidden bg-slate-900/30 rounded-xl border border-slate-800 p-3">
+                            <div className="flex justify-between items-center mb-3 px-1">
                                 <div className="flex items-center gap-2"><div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div><h2 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Minhas Demandas</h2></div>
                                 <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Diretoria</span>
                             </div>
