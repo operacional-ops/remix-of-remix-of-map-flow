@@ -148,6 +148,7 @@
             { name: "RELÓGIOS", url: "https://drive.google.com/drive/folders/1KhblqSRwbXlB8ANs3QpXJb5-ATodYAdw?usp=drive_link", icon: "watch" },
             { name: "SNOWBOARD", url: "https://drive.google.com/drive/folders/1IqgS5b1wXrNnEWZIY_6tq4pkdcYmSUPJ?usp=drive_link", icon: "snowflake" },
             { name: "VARIADOS", url: "https://drive.google.com/drive/folders/1j_GxDwIrmdN-UBoUrPZZf_Js6EI6I7iD?usp=drive_link", icon: "grid" },
+            { name: "TRECHOS DE FILMES", url: "https://drive.google.com/drive/folders/1xrH9Pz-dWUM3GaRIzrzDd40o21wlrJX_?usp=sharing", icon: "clapperboard" },
         ];
 
         const TEAM = {
@@ -797,7 +798,15 @@
             const baseFilteredTasks = React.useMemo(() => {
                 let result = tasks.filter(task => {
                     const matchesExpert = filterExpert ? task.expert === filterExpert : true;
-                    const matchesType = filterType ? task.type === filterType : true;
+                    let matchesType = true;
+                    if (filterType) {
+                        if (filterType.startsWith('reels_')) {
+                            const fmtId = filterType.replace('reels_', '');
+                            matchesType = task.type === 'reels' && task.reelsFormat === fmtId;
+                        } else {
+                            matchesType = task.type === filterType;
+                        }
+                    }
                     const matchesPauta = filterPauta ? task.pauta === filterPauta : true;
                     return matchesExpert && matchesType && matchesPauta;
                 });
@@ -816,6 +825,37 @@
                     await db.collection(EXPERTS_COLLECTION).doc('list').set({ names: newExpertsList }, { merge: true });
                     setExperts(newExpertsList);
                 } catch (e) { alert("Erro ao salvar novo expert: " + e.message); }
+            };
+
+            const removeExpertFromDb = async (expertName) => {
+                if (DEFAULT_EXPERTS.includes(expertName)) { alert("Experts padrão não podem ser removidos."); return; }
+                if (!confirm(`Remover o expert "${expertName}"?`)) return;
+                try {
+                    const newList = experts.filter(e => e !== expertName);
+                    await db.collection(EXPERTS_COLLECTION).doc('list').set({ names: newList }, { merge: true });
+                    setExperts(newList);
+                    if (filterExpert === expertName) setFilterExpert('');
+                } catch (e) { alert("Erro ao remover expert: " + e.message); }
+            };
+
+            const renameExpertInDb = async (oldName) => {
+                const newName = prompt(`Renomear "${oldName}" para:`, oldName);
+                if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+                const trimmed = newName.trim();
+                if (experts.includes(trimmed)) { alert("Já existe um expert com esse nome."); return; }
+                try {
+                    const newList = experts.map(e => e === oldName ? trimmed : e);
+                    await db.collection(EXPERTS_COLLECTION).doc('list').set({ names: newList }, { merge: true });
+                    setExperts(newList);
+                    if (filterExpert === oldName) setFilterExpert(trimmed);
+                    // Update tasks that reference old name
+                    const snapshot = await db.collection(COLLECTION_NAME).where('expert', '==', oldName).get();
+                    if (!snapshot.empty) {
+                        const batch = db.batch();
+                        snapshot.docs.forEach(doc => batch.update(doc.ref, { expert: trimmed }));
+                        await batch.commit();
+                    }
+                } catch (e) { alert("Erro ao renomear expert: " + e.message); }
             };
 
             const saveTask = async (taskData) => {
@@ -943,7 +983,7 @@
                                         {/* Filtros Dropdown */}
                                         <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5"><Icon name="users" className="w-3 h-3 text-slate-400" /><select value={filterExpert} onChange={(e) => setFilterExpert(e.target.value)} className="bg-transparent text-xs text-slate-200 outline-none w-28 cursor-pointer"><option value="" className="bg-slate-800">Todos Experts</option>{experts.map(e => <option key={e} value={e} className="bg-slate-800">{e}</option>)}</select></div>
                                         <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5"><Icon name="megaphone" className="w-3 h-3 text-slate-400" /><select value={filterPauta} onChange={(e) => setFilterPauta(e.target.value)} className="bg-transparent text-xs text-slate-200 outline-none w-28 cursor-pointer"><option value="" className="bg-slate-800">Toda Pauta</option>{Object.entries(PAUTA_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
-                                        <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5"><Icon name="filter" className="w-3 h-3 text-slate-400" /><select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="bg-transparent text-xs text-slate-200 outline-none w-24 cursor-pointer"><option value="" className="bg-slate-800">Todos Tipos</option>{Object.entries(TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
+                                        <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded-lg px-2 py-1.5"><Icon name="filter" className="w-3 h-3 text-slate-400" /><select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="bg-transparent text-xs text-slate-200 outline-none w-32 cursor-pointer"><option value="" className="bg-slate-800">Todos Tipos</option>{Object.entries(TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}<optgroup label="Formato Reels" className="bg-slate-800">{REELS_FORMATS.map(fmt => <option key={'rf_'+fmt.id} value={'reels_'+fmt.id} className="bg-slate-800">{fmt.label}</option>)}</optgroup></select></div>
                                         {(filterExpert || filterType || filterPauta) && (<button onClick={() => { setFilterExpert(''); setFilterType(''); setFilterPauta(''); }} className="text-xs text-red-400 hover:text-red-300 underline" title="Limpar Filtros">Limpar</button>)}
                                     </div>
 
@@ -1034,7 +1074,7 @@
                         </div>
                     )}
 
-                    {isModalOpen && <TaskModal task={editingTask} experts={experts} onAddExpert={addNewExpertToDb} onClose={()=>setIsModalOpen(false)} onSave={saveTask} onDelete={deleteTask} />}
+                    {isModalOpen && <TaskModal task={editingTask} experts={experts} onAddExpert={addNewExpertToDb} onRemoveExpert={removeExpertFromDb} onRenameExpert={renameExpertInDb} onClose={()=>setIsModalOpen(false)} onSave={saveTask} onDelete={deleteTask} />}
                 </div>
             );
         }
@@ -1170,7 +1210,7 @@
             );
         }
 
-        function TaskModal({ task, onClose, onSave, onDelete, experts, onAddExpert }) {
+        function TaskModal({ task, onClose, onSave, onDelete, experts, onAddExpert, onRemoveExpert, onRenameExpert }) {
             const [formData, setFormData] = React.useState(task || {});
             const [newExpertName, setNewExpertName] = React.useState('');
             const [showAddExpert, setShowAddExpert] = React.useState(false);
@@ -1190,7 +1230,7 @@
                                 <div><label className="block text-xs font-bold text-yellow-500 mb-1">QUEM DEU A IDEIA?</label><input name="creator" value={formData.creator||''} onChange={handleChange} className="w-full bg-slate-800 border border-yellow-500/30 rounded p-2 text-white placeholder-slate-600" placeholder="Seu nome" /></div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-slate-400">EXPERT</label><button onClick={()=>setShowAddExpert(!showAddExpert)} className="text-[10px] text-blue-400 hover:text-blue-300 underline">+ Novo</button></div>{showAddExpert ? (<div className="flex gap-2 mb-2"><input value={newExpertName} onChange={e=>setNewExpertName(e.target.value)} className="flex-1 bg-slate-900 border border-blue-500 rounded p-2 text-white text-sm" placeholder="Nome" /><button onClick={handleAddExpert} className="px-2 bg-blue-600 text-white rounded font-bold text-xs">OK</button></div>) : (<select name="expert" value={formData.expert} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{experts.map(exp => <option key={exp} value={exp}>{exp}</option>)}</select>)}</div>
+                                <div><div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-slate-400">EXPERT</label><div className="flex gap-2"><button onClick={()=>setShowAddExpert(!showAddExpert)} className="text-[10px] text-blue-400 hover:text-blue-300 underline">+ Novo</button>{formData.expert && !['Pedro Cavassis','Arthur César','Brandon Cantuária','DRX'].includes(formData.expert) && (<><button onClick={()=>{onRenameExpert(formData.expert);}} className="text-[10px] text-yellow-400 hover:text-yellow-300 underline">Renomear</button><button onClick={()=>{onRemoveExpert(formData.expert); setFormData({...formData, expert: 'DRX'});}} className="text-[10px] text-red-400 hover:text-red-300 underline">Remover</button></>)}</div></div>{showAddExpert ? (<div className="flex gap-2 mb-2"><input value={newExpertName} onChange={e=>setNewExpertName(e.target.value)} className="flex-1 bg-slate-900 border border-blue-500 rounded p-2 text-white text-sm" placeholder="Nome" /><button onClick={handleAddExpert} className="px-2 bg-blue-600 text-white rounded font-bold text-xs">OK</button></div>) : (<select name="expert" value={formData.expert} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white">{experts.map(exp => <option key={exp} value={exp}>{exp}</option>)}</select>)}</div>
                                 <div><label className="text-xs font-bold text-slate-400 block mb-1">TEMPERATURA DA PAUTA</label><select name="pauta" value={formData.pauta || ''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white"><option value="">Selecione...</option>{Object.entries(PAUTA_TYPES).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
                             </div>
                             <div><label className="block text-xs font-bold text-slate-400 mb-1">DESCRIÇÃO / ROTEIRO</label><textarea name="description" value={formData.description||''} onChange={handleChange} className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white h-24" placeholder="Cole o roteiro aqui..." /></div>
