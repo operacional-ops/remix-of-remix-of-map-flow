@@ -1013,6 +1013,53 @@ export type Database = {
         }
         Relationships: []
       }
+      facebook_metrics: {
+        Row: {
+          account_id: string
+          account_name: string | null
+          clicks: number | null
+          created_at: string
+          ctr: number | null
+          date_start: string
+          id: string
+          impressions: number | null
+          spend: number | null
+          workspace_id: string | null
+        }
+        Insert: {
+          account_id: string
+          account_name?: string | null
+          clicks?: number | null
+          created_at?: string
+          ctr?: number | null
+          date_start: string
+          id?: string
+          impressions?: number | null
+          spend?: number | null
+          workspace_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          account_name?: string | null
+          clicks?: number | null
+          created_at?: string
+          ctr?: number | null
+          date_start?: string
+          id?: string
+          impressions?: number | null
+          spend?: number | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facebook_metrics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feed_post_comments: {
         Row: {
           author_id: string
