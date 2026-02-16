@@ -23,6 +23,27 @@ export function useFacebookMetrics(workspaceId?: string) {
   });
 }
 
+export function useFacebookCampaignInsights(workspaceId?: string) {
+  return useQuery({
+    queryKey: ['facebook_campaign_insights', workspaceId],
+    queryFn: async () => {
+      let query = supabase
+        .from('facebook_campaign_insights')
+        .select('*')
+        .order('date_start', { ascending: false });
+
+      if (workspaceId) {
+        query = query.eq('workspace_id', workspaceId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!workspaceId,
+  });
+}
+
 export function useSyncFacebookMetrics() {
   const queryClient = useQueryClient();
 
@@ -38,7 +59,8 @@ export function useSyncFacebookMetrics() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['facebook_metrics'] });
-      toast.success(`Sincronizado! ${data.count} registros importados.`);
+      queryClient.invalidateQueries({ queryKey: ['facebook_campaign_insights'] });
+      toast.success(`Sincronizado! ${data.accountCount || 0} conta(s), ${data.campaignCount || 0} campanha(s).`);
     },
     onError: (error: any) => {
       toast.error(error.message || 'Erro ao sincronizar dados do Meta');
