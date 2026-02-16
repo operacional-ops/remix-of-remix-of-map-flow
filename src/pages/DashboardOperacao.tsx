@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import FacebookMetricsCard from '@/components/marketing/FacebookMetricsCard';
 import { Plus, Upload, Package, Trash2, ChevronDown, TrendingUp, DollarSign, ShoppingCart, CreditCard, Undo2, Redo2 } from 'lucide-react';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -452,6 +453,11 @@ export default function DashboardOperacao() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Meta Ads Card */}
+        <div className="px-4 py-3 border-b border-border">
+          <FacebookMetricsCard />
         </div>
 
         {/* Airtable-style Table */}
