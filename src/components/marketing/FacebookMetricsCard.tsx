@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RefreshCw, TrendingUp, Eye, MousePointerClick, DollarSign, BarChart3 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +23,13 @@ export default function FacebookMetricsCard() {
   const syncMutation = useSyncFacebookMetrics();
 
   const handleSync = () => {
-    if (!accountId.trim()) return;
-    syncMutation.mutate({ accountId: accountId.trim(), workspaceId: activeWorkspace?.id });
+    const id = accountId.trim();
+    if (!id) return;
+    if (!id.startsWith('act_')) {
+      toast.error('O ID da conta deve começar com "act_" (ex: act_123456789)');
+      return;
+    }
+    syncMutation.mutate({ accountId: id, workspaceId: activeWorkspace?.id });
   };
 
   const totalSpend = metrics?.reduce((s, m) => s + Number(m.spend), 0) || 0;
