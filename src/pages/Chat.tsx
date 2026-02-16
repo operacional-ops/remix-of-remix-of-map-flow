@@ -11,7 +11,7 @@ const Chat = () => {
   const selectedChannel = channels?.find(c => c.id === selectedChannelId);
 
   return (
-    <div className="flex h-[calc(100vh-0px)]">
+    <div className="flex h-[calc(100vh-68px)] md:h-[calc(100vh-0px)] flex-col md:flex-row">
       <ChatSidebar
         selectedChannelId={selectedChannelId}
         onSelectChannel={setSelectedChannelId}
