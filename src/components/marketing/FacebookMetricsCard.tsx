@@ -38,7 +38,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function FacebookMetricsCard() {
-  const [accountId, setAccountId] = useState('');
+  const [accountId, setAccountId] = useState('act_1015543840691105');
   const { activeWorkspace } = useWorkspace();
   const { data: metrics, isLoading } = useFacebookMetrics(activeWorkspace?.id);
   const { data: campaigns, isLoading: loadingCampaigns } = useFacebookCampaignInsights(activeWorkspace?.id);

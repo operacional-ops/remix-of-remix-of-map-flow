@@ -24,14 +24,16 @@ serve(async (req) => {
       throw new Error("Supabase environment variables not configured");
     }
 
-    const { accountId, workspaceId } = await req.json();
+    const { accountId, workspaceId, datePreset } = await req.json();
     if (!accountId) {
       throw new Error("accountId is required");
     }
 
+    const preset = datePreset || "maximum";
+
     // 1. Fetch account-level insights
     const accountFields = "account_id,account_name,spend,impressions,clicks,ctr";
-    const accountUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?level=account&fields=${accountFields}&date_preset=this_month&access_token=${FACEBOOK_ACCESS_TOKEN}`;
+    const accountUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?level=account&fields=${accountFields}&date_preset=${preset}&time_increment=1&access_token=${FACEBOOK_ACCESS_TOKEN}&limit=500`;
 
     const accountResponse = await fetch(accountUrl);
     const accountData = await accountResponse.json();
@@ -42,7 +44,7 @@ serve(async (req) => {
 
     // 2. Fetch campaign-level insights with all metrics
     const campaignFields = "campaign_id,campaign_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,actions,cost_per_action_type,objective";
-    const campaignUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?level=campaign&fields=${campaignFields}&date_preset=this_month&time_increment=1&access_token=${FACEBOOK_ACCESS_TOKEN}&limit=500`;
+    const campaignUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?level=campaign&fields=${campaignFields}&date_preset=${preset}&time_increment=1&access_token=${FACEBOOK_ACCESS_TOKEN}&limit=500`;
 
     const campaignResponse = await fetch(campaignUrl);
     const campaignData = await campaignResponse.json();
@@ -167,7 +169,7 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("Error in fetch-fb-insights:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
