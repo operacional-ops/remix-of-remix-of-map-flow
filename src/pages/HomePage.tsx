@@ -4,7 +4,7 @@ import { FeedCard } from '@/components/home/FeedCard';
 
 const HomePage = () => {
   return (
-    <div className="p-4 h-screen flex flex-col overflow-hidden">
+    <div className="p-4 h-[calc(100vh-68px)] md:h-screen flex flex-col overflow-hidden">
       <div className="mb-4 shrink-0">
         <h1 className="text-xl font-bold">Início</h1>
         <p className="text-sm text-muted-foreground">Suas tarefas, comentários e atualizações</p>

@@ -61,7 +61,7 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <div className="relative h-screen w-full overflow-hidden">
-                        <main className="h-full overflow-auto pb-20">
+                        <main className="h-full overflow-auto pb-[68px] md:pb-20">
                           <TutorialOverlay />
                           <Routes>
                             <Route path="/" element={<HomePage />} />
