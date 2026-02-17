@@ -24,10 +24,10 @@ serve(async (req) => {
       throw new Error("accountId is required");
     }
 
-    // Use per-user token if provided, fallback to central env token
-    const token = accessToken || Deno.env.get("FACEBOOK_ACCESS_TOKEN");
+    // Use ONLY per-user token from Facebook login
+    const token = accessToken;
     if (!token) {
-      throw new Error("No Facebook access token available. Please connect your Facebook profile.");
+      throw new Error("No Facebook access token available. Please connect your Facebook profile first.");
     }
 
     const preset = datePreset || "maximum";
