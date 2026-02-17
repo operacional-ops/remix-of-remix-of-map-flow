@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { BarChart3, Grid3X3, Layers, Image } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -56,23 +57,38 @@ export default function DashboardOperacao() {
   // PAYT sales breakdown for the same date range
   const { breakdown: paytBreakdown } = usePaytSalesBreakdown(datePreset);
 
+  const queryClient = useQueryClient();
+
   const handleSync = async () => {
     if (!connection || selectedAccounts.length === 0) {
       toast.error('Conecte seu Facebook e selecione contas primeiro');
       setShowAccountSelector(true);
       return;
     }
-    for (const acctId of selectedAccounts) {
-      try {
-        await syncMutation.mutateAsync({
+    const results = await Promise.allSettled(
+      selectedAccounts.map(acctId =>
+        syncMutation.mutateAsync({
           accountId: acctId,
           workspaceId: activeWorkspace?.id,
           accessToken: connection.access_token,
           datePreset,
-        });
-      } catch (err) {
-        console.error(`Sync failed for ${acctId}:`, err);
-      }
+          skipInvalidation: true,
+        })
+      )
+    );
+    // Invalidate all queries once after all accounts finish
+    queryClient.invalidateQueries({ queryKey: ['facebook_metrics'] });
+    queryClient.invalidateQueries({ queryKey: ['facebook_campaign_insights'] });
+    queryClient.invalidateQueries({ queryKey: ['facebook_adset_insights'] });
+    queryClient.invalidateQueries({ queryKey: ['facebook_ad_insights'] });
+
+    const failed = results.filter(r => r.status === 'rejected');
+    const succeeded = results.filter(r => r.status === 'fulfilled');
+    if (failed.length > 0) {
+      toast.error(`${failed.length} conta(s) falharam na sincronização`);
+    }
+    if (succeeded.length > 0) {
+      toast.success(`${succeeded.length} conta(s) sincronizada(s) com sucesso!`);
     }
   };
 

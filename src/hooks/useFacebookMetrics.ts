@@ -88,14 +88,12 @@ export function useSyncFacebookMetrics() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ accountId, workspaceId, accessToken, datePreset }: { accountId: string; workspaceId?: string; accessToken?: string; datePreset?: string }) => {
+    mutationFn: async ({ accountId, workspaceId, accessToken, datePreset, skipInvalidation }: { accountId: string; workspaceId?: string; accessToken?: string; datePreset?: string; skipInvalidation?: boolean }) => {
       const { data, error } = await supabase.functions.invoke('fetch-fb-insights', {
         body: { accountId, workspaceId, accessToken, datePreset },
       });
 
-      // Extract meaningful error from edge function response
       if (error) {
-        // Try to get the actual error message from the response context
         const ctx = (error as any).context;
         if (ctx && typeof ctx.json === 'function') {
           try {
@@ -108,17 +106,19 @@ export function useSyncFacebookMetrics() {
         throw new Error(error.message || 'Erro ao sincronizar dados do Meta');
       }
       if (data?.error) throw new Error(data.error);
-      return data;
+      return { ...data, skipInvalidation };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['facebook_metrics'] });
-      queryClient.invalidateQueries({ queryKey: ['facebook_campaign_insights'] });
-      queryClient.invalidateQueries({ queryKey: ['facebook_adset_insights'] });
-      queryClient.invalidateQueries({ queryKey: ['facebook_ad_insights'] });
+      if (!data?.skipInvalidation) {
+        queryClient.invalidateQueries({ queryKey: ['facebook_metrics'] });
+        queryClient.invalidateQueries({ queryKey: ['facebook_campaign_insights'] });
+        queryClient.invalidateQueries({ queryKey: ['facebook_adset_insights'] });
+        queryClient.invalidateQueries({ queryKey: ['facebook_ad_insights'] });
+      }
       const warnings = data.warnings || [];
       if (warnings.length > 0) {
         toast.warning(`Sincronizado com avisos: ${warnings.join('; ')}`);
-      } else {
+      } else if (!data?.skipInvalidation) {
         toast.success(`Sincronizado! ${data.accountCount || 0} conta(s), ${data.campaignCount || 0} campanha(s), ${data.adsetCount || 0} conjunto(s), ${data.adCount || 0} anúncio(s).`);
       }
     },
