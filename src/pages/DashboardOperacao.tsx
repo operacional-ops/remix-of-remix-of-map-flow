@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { BarChart3, Grid3X3, Layers, Image } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -10,16 +10,11 @@ import UtmifyTable, { type UtmifyRow } from '@/components/marketing/UtmifyTable'
 import ResumoView from '@/components/marketing/ResumoView';
 import FacebookLoginButton from '@/components/marketing/FacebookLoginButton';
 import AccountSelector from '@/components/marketing/AccountSelector';
-import { filterByDatePreset } from '@/lib/datePresets';
 import { toast } from 'sonner';
 
 export default function DashboardOperacao() {
   const { activeWorkspace } = useWorkspace();
   const { data: fbConnection } = useFacebookConnection(activeWorkspace?.id);
-  const { data: metrics } = useFacebookMetrics(activeWorkspace?.id);
-  const { data: campaigns } = useFacebookCampaignInsights(activeWorkspace?.id);
-  const { data: adsets } = useFacebookAdsetInsights(activeWorkspace?.id);
-  const { data: ads } = useFacebookAdInsights(activeWorkspace?.id);
   const syncMutation = useSyncFacebookMetrics();
 
   const [sidebarView, setSidebarView] = useState<'resumo' | 'meta'>('resumo');
@@ -33,13 +28,17 @@ export default function DashboardOperacao() {
   const connection = fbConnection || null;
   const selectedAccounts = connection?.selected_account_ids || [];
 
-  // Filter all data by selected date preset
-  const filteredMetrics = filterByDatePreset(metrics, datePreset);
-  const filteredCampaigns = filterByDatePreset(campaigns, datePreset);
-  const filteredAdsets = filterByDatePreset(adsets, datePreset);
-  const filteredAds = filterByDatePreset(ads, datePreset);
+  // Build filter params — changes trigger automatic refetch via queryKey
+  const filterParams = useMemo(() => ({
+    workspaceId: activeWorkspace?.id,
+    datePreset,
+    accountId: accountFilter,
+  }), [activeWorkspace?.id, datePreset, accountFilter]);
 
-  const isLoading = !metrics && !campaigns;
+  const { data: metrics } = useFacebookMetrics(filterParams);
+  const { data: campaigns } = useFacebookCampaignInsights(filterParams);
+  const { data: adsets } = useFacebookAdsetInsights(filterParams);
+  const { data: ads } = useFacebookAdInsights(filterParams);
 
   const handleSync = async () => {
     if (!connection || selectedAccounts.length === 0) {
@@ -47,24 +46,35 @@ export default function DashboardOperacao() {
       setShowAccountSelector(true);
       return;
     }
-    for (const accountId of selectedAccounts) {
+    for (const acctId of selectedAccounts) {
       try {
         await syncMutation.mutateAsync({
-          accountId,
+          accountId: acctId,
           workspaceId: activeWorkspace?.id,
           accessToken: connection.access_token,
           datePreset,
         });
       } catch (err) {
-        console.error(`Sync failed for ${accountId}:`, err);
+        console.error(`Sync failed for ${acctId}:`, err);
       }
     }
   };
 
-  // ========= Build table rows for each tab =========
+  // Derive unique accounts for the account filter dropdown
+  const uniqueAccounts = useMemo(() => {
+    const map = new Map<string, string>();
+    (metrics || []).forEach((m: any) => {
+      if (m.account_id && !map.has(m.account_id)) {
+        map.set(m.account_id, m.account_name || m.account_id);
+      }
+    });
+    return Array.from(map.entries()); // [[id, name], ...]
+  }, [metrics]);
+
+  // ========= Build table rows =========
   const buildContasRows = (): UtmifyRow[] => {
     const contasMap = new Map<string, UtmifyRow>();
-    filteredMetrics.forEach(m => {
+    (metrics || []).forEach((m: any) => {
       const key = m.account_id;
       const existing = contasMap.get(key);
       if (existing) {
@@ -121,9 +131,9 @@ export default function DashboardOperacao() {
 
   const rowsByTab: Record<string, UtmifyRow[]> = {
     contas: buildContasRows(),
-    campanhas: buildGenericRows(filteredCampaigns, 'campaign_id', 'campaign_name'),
-    conjuntos: buildGenericRows(filteredAdsets, 'adset_id', 'adset_name'),
-    anuncios: buildGenericRows(filteredAds, 'ad_id', 'ad_name'),
+    campanhas: buildGenericRows(campaigns || [], 'campaign_id', 'campaign_name'),
+    conjuntos: buildGenericRows(adsets || [], 'adset_id', 'adset_name'),
+    anuncios: buildGenericRows(ads || [], 'ad_id', 'ad_name'),
   };
 
   const currentRows = rowsByTab[activeTab] || [];
@@ -139,8 +149,8 @@ export default function DashboardOperacao() {
 
       {sidebarView === 'resumo' ? (
         <ResumoView
-          metrics={filteredMetrics}
-          campaigns={filteredCampaigns}
+          metrics={metrics}
+          campaigns={campaigns}
           isLoading={syncMutation.isPending}
           onSync={handleSync}
           isSyncing={syncMutation.isPending}
@@ -202,6 +212,7 @@ export default function DashboardOperacao() {
                 onSync={handleSync}
                 isSyncing={syncMutation.isPending}
                 totalItems={activeTab !== 'contas' ? filteredRows.length : undefined}
+                accounts={uniqueAccounts}
               />
 
               {['contas', 'campanhas', 'conjuntos', 'anuncios'].map(tab => (

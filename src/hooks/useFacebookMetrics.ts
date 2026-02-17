@@ -1,59 +1,86 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getDateRangeFromPreset } from '@/lib/datePresets';
+import { format } from 'date-fns';
 
-async function fetchAllRows(table: string, workspaceId: string) {
+interface FilterParams {
+  workspaceId?: string;
+  datePreset?: string;
+  accountId?: string; // 'all' or specific account_id
+}
+
+async function fetchFilteredRows(table: string, params: FilterParams) {
+  const { workspaceId, datePreset, accountId } = params;
+  if (!workspaceId) return [];
+
   const allData: any[] = [];
   const pageSize = 1000;
   let from = 0;
-  
+
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from(table as any)
       .select('*')
       .eq('workspace_id', workspaceId)
-      .order('date_start', { ascending: false })
-      .range(from, from + pageSize - 1);
-    
+      .order('date_start', { ascending: false });
+
+    // Server-side date filtering
+    if (datePreset && datePreset !== 'maximum') {
+      const range = getDateRangeFromPreset(datePreset);
+      if (range) {
+        const startStr = format(range.start, 'yyyy-MM-dd');
+        const endStr = format(range.end, 'yyyy-MM-dd');
+        query = query.gte('date_start', startStr).lte('date_start', endStr);
+      }
+    }
+
+    // Server-side account filtering
+    if (accountId && accountId !== 'all') {
+      query = query.eq('account_id', accountId);
+    }
+
+    const { data, error } = await query.range(from, from + pageSize - 1);
+
     if (error) throw error;
     if (!data || data.length === 0) break;
     allData.push(...data);
     if (data.length < pageSize) break;
     from += pageSize;
   }
-  
+
   return allData;
 }
 
-export function useFacebookMetrics(workspaceId?: string) {
+export function useFacebookMetrics(params: FilterParams) {
   return useQuery({
-    queryKey: ['facebook_metrics', workspaceId],
-    queryFn: () => fetchAllRows('facebook_metrics', workspaceId!),
-    enabled: !!workspaceId,
+    queryKey: ['facebook_metrics', params.workspaceId, params.datePreset, params.accountId],
+    queryFn: () => fetchFilteredRows('facebook_metrics', params),
+    enabled: !!params.workspaceId,
   });
 }
 
-export function useFacebookCampaignInsights(workspaceId?: string) {
+export function useFacebookCampaignInsights(params: FilterParams) {
   return useQuery({
-    queryKey: ['facebook_campaign_insights', workspaceId],
-    queryFn: () => fetchAllRows('facebook_campaign_insights', workspaceId!),
-    enabled: !!workspaceId,
+    queryKey: ['facebook_campaign_insights', params.workspaceId, params.datePreset, params.accountId],
+    queryFn: () => fetchFilteredRows('facebook_campaign_insights', params),
+    enabled: !!params.workspaceId,
   });
 }
 
-export function useFacebookAdsetInsights(workspaceId?: string) {
+export function useFacebookAdsetInsights(params: FilterParams) {
   return useQuery({
-    queryKey: ['facebook_adset_insights', workspaceId],
-    queryFn: () => fetchAllRows('facebook_adset_insights', workspaceId!),
-    enabled: !!workspaceId,
+    queryKey: ['facebook_adset_insights', params.workspaceId, params.datePreset, params.accountId],
+    queryFn: () => fetchFilteredRows('facebook_adset_insights', params),
+    enabled: !!params.workspaceId,
   });
 }
 
-export function useFacebookAdInsights(workspaceId?: string) {
+export function useFacebookAdInsights(params: FilterParams) {
   return useQuery({
-    queryKey: ['facebook_ad_insights', workspaceId],
-    queryFn: () => fetchAllRows('facebook_ad_insights', workspaceId!),
-    enabled: !!workspaceId,
+    queryKey: ['facebook_ad_insights', params.workspaceId, params.datePreset, params.accountId],
+    queryFn: () => fetchFilteredRows('facebook_ad_insights', params),
+    enabled: !!params.workspaceId,
   });
 }
 

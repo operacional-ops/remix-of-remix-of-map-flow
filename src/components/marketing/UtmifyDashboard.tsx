@@ -46,8 +46,8 @@ interface UtmifyDashboardProps {
 
 export default function UtmifyDashboard({ connection }: UtmifyDashboardProps) {
   const { activeWorkspace } = useWorkspace();
-  const { data: metrics, isLoading } = useFacebookMetrics(activeWorkspace?.id);
-  const { data: campaigns, isLoading: loadingCampaigns } = useFacebookCampaignInsights(activeWorkspace?.id);
+  const { data: metrics, isLoading } = useFacebookMetrics({ workspaceId: activeWorkspace?.id });
+  const { data: campaigns, isLoading: loadingCampaigns } = useFacebookCampaignInsights({ workspaceId: activeWorkspace?.id });
   const syncMutation = useSyncFacebookMetrics();
   const [datePreset, setDatePreset] = useState('maximum');
   const [showAccountSelector, setShowAccountSelector] = useState(false);
