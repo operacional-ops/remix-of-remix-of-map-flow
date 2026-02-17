@@ -1028,6 +1028,7 @@ export type Database = {
           cpa: number | null
           cpc: number | null
           cpm: number | null
+          cpp: number | null
           created_at: string
           ctr: number | null
           date_start: string
@@ -1035,6 +1036,8 @@ export type Database = {
           id: string
           impressions: number | null
           objective: string | null
+          purchase_value: number | null
+          purchases: number | null
           reach: number | null
           roas: number | null
           spend: number | null
@@ -1055,6 +1058,7 @@ export type Database = {
           cpa?: number | null
           cpc?: number | null
           cpm?: number | null
+          cpp?: number | null
           created_at?: string
           ctr?: number | null
           date_start: string
@@ -1062,6 +1066,8 @@ export type Database = {
           id?: string
           impressions?: number | null
           objective?: string | null
+          purchase_value?: number | null
+          purchases?: number | null
           reach?: number | null
           roas?: number | null
           spend?: number | null
@@ -1082,6 +1088,7 @@ export type Database = {
           cpa?: number | null
           cpc?: number | null
           cpm?: number | null
+          cpp?: number | null
           created_at?: string
           ctr?: number | null
           date_start?: string
@@ -1089,6 +1096,8 @@ export type Database = {
           id?: string
           impressions?: number | null
           objective?: string | null
+          purchase_value?: number | null
+          purchases?: number | null
           reach?: number | null
           roas?: number | null
           spend?: number | null
@@ -1118,6 +1127,7 @@ export type Database = {
           cpa: number | null
           cpc: number | null
           cpm: number | null
+          cpp: number | null
           created_at: string
           ctr: number | null
           date_start: string
@@ -1125,6 +1135,8 @@ export type Database = {
           id: string
           impressions: number | null
           objective: string | null
+          purchase_value: number | null
+          purchases: number | null
           reach: number | null
           roas: number | null
           spend: number | null
@@ -1143,6 +1155,7 @@ export type Database = {
           cpa?: number | null
           cpc?: number | null
           cpm?: number | null
+          cpp?: number | null
           created_at?: string
           ctr?: number | null
           date_start: string
@@ -1150,6 +1163,8 @@ export type Database = {
           id?: string
           impressions?: number | null
           objective?: string | null
+          purchase_value?: number | null
+          purchases?: number | null
           reach?: number | null
           roas?: number | null
           spend?: number | null
@@ -1168,6 +1183,7 @@ export type Database = {
           cpa?: number | null
           cpc?: number | null
           cpm?: number | null
+          cpp?: number | null
           created_at?: string
           ctr?: number | null
           date_start?: string
@@ -1175,6 +1191,8 @@ export type Database = {
           id?: string
           impressions?: number | null
           objective?: string | null
+          purchase_value?: number | null
+          purchases?: number | null
           reach?: number | null
           roas?: number | null
           spend?: number | null
@@ -1204,6 +1222,7 @@ export type Database = {
           cpa: number | null
           cpc: number | null
           cpm: number | null
+          cpp: number | null
           created_at: string
           ctr: number | null
           date_start: string
@@ -1211,6 +1230,8 @@ export type Database = {
           id: string
           impressions: number | null
           objective: string | null
+          purchase_value: number | null
+          purchases: number | null
           reach: number | null
           roas: number | null
           spend: number | null
@@ -1229,6 +1250,7 @@ export type Database = {
           cpa?: number | null
           cpc?: number | null
           cpm?: number | null
+          cpp?: number | null
           created_at?: string
           ctr?: number | null
           date_start: string
@@ -1236,6 +1258,8 @@ export type Database = {
           id?: string
           impressions?: number | null
           objective?: string | null
+          purchase_value?: number | null
+          purchases?: number | null
           reach?: number | null
           roas?: number | null
           spend?: number | null
@@ -1254,6 +1278,7 @@ export type Database = {
           cpa?: number | null
           cpc?: number | null
           cpm?: number | null
+          cpp?: number | null
           created_at?: string
           ctr?: number | null
           date_start?: string
@@ -1261,6 +1286,8 @@ export type Database = {
           id?: string
           impressions?: number | null
           objective?: string | null
+          purchase_value?: number | null
+          purchases?: number | null
           reach?: number | null
           roas?: number | null
           spend?: number | null
@@ -1329,11 +1356,18 @@ export type Database = {
           account_id: string
           account_name: string | null
           clicks: number | null
+          cpc: number | null
+          cpm: number | null
+          cpp: number | null
           created_at: string
           ctr: number | null
           date_start: string
+          frequency: number | null
           id: string
           impressions: number | null
+          purchase_value: number | null
+          purchases: number | null
+          reach: number | null
           spend: number | null
           workspace_id: string | null
         }
@@ -1341,11 +1375,18 @@ export type Database = {
           account_id: string
           account_name?: string | null
           clicks?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          cpp?: number | null
           created_at?: string
           ctr?: number | null
           date_start: string
+          frequency?: number | null
           id?: string
           impressions?: number | null
+          purchase_value?: number | null
+          purchases?: number | null
+          reach?: number | null
           spend?: number | null
           workspace_id?: string | null
         }
@@ -1353,11 +1394,18 @@ export type Database = {
           account_id?: string
           account_name?: string | null
           clicks?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          cpp?: number | null
           created_at?: string
           ctr?: number | null
           date_start?: string
+          frequency?: number | null
           id?: string
           impressions?: number | null
+          purchase_value?: number | null
+          purchases?: number | null
+          reach?: number | null
           spend?: number | null
           workspace_id?: string | null
         }

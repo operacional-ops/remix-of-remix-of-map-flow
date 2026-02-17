@@ -25,7 +25,8 @@ function parseActions(item: any) {
     a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase'
   );
   const leadAction = actions.find((a: any) => a.action_type === 'lead');
-  const conversions = parseInt(purchaseAction?.value || leadAction?.value || '0');
+  const purchases = parseInt(purchaseAction?.value || '0');
+  const conversions = purchases || parseInt(leadAction?.value || '0');
 
   const costPerAction = item.cost_per_action_type || [];
   const purchaseCost = costPerAction.find((a: any) =>
@@ -36,12 +37,14 @@ function parseActions(item: any) {
 
   const spend = parseFloat(item.spend) || 0;
   const actionValues = item.action_values || [];
-  const purchaseValue = actionValues.find((a: any) =>
+  const purchaseValueAction = actionValues.find((a: any) =>
     a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase' || a.action_type === 'omni_purchase'
   );
-  const roas = spend > 0 && purchaseValue ? parseFloat(purchaseValue.value) / spend : 0;
+  const purchaseValue = purchaseValueAction ? parseFloat(purchaseValueAction.value) : 0;
+  const roas = spend > 0 && purchaseValue > 0 ? purchaseValue / spend : 0;
+  const cpp = purchases > 0 ? spend / purchases : 0;
 
-  return { conversions, cpa, roas, spend };
+  return { conversions, purchases, purchaseValue, cpa, cpp, roas, spend };
 }
 
 async function fetchWithRetry(url: string, maxRetries = 3): Promise<any> {
@@ -149,40 +152,49 @@ serve(async (req) => {
     const actionFields = "actions,cost_per_action_type,action_values";
     const apiVersion = "v21.0";
 
-    // 1. Account-level (fast, small payload) — resilient
-    const accountFields = `account_id,account_name,spend,impressions,clicks,ctr`;
+    // 1. Account-level — now with full fields
+    const accountFields = `account_id,account_name,spend,impressions,clicks,ctr,cpm,cpc,reach,frequency,${actionFields}`;
     const accountUrl = `https://graph.facebook.com/${apiVersion}/${accountId}/insights?level=account&fields=${accountFields}&${dateParam}&time_increment=1&access_token=${accessToken}&limit=500`;
     let accountInsights: any[] = [];
     let accountCount = 0;
     try {
       accountInsights = await fetchAllPages(accountUrl);
       if (accountInsights.length > 0) {
-        const accountRows = accountInsights.map((item: any) => ({
-          account_id: item.account_id,
-          account_name: item.account_name || accountId,
-          date_start: item.date_start,
-          spend: parseFloat(item.spend) || 0,
-          impressions: parseInt(item.impressions) || 0,
-          clicks: parseInt(item.clicks) || 0,
-          ctr: parseFloat(item.ctr) || 0,
-          workspace_id: workspaceId || null,
-        }));
+        const accountRows = accountInsights.map((item: any) => {
+          const parsed = parseActions(item);
+          return {
+            account_id: item.account_id,
+            account_name: item.account_name || accountId,
+            date_start: item.date_start,
+            spend: parsed.spend,
+            impressions: parseInt(item.impressions) || 0,
+            clicks: parseInt(item.clicks) || 0,
+            ctr: parseFloat(item.ctr) || 0,
+            cpm: parseFloat(item.cpm) || 0,
+            cpc: parseFloat(item.cpc) || 0,
+            reach: parseInt(item.reach) || 0,
+            frequency: parseFloat(item.frequency) || 0,
+            purchases: parsed.purchases,
+            purchase_value: parsed.purchaseValue,
+            cpp: parsed.cpp,
+            workspace_id: workspaceId || null,
+          };
+        });
         await batchUpsert(supabase, "facebook_metrics", accountRows, "account_id,date_start");
         accountCount = accountRows.length;
       }
     } catch (accErr: any) {
       console.error("Account-level fetch failed:", accErr.message);
-      // If even account-level fails, return error with helpful message
       return new Response(
         JSON.stringify({ success: false, error: accErr.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 2. Campaign + Adset + Ad — PARALLEL fetch from Meta (resilient — partial failures don't abort)
-    const campaignFields = `campaign_id,campaign_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,${actionFields},objective`;
-    const adsetFields = `campaign_id,campaign_name,adset_id,adset_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,${actionFields},objective`;
-    const adFields = `campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,${actionFields},objective`;
+    // 2. Campaign + Adset + Ad — PARALLEL
+    const campaignFields = `campaign_id,campaign_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,frequency,${actionFields},objective`;
+    const adsetFields = `campaign_id,campaign_name,adset_id,adset_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,frequency,${actionFields},objective`;
+    const adFields = `campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,frequency,${actionFields},objective`;
 
     const warnings: string[] = [];
     const [campaignResult, adsetResult, adResult] = await Promise.allSettled([
@@ -195,59 +207,52 @@ serve(async (req) => {
     const adsetInsights = adsetResult.status === 'fulfilled' ? adsetResult.value : (() => { warnings.push('Conjuntos: ' + (adsetResult.reason?.message || 'erro')); return []; })();
     const adInsights = adResult.status === 'fulfilled' ? adResult.value : (() => { warnings.push('Anúncios: ' + (adResult.reason?.message || 'erro')); return []; })();
 
-    // 3. Transform & upsert in parallel
-    const campaignRows = campaignInsights.map((item: any) => {
-      const { conversions, cpa, roas, spend } = parseActions(item);
+    // 3. Transform & upsert
+    function buildRow(item: any, extraFields: Record<string, any> = {}) {
+      const parsed = parseActions(item);
       return {
         account_id: item.account_id || accountId.replace('act_', ''),
         account_name: item.account_name || accountId,
-        campaign_id: item.campaign_id, campaign_name: item.campaign_name,
         status: 'active', date_start: item.date_start,
-        spend, impressions: parseInt(item.impressions) || 0,
-        clicks: parseInt(item.clicks) || 0, reach: parseInt(item.reach) || 0,
-        ctr: parseFloat(item.ctr) || 0, cpm: parseFloat(item.cpm) || 0,
-        cpc: parseFloat(item.cpc) || 0, cpa, conversions, roas,
-        frequency: 0, objective: item.objective || null,
+        spend: parsed.spend,
+        impressions: parseInt(item.impressions) || 0,
+        clicks: parseInt(item.clicks) || 0,
+        reach: parseInt(item.reach) || 0,
+        ctr: parseFloat(item.ctr) || 0,
+        cpm: parseFloat(item.cpm) || 0,
+        cpc: parseFloat(item.cpc) || 0,
+        cpa: parsed.cpa,
+        conversions: parsed.conversions,
+        purchases: parsed.purchases,
+        purchase_value: parsed.purchaseValue,
+        cpp: parsed.cpp,
+        roas: parsed.roas,
+        frequency: parseFloat(item.frequency) || 0,
+        objective: item.objective || null,
         workspace_id: workspaceId || null,
+        ...extraFields,
       };
-    });
+    }
 
-    const adsetRows = adsetInsights.map((item: any) => {
-      const { conversions, cpa, roas, spend } = parseActions(item);
-      return {
-        account_id: item.account_id || accountId.replace('act_', ''),
-        account_name: item.account_name || accountId,
+    const campaignRows = campaignInsights.map((item: any) =>
+      buildRow(item, { campaign_id: item.campaign_id, campaign_name: item.campaign_name })
+    );
+
+    const adsetRows = adsetInsights.map((item: any) =>
+      buildRow(item, {
         campaign_id: item.campaign_id, campaign_name: item.campaign_name,
         adset_id: item.adset_id, adset_name: item.adset_name,
-        status: 'active', date_start: item.date_start,
-        spend, impressions: parseInt(item.impressions) || 0,
-        clicks: parseInt(item.clicks) || 0, reach: parseInt(item.reach) || 0,
-        ctr: parseFloat(item.ctr) || 0, cpm: parseFloat(item.cpm) || 0,
-        cpc: parseFloat(item.cpc) || 0, cpa, conversions, roas,
-        frequency: 0, objective: item.objective || null,
-        workspace_id: workspaceId || null,
-      };
-    });
+      })
+    );
 
-    const adRows = adInsights.map((item: any) => {
-      const { conversions, cpa, roas, spend } = parseActions(item);
-      return {
-        account_id: item.account_id || accountId.replace('act_', ''),
-        account_name: item.account_name || accountId,
+    const adRows = adInsights.map((item: any) =>
+      buildRow(item, {
         campaign_id: item.campaign_id, campaign_name: item.campaign_name,
         adset_id: item.adset_id, adset_name: item.adset_name,
         ad_id: item.ad_id, ad_name: item.ad_name,
-        status: 'active', date_start: item.date_start,
-        spend, impressions: parseInt(item.impressions) || 0,
-        clicks: parseInt(item.clicks) || 0, reach: parseInt(item.reach) || 0,
-        ctr: parseFloat(item.ctr) || 0, cpm: parseFloat(item.cpm) || 0,
-        cpc: parseFloat(item.cpc) || 0, cpa, conversions, roas,
-        frequency: 0, objective: item.objective || null,
-        workspace_id: workspaceId || null,
-      };
-    });
+      })
+    );
 
-    // Parallel DB upserts
     await Promise.all([
       campaignRows.length > 0 ? batchUpsert(supabase, "facebook_campaign_insights", campaignRows, "campaign_id,date_start") : Promise.resolve(),
       adsetRows.length > 0 ? batchUpsert(supabase, "facebook_adset_insights", adsetRows, "adset_id,date_start") : Promise.resolve(),
@@ -258,7 +263,7 @@ serve(async (req) => {
     const adsetCount = adsetRows.length;
     const adCount = adRows.length;
 
-    // 4. Fetch real statuses in parallel (non-blocking, best-effort)
+    // 4. Fetch real statuses (best-effort)
     try {
       const [campaignsData, adsetsData, adsData] = await Promise.all([
         fetchAllPages(`https://graph.facebook.com/${apiVersion}/${accountId}/campaigns?fields=id,name,status,objective&access_token=${accessToken}&limit=500`).catch(() => []),
@@ -266,10 +271,8 @@ serve(async (req) => {
         fetchAllPages(`https://graph.facebook.com/${apiVersion}/${accountId}/ads?fields=id,name,status,adset_id,campaign_id&access_token=${accessToken}&limit=500`).catch(() => []),
       ]);
 
-      // Batch status updates by building maps and doing bulk updates
       const statusPromises: Promise<any>[] = [];
       
-      // Group campaigns by status for bulk update
       const campaignsByStatus = new Map<string, string[]>();
       for (const c of campaignsData) {
         const status = c.status?.toLowerCase() || 'unknown';
@@ -277,9 +280,7 @@ serve(async (req) => {
         campaignsByStatus.get(status)!.push(c.id);
       }
       for (const [status, ids] of campaignsByStatus) {
-        statusPromises.push(
-          supabase.from("facebook_campaign_insights").update({ status }).in("campaign_id", ids)
-        );
+        statusPromises.push(supabase.from("facebook_campaign_insights").update({ status }).in("campaign_id", ids));
       }
 
       const adsetsByStatus = new Map<string, string[]>();
@@ -289,9 +290,7 @@ serve(async (req) => {
         adsetsByStatus.get(status)!.push(a.id);
       }
       for (const [status, ids] of adsetsByStatus) {
-        statusPromises.push(
-          supabase.from("facebook_adset_insights").update({ status }).in("adset_id", ids)
-        );
+        statusPromises.push(supabase.from("facebook_adset_insights").update({ status }).in("adset_id", ids));
       }
 
       const adsByStatus = new Map<string, string[]>();
@@ -301,9 +300,7 @@ serve(async (req) => {
         adsByStatus.get(status)!.push(a.id);
       }
       for (const [status, ids] of adsByStatus) {
-        statusPromises.push(
-          supabase.from("facebook_ad_insights").update({ status }).in("ad_id", ids)
-        );
+        statusPromises.push(supabase.from("facebook_ad_insights").update({ status }).in("ad_id", ids));
       }
 
       await Promise.allSettled(statusPromises);
