@@ -16,8 +16,7 @@ interface UtmifyFiltersProps {
   onSync: () => void;
   isSyncing: boolean;
   totalItems?: number;
-  currentPage?: number;
-  totalPages?: number;
+  accounts?: [string, string][]; // [[account_id, account_name], ...]
 }
 
 export default function UtmifyFilters({
@@ -33,8 +32,7 @@ export default function UtmifyFilters({
   onSync,
   isSyncing,
   totalItems,
-  currentPage,
-  totalPages,
+  accounts = [],
 }: UtmifyFiltersProps) {
   const labelMap: Record<string, string> = {
     contas: 'Nome da Conta',
@@ -130,7 +128,10 @@ export default function UtmifyFilters({
               <SelectValue placeholder="Qualquer" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Qualquer</SelectItem>
+              <SelectItem value="all">Todas as contas</SelectItem>
+              {accounts.map(([id, name]) => (
+                <SelectItem key={id} value={id}>{name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
