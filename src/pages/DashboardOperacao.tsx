@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BarChart3, Grid3X3, Layers, Image } from 'lucide-react';
+import { BarChart3, Grid3X3, Layers, Image, FileBarChart } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useFacebookConnection } from '@/hooks/useFacebookConnections';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { usePaytSalesBreakdown, matchSalesToCampaign, matchSalesViaParentCampaign } from '@/hooks/useUnifiedMetrics';
 import UtmDiagnosticDialog from '@/components/marketing/UtmDiagnosticDialog';
 import { getColumnsByTab } from '@/components/marketing/UtmifyTable';
+import PerformanceReportTable, { type PerformanceRow } from '@/components/marketing/PerformanceReportTable';
 
 export default function DashboardOperacao() {
   const { activeWorkspace } = useWorkspace();
@@ -265,7 +266,7 @@ export default function DashboardOperacao() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 pt-4">
-              <TabsList className="bg-transparent p-0 h-auto gap-0 w-full grid grid-cols-4">
+              <TabsList className="bg-transparent p-0 h-auto gap-0 w-full grid grid-cols-5">
                 <TabsTrigger value="contas" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none rounded-tl-lg px-6 py-3 text-sm gap-2">
                   <BarChart3 className="h-4 w-4" /> Contas
                 </TabsTrigger>
@@ -275,8 +276,11 @@ export default function DashboardOperacao() {
                 <TabsTrigger value="conjuntos" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none px-6 py-3 text-sm gap-2">
                   <Layers className="h-4 w-4" /> Conjuntos
                 </TabsTrigger>
-                <TabsTrigger value="anuncios" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none rounded-tr-lg px-6 py-3 text-sm gap-2">
+                <TabsTrigger value="anuncios" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none px-6 py-3 text-sm gap-2">
                   <Image className="h-4 w-4" /> Anúncios
+                </TabsTrigger>
+                <TabsTrigger value="performance" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none rounded-tr-lg px-6 py-3 text-sm gap-2">
+                  <FileBarChart className="h-4 w-4" /> Relatório
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -308,6 +312,47 @@ export default function DashboardOperacao() {
                   <UtmifyTable rows={filteredRows} activeTab={tab} isLoading={syncMutation.isPending} hiddenColumns={hiddenColumns} />
                 </TabsContent>
               ))}
+
+              <TabsContent value="performance" className="flex-1 overflow-hidden mt-0">
+                <PerformanceReportTable
+                  rows={(() => {
+                    const map = new Map<string, PerformanceRow>();
+                    (campaigns || []).forEach((c: any) => {
+                      const key = c.campaign_id;
+                      const existing = map.get(key);
+                      if (existing) {
+                        existing.spend += Number(c.spend) || 0;
+                        existing.impressions += Number(c.impressions) || 0;
+                        existing.purchases += Number(c.purchases) || Number(c.conversions) || 0;
+                      } else {
+                        map.set(key, {
+                          id: key,
+                          name: c.campaign_name || 'Sem nome',
+                          spend: Number(c.spend) || 0,
+                          impressions: Number(c.impressions) || 0,
+                          cpm: 0, ctr: 0, cpc: 0,
+                          purchases: Number(c.purchases) || Number(c.conversions) || 0,
+                          cpp: 0, roas: 0,
+                        });
+                      }
+                    });
+                    return Array.from(map.values()).map(r => {
+                      const clicks = r.impressions > 0 ? r.impressions * ((campaigns || []).filter((c: any) => c.campaign_id === r.id).reduce((s: number, c: any) => s + (Number(c.clicks) || 0), 0) / Math.max(1, (campaigns || []).filter((c: any) => c.campaign_id === r.id).reduce((s: number, c: any) => s + (Number(c.impressions) || 0), 0))) : 0;
+                      const totalClicks = (campaigns || []).filter((c: any) => c.campaign_id === r.id).reduce((s: number, c: any) => s + (Number(c.clicks) || 0), 0);
+                      const totalPurchaseValue = (campaigns || []).filter((c: any) => c.campaign_id === r.id).reduce((s: number, c: any) => s + (Number(c.purchase_value) || 0), 0);
+                      return {
+                        ...r,
+                        cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
+                        ctr: r.impressions > 0 ? (totalClicks / r.impressions) * 100 : 0,
+                        cpc: totalClicks > 0 ? r.spend / totalClicks : 0,
+                        cpp: r.purchases > 0 ? r.spend / r.purchases : 0,
+                        roas: r.spend > 0 && totalPurchaseValue > 0 ? totalPurchaseValue / r.spend : 0,
+                      };
+                    }).sort((a, b) => b.spend - a.spend);
+                  })()}
+                  isLoading={syncMutation.isPending || campaignsLoading}
+                />
+              </TabsContent>
 
               <UtmDiagnosticDialog
                 open={showDiagnostic}
