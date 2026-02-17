@@ -149,3 +149,14 @@ export function matchSalesToCampaign(
 ): { vendas: number; faturamento: number } {
   return byCampaignId.get(campaignId) || { vendas: 0, faturamento: 0 };
 }
+
+/**
+ * Match PAYT sales to adset/ad rows by looking up their parent campaign_id.
+ */
+export function matchSalesViaParentCampaign(
+  parentCampaignId: string | undefined | null,
+  byCampaignId: Map<string, { vendas: number; faturamento: number }>
+): { vendas: number; faturamento: number } {
+  if (!parentCampaignId) return { vendas: 0, faturamento: 0 };
+  return byCampaignId.get(parentCampaignId) || { vendas: 0, faturamento: 0 };
+}
