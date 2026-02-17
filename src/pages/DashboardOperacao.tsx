@@ -11,6 +11,7 @@ import ResumoView from '@/components/marketing/ResumoView';
 import FacebookLoginButton from '@/components/marketing/FacebookLoginButton';
 import AccountSelector from '@/components/marketing/AccountSelector';
 import { toast } from 'sonner';
+import { usePaytSalesBreakdown, matchSalesToCampaign } from '@/hooks/useUnifiedMetrics';
 
 export default function DashboardOperacao() {
   const { activeWorkspace } = useWorkspace();
@@ -47,6 +48,9 @@ export default function DashboardOperacao() {
     accountId: 'all',
   }), [activeWorkspace?.id]);
   const { data: allMetricsForAccounts } = useFacebookMetrics(allAccountsParams);
+
+  // PAYT sales breakdown for the same date range
+  const { breakdown: paytBreakdown } = usePaytSalesBreakdown(datePreset);
 
   const handleSync = async () => {
     if (!connection || selectedAccounts.length === 0) {
@@ -98,12 +102,26 @@ export default function DashboardOperacao() {
         });
       }
     });
-    return Array.from(contasMap.values()).map(r => ({
-      ...r, totalSpend: r.spend,
-      ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
-      cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
-      cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
-    }));
+    // Inject total PAYT sales for contas level
+    const totalPaytVendas = paytBreakdown.totalVendas;
+    const totalPaytFaturamento = paytBreakdown.totalFaturamento;
+    const rows = Array.from(contasMap.values());
+    const totalSpend = rows.reduce((s, r) => s + r.spend, 0);
+    return rows.map(r => {
+      // Distribute PAYT sales proportionally by spend share
+      const spendShare = totalSpend > 0 ? r.spend / totalSpend : 0;
+      const vendas = Math.round(totalPaytVendas * spendShare);
+      const faturamento = totalPaytFaturamento * spendShare;
+      return {
+        ...r, totalSpend: r.spend,
+        ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
+        cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
+        cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
+        vendas,
+        faturamento,
+        lucro: faturamento - r.spend,
+      };
+    });
   };
 
   const buildGenericRows = (data: any[], idField: string, nameField: string): UtmifyRow[] => {
@@ -122,19 +140,29 @@ export default function DashboardOperacao() {
           id: key, name: c[nameField] || 'Sem nome', status: c.status || 'unknown',
           spend: Number(c.spend), clicks: Number(c.clicks), impressions: Number(c.impressions),
           cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
-          reach: Number(c.reach), roas: Number(c.roas), vendas: Number(c.conversions),
+          reach: Number(c.reach), roas: Number(c.roas), vendas: 0,
           faturamento: 0, lucro: 0,
         });
       }
     });
-    return Array.from(map.values()).map(r => ({
-      ...r,
-      ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
-      cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
-      cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
-      cpa: (r.conversions ?? 0) > 0 ? r.spend / (r.conversions ?? 1) : 0,
-      vendas: r.conversions ?? 0,
-    })).sort((a, b) => b.spend - a.spend);
+    return Array.from(map.values()).map(r => {
+      // Match PAYT sales via campaign_id (utm_id)
+      const paytMatch = idField === 'campaign_id'
+        ? matchSalesToCampaign(r.id, paytBreakdown.byCampaignId)
+        : { vendas: 0, faturamento: 0 };
+      const vendas = paytMatch.vendas || (r.conversions ?? 0);
+      const faturamento = paytMatch.faturamento;
+      return {
+        ...r,
+        ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
+        cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
+        cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
+        cpa: vendas > 0 ? r.spend / vendas : 0,
+        vendas,
+        faturamento,
+        lucro: faturamento - r.spend,
+      };
+    }).sort((a, b) => b.spend - a.spend);
   };
 
   const rowsByTab: Record<string, UtmifyRow[]> = {
