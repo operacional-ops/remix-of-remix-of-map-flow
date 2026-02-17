@@ -11,7 +11,7 @@ import ResumoView from '@/components/marketing/ResumoView';
 import FacebookLoginButton from '@/components/marketing/FacebookLoginButton';
 import AccountSelector from '@/components/marketing/AccountSelector';
 import { toast } from 'sonner';
-import { usePaytSalesBreakdown, matchSalesToCampaign } from '@/hooks/useUnifiedMetrics';
+import { usePaytSalesBreakdown, matchSalesToCampaign, matchSalesViaParentCampaign } from '@/hooks/useUnifiedMetrics';
 
 export default function DashboardOperacao() {
   const { activeWorkspace } = useWorkspace();
@@ -125,7 +125,7 @@ export default function DashboardOperacao() {
   };
 
   const buildGenericRows = (data: any[], idField: string, nameField: string): UtmifyRow[] => {
-    const map = new Map<string, UtmifyRow>();
+    const map = new Map<string, UtmifyRow & { campaign_id?: string }>();
     data.forEach(c => {
       const key = c[idField];
       const existing = map.get(key);
@@ -142,16 +142,43 @@ export default function DashboardOperacao() {
           cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
           reach: Number(c.reach), roas: Number(c.roas), vendas: 0,
           faturamento: 0, lucro: 0,
+          campaign_id: c.campaign_id,
         });
       }
     });
+
+    // Build per-campaign spend totals for proportional distribution at adset/ad level
+    const campaignSpendMap = new Map<string, number>();
+    if (idField !== 'campaign_id') {
+      Array.from(map.values()).forEach(r => {
+        if (r.campaign_id) {
+          campaignSpendMap.set(r.campaign_id, (campaignSpendMap.get(r.campaign_id) || 0) + r.spend);
+        }
+      });
+    }
+
     return Array.from(map.values()).map(r => {
-      // Match PAYT sales via campaign_id (utm_id)
-      const paytMatch = idField === 'campaign_id'
-        ? matchSalesToCampaign(r.id, paytBreakdown.byCampaignId)
-        : { vendas: 0, faturamento: 0 };
-      const vendas = paytMatch.vendas || (r.conversions ?? 0);
-      const faturamento = paytMatch.faturamento;
+      let vendas = 0;
+      let faturamento = 0;
+
+      if (idField === 'campaign_id') {
+        // Direct match via utm_id
+        const paytMatch = matchSalesToCampaign(r.id, paytBreakdown.byCampaignId);
+        vendas = paytMatch.vendas || (r.conversions ?? 0);
+        faturamento = paytMatch.faturamento;
+      } else {
+        // For adsets/ads: distribute parent campaign's PAYT sales proportionally by spend
+        const parentMatch = matchSalesViaParentCampaign(r.campaign_id, paytBreakdown.byCampaignId);
+        if (parentMatch.vendas > 0 && r.campaign_id) {
+          const totalCampaignSpend = campaignSpendMap.get(r.campaign_id) || 1;
+          const spendShare = r.spend / totalCampaignSpend;
+          vendas = Math.round(parentMatch.vendas * spendShare);
+          faturamento = parentMatch.faturamento * spendShare;
+        } else {
+          vendas = r.conversions ?? 0;
+        }
+      }
+
       return {
         ...r,
         ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
