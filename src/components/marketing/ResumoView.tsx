@@ -2,7 +2,9 @@ import { Info, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, Legend } from 'recharts';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 function formatCurrency(val: number) {
   return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -33,42 +35,85 @@ function KpiCard({ label, value, color, icon }: { label: string; value: string; 
 }
 
 export default function ResumoView({ metrics, campaigns, isLoading, onSync, isSyncing, datePreset, onDatePresetChange }: ResumoViewProps) {
-  // Aggregate metrics
-  const totalSpend = (metrics || []).reduce((s, m) => s + Number(m.spend || 0), 0);
-  const totalClicks = (metrics || []).reduce((s, m) => s + Number(m.clicks || 0), 0);
-  const totalImpressions = (metrics || []).reduce((s, m) => s + Number(m.impressions || 0), 0);
+  const safeMetrics = metrics || [];
+  const safeCampaigns = campaigns || [];
 
-  const totalConversions = (campaigns || []).reduce((s, c) => s + Number(c.conversions || 0), 0);
-  const totalCampaignSpend = (campaigns || []).reduce((s, c) => s + Number(c.spend || 0), 0);
+  // Real aggregated metrics
+  const totalSpend = safeMetrics.reduce((s, m) => s + Number(m.spend || 0), 0);
+  const totalClicks = safeMetrics.reduce((s, m) => s + Number(m.clicks || 0), 0);
+  const totalImpressions = safeMetrics.reduce((s, m) => s + Number(m.impressions || 0), 0);
 
-  const cpa = totalConversions > 0 ? totalCampaignSpend / totalConversions : 0;
-  const roas = totalCampaignSpend > 0 ? (totalConversions * cpa) / totalCampaignSpend : 0;
+  const totalConversions = safeCampaigns.reduce((s, c) => s + Number(c.conversions || 0), 0);
+  // Calculate real ROAS from action_values stored in roas field
+  const totalRevenue = safeCampaigns.reduce((s, c) => s + (Number(c.roas || 0) * Number(c.spend || 0)), 0);
+
+  const cpa = totalConversions > 0 ? totalSpend / totalConversions : 0;
+  const realRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
   const cpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
   const cpm = totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0;
   const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
 
-  // Fake funnel data based on real metrics
+  const lucro = totalRevenue - totalSpend;
+  const margem = totalRevenue > 0 ? (lucro / totalRevenue) * 100 : 0;
+  const roi = totalSpend > 0 ? (lucro / totalSpend) * 100 : 0;
+
+  // Real funnel data
   const funnelData = [
-    { name: 'Cliques', value: totalClicks, pct: '100%' },
-    { name: 'Vis. Página', value: Math.round(totalClicks * 0.63), pct: '63.1%' },
-    { name: 'ICs', value: Math.round(totalClicks * 0.104), pct: '10.4%' },
-    { name: 'Vendas Inic.', value: Math.round(totalClicks * 0.017), pct: '1.7%' },
-    { name: 'Vendas Apr.', value: totalConversions, pct: totalClicks > 0 ? `${((totalConversions / totalClicks) * 100).toFixed(1)}%` : '0%' },
+    { name: 'Impressões', value: totalImpressions, pct: '100%' },
+    { name: 'Cliques', value: totalClicks, pct: totalImpressions > 0 ? `${ctr.toFixed(1)}%` : '0%' },
+    { name: 'Conversões', value: totalConversions, pct: totalClicks > 0 ? `${((totalConversions / totalClicks) * 100).toFixed(2)}%` : '0%' },
   ];
 
-  // Hourly placeholder data
-  const hours = Array.from({ length: 24 }, (_, i) => ({
-    hour: `${String(i).padStart(2, '0')}:00`,
-    investimento: Math.random() * totalSpend * 0.08,
-    faturamento: Math.random() * totalSpend * 0.12,
-    lucro: Math.random() * totalSpend * 0.04 - totalSpend * 0.01,
+  // Build daily data from real metrics for charts
+  const dailyMap = new Map<string, { date: string; spend: number; revenue: number; clicks: number; impressions: number }>();
+  safeMetrics.forEach(m => {
+    const date = m.date_start;
+    if (!date) return;
+    const existing = dailyMap.get(date) || { date, spend: 0, revenue: 0, clicks: 0, impressions: 0 };
+    existing.spend += Number(m.spend || 0);
+    existing.clicks += Number(m.clicks || 0);
+    existing.impressions += Number(m.impressions || 0);
+    dailyMap.set(date, existing);
+  });
+  // Add revenue from campaigns
+  safeCampaigns.forEach(c => {
+    const date = c.date_start;
+    if (!date) return;
+    const existing = dailyMap.get(date) || { date, spend: 0, revenue: 0, clicks: 0, impressions: 0 };
+    existing.revenue += Number(c.roas || 0) * Number(c.spend || 0);
+    dailyMap.set(date, existing);
+  });
+
+  const dailyData = Array.from(dailyMap.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(d => ({
+      ...d,
+      lucro: d.revenue - d.spend,
+      label: (() => { try { return format(parseISO(d.date), 'dd/MM', { locale: ptBR }); } catch { return d.date; } })(),
+    }));
+
+  // Campaign breakdown for pie chart (top 5 by spend)
+  const campaignAgg = new Map<string, { name: string; spend: number }>();
+  safeCampaigns.forEach(c => {
+    const key = c.campaign_id;
+    const existing = campaignAgg.get(key);
+    if (existing) {
+      existing.spend += Number(c.spend || 0);
+    } else {
+      campaignAgg.set(key, { name: c.campaign_name || 'Sem nome', spend: Number(c.spend || 0) });
+    }
+  });
+  const topCampaigns = Array.from(campaignAgg.values())
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 5);
+  const pieColors = ['hsl(var(--primary))', 'hsl(210, 100%, 56%)', 'hsl(45, 100%, 51%)', 'hsl(150, 60%, 45%)', 'hsl(280, 60%, 55%)'];
+  const pieData = topCampaigns.map((c, i) => ({
+    name: c.name.length > 20 ? c.name.slice(0, 20) + '…' : c.name,
+    value: Math.round(c.spend * 100) / 100,
+    color: pieColors[i % pieColors.length],
   }));
 
-  const pieData = [
-    { name: 'Pix', value: 83, color: 'hsl(var(--primary))' },
-    { name: 'Cartão', value: 16, color: 'hsl(210, 100%, 56%)' },
-    { name: 'Boleto', value: 1, color: 'hsl(45, 100%, 51%)' },
-  ];
+  const hasData = safeMetrics.length > 0 || safeCampaigns.length > 0;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
@@ -76,7 +121,9 @@ export default function ResumoView({ metrics, campaigns, isLoading, onSync, isSy
       <div className="px-6 py-4 border-b border-border flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Resumo</h2>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">Atualizado agora mesmo</span>
+          <span className="text-xs text-muted-foreground">
+            {hasData ? `${safeMetrics.length} registros` : 'Sem dados'}
+          </span>
           <Button size="sm" onClick={onSync} disabled={isSyncing} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             Atualizar
@@ -139,82 +186,96 @@ export default function ResumoView({ metrics, campaigns, isLoading, onSync, isSy
       {/* Content */}
       <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground">Carregando...</div>
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Sincronizando dados...
+          </div>
+        ) : !hasData ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+            <p className="text-sm">Nenhum dado encontrado para o período selecionado.</p>
+            <p className="text-xs">Conecte seu Facebook, selecione contas e clique em Atualizar.</p>
+          </div>
         ) : (
           <>
-            {/* KPI Row 1 */}
+            {/* KPI Row 1 - Financial */}
             <div className="grid grid-cols-4 gap-4">
-              <KpiCard label="Faturamento Líquido" value={formatCurrency(totalConversions * cpa * 1.5)} icon />
-              <KpiCard label="Gastos com anúncios" value={formatCurrency(totalSpend)} icon />
-              <KpiCard label="Margem" value={totalSpend > 0 ? `${(((totalConversions * cpa * 1.5 - totalSpend) / (totalConversions * cpa * 1.5)) * 100).toFixed(1)}%` : '0%'} color="text-emerald-500" icon />
-              <KpiCard label="Lucro" value={formatCurrency(totalConversions * cpa * 1.5 - totalSpend)} color="text-emerald-500" icon />
+              <KpiCard label="Faturamento (Receita)" value={formatCurrency(totalRevenue)} icon />
+              <KpiCard label="Gastos com Anúncios" value={formatCurrency(totalSpend)} icon />
+              <KpiCard label="Margem" value={`${margem.toFixed(1)}%`} color={margem > 0 ? "text-emerald-500" : "text-red-500"} icon />
+              <KpiCard label="Lucro" value={formatCurrency(lucro)} color={lucro >= 0 ? "text-emerald-500" : "text-red-500"} icon />
             </div>
 
-            {/* KPI Row 2 */}
+            {/* KPI Row 2 - Performance */}
             <div className="grid grid-cols-4 gap-4">
-              <KpiCard label="Faturamento Bruto" value={formatCurrency(totalConversions * cpa * 1.5)} icon />
-              <KpiCard label="ARPU" value={formatCurrency(totalConversions > 0 ? (totalConversions * cpa * 1.5) / totalConversions : 0)} icon />
+              <KpiCard label="ROAS" value={realRoas.toFixed(2)} color={realRoas >= 1 ? "text-emerald-500" : "text-red-500"} icon />
+              <KpiCard label="ROI" value={`${roi.toFixed(1)}%`} color={roi >= 0 ? "text-emerald-500" : "text-red-500"} icon />
               <KpiCard label="CPA" value={formatCurrency(cpa)} icon />
-              <KpiCard label="ROAS" value={totalSpend > 0 ? ((totalConversions * cpa * 1.5) / totalSpend).toFixed(2) : '0'} color="text-emerald-500" icon />
+              <KpiCard label="Conversões" value={totalConversions.toLocaleString('pt-BR')} icon />
             </div>
 
-            {/* KPI Row 3 */}
+            {/* KPI Row 3 - Traffic */}
             <div className="grid grid-cols-4 gap-4">
-              <KpiCard label="Custos de Produto" value={formatCurrency(0)} icon />
-              <KpiCard label="Reembolso" value="0.0%" icon />
-              <KpiCard label="Chargeback" value="0.0%" icon />
-              <KpiCard label="ROI" value={totalSpend > 0 ? ((totalConversions * cpa * 1.5 - totalSpend) / totalSpend).toFixed(2) : '0'} color="text-emerald-500" icon />
+              <KpiCard label="Cliques" value={totalClicks.toLocaleString('pt-BR')} icon />
+              <KpiCard label="Impressões" value={totalImpressions.toLocaleString('pt-BR')} icon />
+              <KpiCard label="CTR" value={`${ctr.toFixed(2)}%`} icon />
+              <KpiCard label="CPC" value={formatCurrency(cpc)} icon />
             </div>
 
             {/* Charts Row */}
             <div className="grid grid-cols-3 gap-4">
-              {/* Vendas por Pagamento */}
+              {/* Gasto por Campanha (Pie) */}
               <Card className="bg-card border-border">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-semibold text-foreground">Vendas por Pagamento</span>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    <span className="text-sm font-semibold text-foreground">Gasto por Campanha (Top 5)</span>
                   </div>
-                  <div className="h-[180px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} dataKey="value" label={({ name, value }) => `${value}%`}>
-                          {pieData.map((entry, i) => (
-                            <Cell key={i} fill={entry.color} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex justify-center gap-4 mt-2">
-                    {pieData.map((d, i) => (
-                      <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                        {d.name}
+                  {pieData.length > 0 ? (
+                    <>
+                      <div className="h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} dataKey="value" label={({ value }) => formatCurrency(value)}>
+                              {pieData.map((entry, i) => (
+                                <Cell key={i} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                          </PieChart>
+                        </ResponsiveContainer>
                       </div>
-                    ))}
-                  </div>
+                      <div className="flex flex-wrap justify-center gap-3 mt-2">
+                        {pieData.map((d, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                            {d.name}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-8">Sem dados de campanhas</p>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Taxa de Aprovação */}
+              {/* CPM por dia */}
               <Card className="bg-card border-border">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-semibold text-foreground">Taxa de Aprovação</span>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    <span className="text-sm font-semibold text-foreground">CPM Diário</span>
                   </div>
-                  <div className="space-y-4 mt-4">
-                    {[
-                      { label: 'Cartão', pct: '71.4%' },
-                      { label: 'Pix', pct: '50.0%' },
-                      { label: 'Boleto', pct: 'N/A' },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between">
-                        <span className="text-sm text-foreground">{item.label}</span>
-                        <span className="text-sm font-medium text-foreground">{item.pct}</span>
-                      </div>
-                    ))}
+                  <div className="h-[180px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={dailyData.map(d => ({
+                        ...d,
+                        cpm: d.impressions > 0 ? (d.spend / d.impressions) * 1000 : 0,
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} interval="preserveStartEnd" />
+                        <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `R$${v.toFixed(0)}`} />
+                        <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                        <Bar dataKey="cpm" fill="hsl(210, 100%, 56%)" name="CPM" />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
@@ -224,9 +285,8 @@ export default function ResumoView({ metrics, campaigns, isLoading, onSync, isSy
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-foreground">Funil de Conversão (Meta Ads)</span>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
                   </div>
-                  <div className="grid grid-cols-5 gap-2 text-center mt-4">
+                  <div className="grid grid-cols-3 gap-2 text-center mt-8">
                     {funnelData.map((step, i) => (
                       <div key={i}>
                         <span className="text-[10px] text-muted-foreground block mb-1">{step.name}</span>
@@ -239,43 +299,23 @@ export default function ResumoView({ metrics, campaigns, isLoading, onSync, isSy
               </Card>
             </div>
 
-            {/* Lucro por Horário */}
+            {/* Investimento x Faturamento x Lucro por Dia */}
             <Card className="bg-card border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-foreground">Lucro por Horário</span>
-                </div>
-                <div className="h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={hours}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} interval={2} />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `R$ ${v.toFixed(0)}`} />
-                      <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                      <Bar dataKey="lucro" fill="hsl(210, 100%, 56%)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Faturamento x Investimento x Lucro */}
-            <Card className="bg-card border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-foreground">Faturamento x Investimento x Lucro por Hora (acumulado)</span>
+                  <span className="text-sm font-semibold text-foreground">Investimento x Faturamento x Lucro por Dia</span>
                 </div>
                 <div className="h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={hours}>
+                    <AreaChart data={dailyData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} interval={2} />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `R$ ${v.toFixed(0)}`} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} interval="preserveStartEnd" />
+                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `R$${v.toFixed(0)}`} />
                       <Tooltip formatter={(v: number) => formatCurrency(v)} />
                       <Legend />
-                      <Area type="monotone" dataKey="investimento" stroke="hsl(30, 100%, 50%)" fill="hsl(30, 100%, 50%)" fillOpacity={0.1} name="Investimento" />
-                      <Area type="monotone" dataKey="faturamento" stroke="hsl(210, 100%, 56%)" fill="hsl(210, 100%, 56%)" fillOpacity={0.1} name="Faturamento" />
-                      <Area type="monotone" dataKey="lucro" stroke="hsl(0, 80%, 60%)" fill="hsl(0, 80%, 60%)" fillOpacity={0.1} name="Lucro" />
+                      <Area type="monotone" dataKey="spend" stroke="hsl(30, 100%, 50%)" fill="hsl(30, 100%, 50%)" fillOpacity={0.1} name="Investimento" />
+                      <Area type="monotone" dataKey="revenue" stroke="hsl(210, 100%, 56%)" fill="hsl(210, 100%, 56%)" fillOpacity={0.1} name="Faturamento" />
+                      <Area type="monotone" dataKey="lucro" stroke="hsl(150, 60%, 45%)" fill="hsl(150, 60%, 45%)" fillOpacity={0.1} name="Lucro" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
