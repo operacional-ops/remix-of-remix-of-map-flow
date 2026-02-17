@@ -35,10 +35,18 @@ export default function DashboardOperacao() {
     accountId: accountFilter,
   }), [activeWorkspace?.id, datePreset, accountFilter]);
 
-  const { data: metrics } = useFacebookMetrics(filterParams);
-  const { data: campaigns } = useFacebookCampaignInsights(filterParams);
+  const { data: metrics, isLoading: metricsLoading } = useFacebookMetrics(filterParams);
+  const { data: campaigns, isLoading: campaignsLoading } = useFacebookCampaignInsights(filterParams);
   const { data: adsets } = useFacebookAdsetInsights(filterParams);
   const { data: ads } = useFacebookAdInsights(filterParams);
+
+  // Unfiltered query to always populate the accounts dropdown
+  const allAccountsParams = useMemo(() => ({
+    workspaceId: activeWorkspace?.id,
+    datePreset: 'maximum',
+    accountId: 'all',
+  }), [activeWorkspace?.id]);
+  const { data: allMetricsForAccounts } = useFacebookMetrics(allAccountsParams);
 
   const handleSync = async () => {
     if (!connection || selectedAccounts.length === 0) {
@@ -60,16 +68,16 @@ export default function DashboardOperacao() {
     }
   };
 
-  // Derive unique accounts for the account filter dropdown
+  // Derive unique accounts from the UNFILTERED metrics (so dropdown always shows all accounts)
   const uniqueAccounts = useMemo(() => {
     const map = new Map<string, string>();
-    (metrics || []).forEach((m: any) => {
+    (allMetricsForAccounts || []).forEach((m: any) => {
       if (m.account_id && !map.has(m.account_id)) {
         map.set(m.account_id, m.account_name || m.account_id);
       }
     });
-    return Array.from(map.entries()); // [[id, name], ...]
-  }, [metrics]);
+    return Array.from(map.entries());
+  }, [allMetricsForAccounts]);
 
   // ========= Build table rows =========
   const buildContasRows = (): UtmifyRow[] => {
