@@ -10,27 +10,36 @@ import UtmifyTable, { type UtmifyRow } from '@/components/marketing/UtmifyTable'
 import ResumoView from '@/components/marketing/ResumoView';
 import FacebookLoginButton from '@/components/marketing/FacebookLoginButton';
 import AccountSelector from '@/components/marketing/AccountSelector';
+import { filterByDatePreset } from '@/lib/datePresets';
 import { toast } from 'sonner';
 
 export default function DashboardOperacao() {
   const { activeWorkspace } = useWorkspace();
   const { data: fbConnection } = useFacebookConnection(activeWorkspace?.id);
-  const { data: metrics, isLoading: loadingMetrics } = useFacebookMetrics(activeWorkspace?.id);
-  const { data: campaigns, isLoading: loadingCampaigns } = useFacebookCampaignInsights(activeWorkspace?.id);
-  const { data: adsets, isLoading: loadingAdsets } = useFacebookAdsetInsights(activeWorkspace?.id);
-  const { data: ads, isLoading: loadingAds } = useFacebookAdInsights(activeWorkspace?.id);
+  const { data: metrics } = useFacebookMetrics(activeWorkspace?.id);
+  const { data: campaigns } = useFacebookCampaignInsights(activeWorkspace?.id);
+  const { data: adsets } = useFacebookAdsetInsights(activeWorkspace?.id);
+  const { data: ads } = useFacebookAdInsights(activeWorkspace?.id);
   const syncMutation = useSyncFacebookMetrics();
 
   const [sidebarView, setSidebarView] = useState<'resumo' | 'meta'>('resumo');
   const [activeTab, setActiveTab] = useState('contas');
   const [nameFilter, setNameFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [datePreset, setDatePreset] = useState('last_28d');
+  const [datePreset, setDatePreset] = useState('last_30d');
   const [accountFilter, setAccountFilter] = useState('all');
   const [showAccountSelector, setShowAccountSelector] = useState(false);
 
   const connection = fbConnection || null;
   const selectedAccounts = connection?.selected_account_ids || [];
+
+  // Filter all data by selected date preset
+  const filteredMetrics = filterByDatePreset(metrics, datePreset);
+  const filteredCampaigns = filterByDatePreset(campaigns, datePreset);
+  const filteredAdsets = filterByDatePreset(adsets, datePreset);
+  const filteredAds = filterByDatePreset(ads, datePreset);
+
+  const isLoading = !metrics && !campaigns;
 
   const handleSync = async () => {
     if (!connection || selectedAccounts.length === 0) {
@@ -38,7 +47,6 @@ export default function DashboardOperacao() {
       setShowAccountSelector(true);
       return;
     }
-    // Sync accounts sequentially to avoid Meta API rate limits
     for (const accountId of selectedAccounts) {
       try {
         await syncMutation.mutateAsync({
@@ -48,18 +56,15 @@ export default function DashboardOperacao() {
           datePreset,
         });
       } catch (err) {
-        // Error toast already handled by mutation onError, continue with next account
         console.error(`Sync failed for ${accountId}:`, err);
       }
     }
   };
 
-  const isLoading = loadingMetrics || loadingCampaigns || loadingAdsets || loadingAds;
-
   // ========= Build table rows for each tab =========
   const buildContasRows = (): UtmifyRow[] => {
     const contasMap = new Map<string, UtmifyRow>();
-    metrics?.forEach(m => {
+    filteredMetrics.forEach(m => {
       const key = m.account_id;
       const existing = contasMap.get(key);
       if (existing) {
@@ -83,79 +88,20 @@ export default function DashboardOperacao() {
     }));
   };
 
-  const buildCampaignRows = (): UtmifyRow[] => {
+  const buildGenericRows = (data: any[], idField: string, nameField: string): UtmifyRow[] => {
     const map = new Map<string, UtmifyRow>();
-    campaigns?.forEach(c => {
-      const key = c.campaign_id;
+    data.forEach(c => {
+      const key = c[idField];
       const existing = map.get(key);
       if (existing) {
-        existing.spend += Number(c.spend); existing.clicks += Number(c.clicks);
+        existing.spend += Number(c.spend);
+        existing.clicks += Number(c.clicks);
         existing.impressions += Number(c.impressions);
         existing.conversions = (existing.conversions ?? 0) + Number(c.conversions);
         existing.reach = (existing.reach ?? 0) + Number(c.reach);
       } else {
         map.set(key, {
-          id: key, name: c.campaign_name || 'Sem nome', status: c.status || 'unknown',
-          spend: Number(c.spend), clicks: Number(c.clicks), impressions: Number(c.impressions),
-          cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
-          reach: Number(c.reach), roas: Number(c.roas), vendas: Number(c.conversions),
-          faturamento: 0, lucro: 0,
-        });
-      }
-    });
-    return Array.from(map.values()).map(r => ({
-      ...r,
-      ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
-      cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
-      cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
-      cpa: (r.conversions ?? 0) > 0 ? r.spend / (r.conversions ?? 1) : 0,
-      vendas: r.conversions ?? 0,
-    })).sort((a, b) => b.spend - a.spend);
-  };
-
-  const buildAdsetRows = (): UtmifyRow[] => {
-    const map = new Map<string, UtmifyRow>();
-    adsets?.forEach((c: any) => {
-      const key = c.adset_id;
-      const existing = map.get(key);
-      if (existing) {
-        existing.spend += Number(c.spend); existing.clicks += Number(c.clicks);
-        existing.impressions += Number(c.impressions);
-        existing.conversions = (existing.conversions ?? 0) + Number(c.conversions);
-        existing.reach = (existing.reach ?? 0) + Number(c.reach);
-      } else {
-        map.set(key, {
-          id: key, name: c.adset_name || 'Sem nome', status: c.status || 'unknown',
-          spend: Number(c.spend), clicks: Number(c.clicks), impressions: Number(c.impressions),
-          cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
-          reach: Number(c.reach), roas: Number(c.roas), vendas: Number(c.conversions),
-          faturamento: 0, lucro: 0,
-        });
-      }
-    });
-    return Array.from(map.values()).map(r => ({
-      ...r,
-      ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
-      cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
-      cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
-      cpa: (r.conversions ?? 0) > 0 ? r.spend / (r.conversions ?? 1) : 0,
-      vendas: r.conversions ?? 0,
-    })).sort((a, b) => b.spend - a.spend);
-  };
-
-  const buildAdRows = (): UtmifyRow[] => {
-    const map = new Map<string, UtmifyRow>();
-    ads?.forEach((c: any) => {
-      const key = c.ad_id;
-      const existing = map.get(key);
-      if (existing) {
-        existing.spend += Number(c.spend); existing.clicks += Number(c.clicks);
-        existing.impressions += Number(c.impressions);
-        existing.conversions = (existing.conversions ?? 0) + Number(c.conversions);
-        existing.reach = (existing.reach ?? 0) + Number(c.reach);
-      } else {
-        map.set(key, {
-          id: key, name: c.ad_name || 'Sem nome', status: c.status || 'unknown',
+          id: key, name: c[nameField] || 'Sem nome', status: c.status || 'unknown',
           spend: Number(c.spend), clicks: Number(c.clicks), impressions: Number(c.impressions),
           cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
           reach: Number(c.reach), roas: Number(c.roas), vendas: Number(c.conversions),
@@ -175,9 +121,9 @@ export default function DashboardOperacao() {
 
   const rowsByTab: Record<string, UtmifyRow[]> = {
     contas: buildContasRows(),
-    campanhas: buildCampaignRows(),
-    conjuntos: buildAdsetRows(),
-    anuncios: buildAdRows(),
+    campanhas: buildGenericRows(filteredCampaigns, 'campaign_id', 'campaign_name'),
+    conjuntos: buildGenericRows(filteredAdsets, 'adset_id', 'adset_name'),
+    anuncios: buildGenericRows(filteredAds, 'ad_id', 'ad_name'),
   };
 
   const currentRows = rowsByTab[activeTab] || [];
@@ -193,9 +139,9 @@ export default function DashboardOperacao() {
 
       {sidebarView === 'resumo' ? (
         <ResumoView
-          metrics={metrics}
-          campaigns={campaigns}
-          isLoading={isLoading}
+          metrics={filteredMetrics}
+          campaigns={filteredCampaigns}
+          isLoading={syncMutation.isPending}
           onSync={handleSync}
           isSyncing={syncMutation.isPending}
           datePreset={datePreset}
@@ -203,7 +149,6 @@ export default function DashboardOperacao() {
         />
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden bg-background">
-          {/* Top header */}
           <div className="px-6 py-4 border-b border-border flex items-center justify-between">
             <h1 className="text-lg font-semibold text-foreground">Meta Ads</h1>
             <div className="flex items-center gap-3">
@@ -225,7 +170,6 @@ export default function DashboardOperacao() {
             </div>
           )}
 
-          {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 pt-4">
               <TabsList className="bg-transparent p-0 h-auto gap-0 w-full grid grid-cols-4">
@@ -262,7 +206,7 @@ export default function DashboardOperacao() {
 
               {['contas', 'campanhas', 'conjuntos', 'anuncios'].map(tab => (
                 <TabsContent key={tab} value={tab} className="flex-1 overflow-hidden mt-0">
-                  <UtmifyTable rows={filteredRows} activeTab={tab} isLoading={isLoading} />
+                  <UtmifyTable rows={filteredRows} activeTab={tab} isLoading={syncMutation.isPending} />
                 </TabsContent>
               ))}
             </div>
