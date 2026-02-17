@@ -102,7 +102,12 @@ export function useSyncFacebookMetrics() {
       queryClient.invalidateQueries({ queryKey: ['facebook_campaign_insights'] });
       queryClient.invalidateQueries({ queryKey: ['facebook_adset_insights'] });
       queryClient.invalidateQueries({ queryKey: ['facebook_ad_insights'] });
-      toast.success(`Sincronizado! ${data.accountCount || 0} conta(s), ${data.campaignCount || 0} campanha(s), ${data.adsetCount || 0} conjunto(s), ${data.adCount || 0} anúncio(s).`);
+      const warnings = data.warnings || [];
+      if (warnings.length > 0) {
+        toast.warning(`Sincronizado com avisos: ${warnings.join('; ')}`);
+      } else {
+        toast.success(`Sincronizado! ${data.accountCount || 0} conta(s), ${data.campaignCount || 0} campanha(s), ${data.adsetCount || 0} conjunto(s), ${data.adCount || 0} anúncio(s).`);
+      }
     },
     onError: (error: any) => {
       toast.error(error.message || 'Erro ao sincronizar dados do Meta');

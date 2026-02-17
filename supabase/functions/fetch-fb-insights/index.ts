@@ -149,37 +149,51 @@ serve(async (req) => {
     const actionFields = "actions,cost_per_action_type,action_values";
     const apiVersion = "v21.0";
 
-    // 1. Account-level (fast, small payload)
+    // 1. Account-level (fast, small payload) — resilient
     const accountFields = `account_id,account_name,spend,impressions,clicks,ctr`;
     const accountUrl = `https://graph.facebook.com/${apiVersion}/${accountId}/insights?level=account&fields=${accountFields}&${dateParam}&time_increment=1&access_token=${accessToken}&limit=500`;
-    const accountInsights = await fetchAllPages(accountUrl);
-
+    let accountInsights: any[] = [];
     let accountCount = 0;
-    if (accountInsights.length > 0) {
-      const accountRows = accountInsights.map((item: any) => ({
-        account_id: item.account_id,
-        account_name: item.account_name || accountId,
-        date_start: item.date_start,
-        spend: parseFloat(item.spend) || 0,
-        impressions: parseInt(item.impressions) || 0,
-        clicks: parseInt(item.clicks) || 0,
-        ctr: parseFloat(item.ctr) || 0,
-        workspace_id: workspaceId || null,
-      }));
-      await batchUpsert(supabase, "facebook_metrics", accountRows, "account_id,date_start");
-      accountCount = accountRows.length;
+    try {
+      accountInsights = await fetchAllPages(accountUrl);
+      if (accountInsights.length > 0) {
+        const accountRows = accountInsights.map((item: any) => ({
+          account_id: item.account_id,
+          account_name: item.account_name || accountId,
+          date_start: item.date_start,
+          spend: parseFloat(item.spend) || 0,
+          impressions: parseInt(item.impressions) || 0,
+          clicks: parseInt(item.clicks) || 0,
+          ctr: parseFloat(item.ctr) || 0,
+          workspace_id: workspaceId || null,
+        }));
+        await batchUpsert(supabase, "facebook_metrics", accountRows, "account_id,date_start");
+        accountCount = accountRows.length;
+      }
+    } catch (accErr: any) {
+      console.error("Account-level fetch failed:", accErr.message);
+      // If even account-level fails, return error with helpful message
+      return new Response(
+        JSON.stringify({ success: false, error: accErr.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // 2. Campaign + Adset + Ad — PARALLEL fetch from Meta
+    // 2. Campaign + Adset + Ad — PARALLEL fetch from Meta (resilient — partial failures don't abort)
     const campaignFields = `campaign_id,campaign_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,${actionFields},objective`;
     const adsetFields = `campaign_id,campaign_name,adset_id,adset_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,${actionFields},objective`;
     const adFields = `campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,account_id,account_name,spend,impressions,clicks,reach,ctr,cpm,cpc,${actionFields},objective`;
 
-    const [campaignInsights, adsetInsights, adInsights] = await Promise.all([
+    const warnings: string[] = [];
+    const [campaignResult, adsetResult, adResult] = await Promise.allSettled([
       fetchAllPages(`https://graph.facebook.com/${apiVersion}/${accountId}/insights?level=campaign&fields=${campaignFields}&${dateParam}&time_increment=1&access_token=${accessToken}&limit=500`),
       fetchAllPages(`https://graph.facebook.com/${apiVersion}/${accountId}/insights?level=adset&fields=${adsetFields}&${dateParam}&time_increment=1&access_token=${accessToken}&limit=500`),
       fetchAllPages(`https://graph.facebook.com/${apiVersion}/${accountId}/insights?level=ad&fields=${adFields}&${dateParam}&time_increment=1&access_token=${accessToken}&limit=500`),
     ]);
+
+    const campaignInsights = campaignResult.status === 'fulfilled' ? campaignResult.value : (() => { warnings.push('Campanhas: ' + (campaignResult.reason?.message || 'erro')); return []; })();
+    const adsetInsights = adsetResult.status === 'fulfilled' ? adsetResult.value : (() => { warnings.push('Conjuntos: ' + (adsetResult.reason?.message || 'erro')); return []; })();
+    const adInsights = adResult.status === 'fulfilled' ? adResult.value : (() => { warnings.push('Anúncios: ' + (adResult.reason?.message || 'erro')); return []; })();
 
     // 3. Transform & upsert in parallel
     const campaignRows = campaignInsights.map((item: any) => {
@@ -297,10 +311,11 @@ serve(async (req) => {
       console.error("Error updating statuses:", statusErr);
     }
 
+    const warningMsg = warnings.length > 0 ? ` Avisos: ${warnings.join('; ')}` : '';
     return new Response(
       JSON.stringify({
-        success: true, accountCount, campaignCount, adsetCount, adCount,
-        message: `Sincronizado: ${accountCount} conta, ${campaignCount} campanhas, ${adsetCount} conjuntos, ${adCount} anúncios.`
+        success: true, accountCount, campaignCount, adsetCount, adCount, warnings,
+        message: `Sincronizado: ${accountCount} conta, ${campaignCount} campanhas, ${adsetCount} conjuntos, ${adCount} anúncios.${warningMsg}`
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
