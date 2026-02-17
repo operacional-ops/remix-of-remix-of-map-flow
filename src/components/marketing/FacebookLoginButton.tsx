@@ -81,10 +81,10 @@ export default function FacebookLoginButton() {
   }, [sdkReady, user, activeWorkspace, saveConnection]);
 
   const handleDisconnect = useCallback(() => {
-    if (connection) {
-      disconnectFb.mutate(connection.id);
+    if (connection && activeWorkspace) {
+      disconnectFb.mutate({ connectionId: connection.id, workspaceId: activeWorkspace.id });
     }
-  }, [connection, disconnectFb]);
+  }, [connection, activeWorkspace, disconnectFb]);
 
   if (isLoading) {
     return (

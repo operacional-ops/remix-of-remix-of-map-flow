@@ -103,7 +103,25 @@ export function useDisconnectFacebook() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (connectionId: string) => {
+    mutationFn: async ({ connectionId, workspaceId }: { connectionId: string; workspaceId: string }) => {
+      // Delete all metrics data for this workspace first
+      const tables = [
+        'facebook_ad_insights',
+        'facebook_adset_insights',
+        'facebook_campaign_insights',
+        'facebook_metrics',
+      ] as const;
+
+      await Promise.all(
+        tables.map(table =>
+          supabase
+            .from(table as any)
+            .delete()
+            .eq('workspace_id', workspaceId)
+        )
+      );
+
+      // Then delete the connection itself
       const { error } = await supabase
         .from('facebook_connections' as any)
         .delete()
@@ -113,7 +131,11 @@ export function useDisconnectFacebook() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['facebook_connection'] });
-      toast.success('Facebook desconectado');
+      queryClient.invalidateQueries({ queryKey: ['facebook_metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['facebook_campaign_insights'] });
+      queryClient.invalidateQueries({ queryKey: ['facebook_adset_insights'] });
+      queryClient.invalidateQueries({ queryKey: ['facebook_ad_insights'] });
+      toast.success('Facebook desconectado e dados limpos');
     },
   });
 }
