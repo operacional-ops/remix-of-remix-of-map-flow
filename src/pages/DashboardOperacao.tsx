@@ -3,7 +3,7 @@ import { BarChart3, Grid3X3, Layers, Image } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useFacebookConnection } from '@/hooks/useFacebookConnections';
-import { useFacebookMetrics, useFacebookCampaignInsights, useSyncFacebookMetrics } from '@/hooks/useFacebookMetrics';
+import { useFacebookMetrics, useFacebookCampaignInsights, useFacebookAdsetInsights, useFacebookAdInsights, useSyncFacebookMetrics } from '@/hooks/useFacebookMetrics';
 import UtmifySidebar from '@/components/marketing/UtmifySidebar';
 import UtmifyFilters from '@/components/marketing/UtmifyFilters';
 import UtmifyTable, { type UtmifyRow } from '@/components/marketing/UtmifyTable';
@@ -17,6 +17,8 @@ export default function DashboardOperacao() {
   const { data: fbConnection } = useFacebookConnection(activeWorkspace?.id);
   const { data: metrics, isLoading: loadingMetrics } = useFacebookMetrics(activeWorkspace?.id);
   const { data: campaigns, isLoading: loadingCampaigns } = useFacebookCampaignInsights(activeWorkspace?.id);
+  const { data: adsets, isLoading: loadingAdsets } = useFacebookAdsetInsights(activeWorkspace?.id);
+  const { data: ads, isLoading: loadingAds } = useFacebookAdInsights(activeWorkspace?.id);
   const syncMutation = useSyncFacebookMetrics();
 
   const [sidebarView, setSidebarView] = useState<'resumo' | 'meta'>('resumo');
@@ -46,11 +48,10 @@ export default function DashboardOperacao() {
     });
   };
 
-  const isLoading = loadingMetrics || loadingCampaigns;
+  const isLoading = loadingMetrics || loadingCampaigns || loadingAdsets || loadingAds;
 
-  // ========= META VIEW: Build table rows =========
-  const buildMetaRows = () => {
-    // Build "Contas" rows
+  // ========= Build table rows for each tab =========
+  const buildContasRows = (): UtmifyRow[] => {
     const contasMap = new Map<string, UtmifyRow>();
     metrics?.forEach(m => {
       const key = m.account_id;
@@ -68,25 +69,26 @@ export default function DashboardOperacao() {
         });
       }
     });
-    const contasRows = Array.from(contasMap.values()).map(r => ({
+    return Array.from(contasMap.values()).map(r => ({
       ...r, totalSpend: r.spend,
       ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
       cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
       cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
     }));
+  };
 
-    // Build "Campanhas" rows
-    const campaignMap = new Map<string, UtmifyRow>();
+  const buildCampaignRows = (): UtmifyRow[] => {
+    const map = new Map<string, UtmifyRow>();
     campaigns?.forEach(c => {
       const key = c.campaign_id;
-      const existing = campaignMap.get(key);
+      const existing = map.get(key);
       if (existing) {
         existing.spend += Number(c.spend); existing.clicks += Number(c.clicks);
         existing.impressions += Number(c.impressions);
         existing.conversions = (existing.conversions ?? 0) + Number(c.conversions);
         existing.reach = (existing.reach ?? 0) + Number(c.reach);
       } else {
-        campaignMap.set(key, {
+        map.set(key, {
           id: key, name: c.campaign_name || 'Sem nome', status: c.status || 'unknown',
           spend: Number(c.spend), clicks: Number(c.clicks), impressions: Number(c.impressions),
           cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
@@ -95,7 +97,7 @@ export default function DashboardOperacao() {
         });
       }
     });
-    const campanhaRows = Array.from(campaignMap.values()).map(r => ({
+    return Array.from(map.values()).map(r => ({
       ...r,
       ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
       cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
@@ -103,26 +105,29 @@ export default function DashboardOperacao() {
       cpa: (r.conversions ?? 0) > 0 ? r.spend / (r.conversions ?? 1) : 0,
       vendas: r.conversions ?? 0,
     })).sort((a, b) => b.spend - a.spend);
+  };
 
-    // Build "Conjuntos" rows
-    const conjuntoMap = new Map<string, UtmifyRow>();
-    campaigns?.forEach(c => {
-      const key = c.adset_id || c.campaign_id;
-      const existing = conjuntoMap.get(key);
+  const buildAdsetRows = (): UtmifyRow[] => {
+    const map = new Map<string, UtmifyRow>();
+    adsets?.forEach((c: any) => {
+      const key = c.adset_id;
+      const existing = map.get(key);
       if (existing) {
         existing.spend += Number(c.spend); existing.clicks += Number(c.clicks);
         existing.impressions += Number(c.impressions);
         existing.conversions = (existing.conversions ?? 0) + Number(c.conversions);
+        existing.reach = (existing.reach ?? 0) + Number(c.reach);
       } else {
-        conjuntoMap.set(key, {
-          id: key, name: c.adset_name || c.campaign_name || 'Sem nome',
-          status: c.status || 'unknown', spend: Number(c.spend), clicks: Number(c.clicks),
-          impressions: Number(c.impressions), cpc: 0, ctr: 0, cpm: 0, cpa: 0,
-          conversions: Number(c.conversions), vendas: Number(c.conversions), faturamento: 0, lucro: 0,
+        map.set(key, {
+          id: key, name: c.adset_name || 'Sem nome', status: c.status || 'unknown',
+          spend: Number(c.spend), clicks: Number(c.clicks), impressions: Number(c.impressions),
+          cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
+          reach: Number(c.reach), roas: Number(c.roas), vendas: Number(c.conversions),
+          faturamento: 0, lucro: 0,
         });
       }
     });
-    const conjuntoRows = Array.from(conjuntoMap.values()).map(r => ({
+    return Array.from(map.values()).map(r => ({
       ...r,
       ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
       cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
@@ -130,16 +135,45 @@ export default function DashboardOperacao() {
       cpa: (r.conversions ?? 0) > 0 ? r.spend / (r.conversions ?? 1) : 0,
       vendas: r.conversions ?? 0,
     })).sort((a, b) => b.spend - a.spend);
-
-    const anuncioRows = conjuntoRows;
-
-    return { contasRows, campanhaRows, conjuntoRows, anuncioRows };
   };
 
-  const { contasRows, campanhaRows, conjuntoRows, anuncioRows } = buildMetaRows();
+  const buildAdRows = (): UtmifyRow[] => {
+    const map = new Map<string, UtmifyRow>();
+    ads?.forEach((c: any) => {
+      const key = c.ad_id;
+      const existing = map.get(key);
+      if (existing) {
+        existing.spend += Number(c.spend); existing.clicks += Number(c.clicks);
+        existing.impressions += Number(c.impressions);
+        existing.conversions = (existing.conversions ?? 0) + Number(c.conversions);
+        existing.reach = (existing.reach ?? 0) + Number(c.reach);
+      } else {
+        map.set(key, {
+          id: key, name: c.ad_name || 'Sem nome', status: c.status || 'unknown',
+          spend: Number(c.spend), clicks: Number(c.clicks), impressions: Number(c.impressions),
+          cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
+          reach: Number(c.reach), roas: Number(c.roas), vendas: Number(c.conversions),
+          faturamento: 0, lucro: 0,
+        });
+      }
+    });
+    return Array.from(map.values()).map(r => ({
+      ...r,
+      ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
+      cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
+      cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
+      cpa: (r.conversions ?? 0) > 0 ? r.spend / (r.conversions ?? 1) : 0,
+      vendas: r.conversions ?? 0,
+    })).sort((a, b) => b.spend - a.spend);
+  };
+
   const rowsByTab: Record<string, UtmifyRow[]> = {
-    contas: contasRows, campanhas: campanhaRows, conjuntos: conjuntoRows, anuncios: anuncioRows,
+    contas: buildContasRows(),
+    campanhas: buildCampaignRows(),
+    conjuntos: buildAdsetRows(),
+    anuncios: buildAdRows(),
   };
+
   const currentRows = rowsByTab[activeTab] || [];
   const filteredRows = currentRows.filter(r => {
     if (nameFilter && !r.name.toLowerCase().includes(nameFilter.toLowerCase())) return false;

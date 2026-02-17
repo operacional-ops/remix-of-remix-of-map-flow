@@ -1013,6 +1013,184 @@ export type Database = {
         }
         Relationships: []
       }
+      facebook_ad_insights: {
+        Row: {
+          account_id: string
+          account_name: string | null
+          ad_id: string
+          ad_name: string | null
+          adset_id: string | null
+          adset_name: string | null
+          campaign_id: string
+          campaign_name: string | null
+          clicks: number | null
+          conversions: number | null
+          cpa: number | null
+          cpc: number | null
+          cpm: number | null
+          created_at: string
+          ctr: number | null
+          date_start: string
+          frequency: number | null
+          id: string
+          impressions: number | null
+          objective: string | null
+          reach: number | null
+          roas: number | null
+          spend: number | null
+          status: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          account_id: string
+          account_name?: string | null
+          ad_id: string
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id: string
+          campaign_name?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string
+          ctr?: number | null
+          date_start: string
+          frequency?: number | null
+          id?: string
+          impressions?: number | null
+          objective?: string | null
+          reach?: number | null
+          roas?: number | null
+          spend?: number | null
+          status?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          account_name?: string | null
+          ad_id?: string
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string
+          campaign_name?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string
+          ctr?: number | null
+          date_start?: string
+          frequency?: number | null
+          id?: string
+          impressions?: number | null
+          objective?: string | null
+          reach?: number | null
+          roas?: number | null
+          spend?: number | null
+          status?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facebook_ad_insights_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      facebook_adset_insights: {
+        Row: {
+          account_id: string
+          account_name: string | null
+          adset_id: string
+          adset_name: string | null
+          campaign_id: string
+          campaign_name: string | null
+          clicks: number | null
+          conversions: number | null
+          cpa: number | null
+          cpc: number | null
+          cpm: number | null
+          created_at: string
+          ctr: number | null
+          date_start: string
+          frequency: number | null
+          id: string
+          impressions: number | null
+          objective: string | null
+          reach: number | null
+          roas: number | null
+          spend: number | null
+          status: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          account_id: string
+          account_name?: string | null
+          adset_id: string
+          adset_name?: string | null
+          campaign_id: string
+          campaign_name?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string
+          ctr?: number | null
+          date_start: string
+          frequency?: number | null
+          id?: string
+          impressions?: number | null
+          objective?: string | null
+          reach?: number | null
+          roas?: number | null
+          spend?: number | null
+          status?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          account_name?: string | null
+          adset_id?: string
+          adset_name?: string | null
+          campaign_id?: string
+          campaign_name?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string
+          ctr?: number | null
+          date_start?: string
+          frequency?: number | null
+          id?: string
+          impressions?: number | null
+          objective?: string | null
+          reach?: number | null
+          roas?: number | null
+          spend?: number | null
+          status?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facebook_adset_insights_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facebook_campaign_insights: {
         Row: {
           account_id: string
