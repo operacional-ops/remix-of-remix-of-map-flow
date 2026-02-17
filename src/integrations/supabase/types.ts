@@ -1099,6 +1099,53 @@ export type Database = {
           },
         ]
       }
+      facebook_connections: {
+        Row: {
+          access_token: string
+          created_at: string
+          fb_user_id: string
+          fb_user_name: string | null
+          id: string
+          selected_account_ids: string[] | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          fb_user_id: string
+          fb_user_name?: string | null
+          id?: string
+          selected_account_ids?: string[] | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          fb_user_id?: string
+          fb_user_name?: string | null
+          id?: string
+          selected_account_ids?: string[] | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facebook_connections_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facebook_metrics: {
         Row: {
           account_id: string

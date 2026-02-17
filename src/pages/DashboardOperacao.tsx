@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
-import FacebookMetricsCard from '@/components/marketing/FacebookMetricsCard';
+import UtmifyDashboard from '@/components/marketing/UtmifyDashboard';
+import { useFacebookConnection } from '@/hooks/useFacebookConnections';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { Plus, Upload, Package, Trash2, ChevronDown, TrendingUp, DollarSign, ShoppingCart, CreditCard, Undo2, Redo2 } from 'lucide-react';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -205,8 +207,10 @@ function EditableCell({ value, type, colKey, rowId, onSave }: {
 }
 
 export default function DashboardOperacao() {
-  const { data: products, isLoading: loadingProducts } = useOperationalProducts();
+  const { activeWorkspace } = useWorkspace();
+  const { data: fbConnection } = useFacebookConnection(activeWorkspace?.id);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const { data: products, isLoading: loadingProducts } = useOperationalProducts();
   const { data: metrics, isLoading: loadingMetrics } = useOperationalMetrics(selectedProductId);
   const createProduct = useCreateProduct();
   const importMetrics = useImportMetrics();
@@ -455,9 +459,8 @@ export default function DashboardOperacao() {
           )}
         </div>
 
-        {/* Meta Ads Card */}
         <div className="px-4 py-3 border-b border-border">
-          <FacebookMetricsCard />
+          <UtmifyDashboard connection={fbConnection || null} />
         </div>
 
         {/* Airtable-style Table */}

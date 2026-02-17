@@ -48,9 +48,9 @@ export function useSyncFacebookMetrics() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ accountId, workspaceId }: { accountId: string; workspaceId?: string }) => {
+    mutationFn: async ({ accountId, workspaceId, accessToken, datePreset }: { accountId: string; workspaceId?: string; accessToken?: string; datePreset?: string }) => {
       const { data, error } = await supabase.functions.invoke('fetch-fb-insights', {
-        body: { accountId, workspaceId },
+        body: { accountId, workspaceId, accessToken, datePreset },
       });
 
       if (error) throw error;
