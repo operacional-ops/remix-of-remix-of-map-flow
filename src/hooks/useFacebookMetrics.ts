@@ -93,7 +93,20 @@ export function useSyncFacebookMetrics() {
         body: { accountId, workspaceId, accessToken, datePreset },
       });
 
-      if (error) throw error;
+      // Extract meaningful error from edge function response
+      if (error) {
+        // Try to get the actual error message from the response context
+        const ctx = (error as any).context;
+        if (ctx && typeof ctx.json === 'function') {
+          try {
+            const body = await ctx.json();
+            throw new Error(body?.error || error.message);
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message !== error.message) throw parseErr;
+          }
+        }
+        throw new Error(error.message || 'Erro ao sincronizar dados do Meta');
+      }
       if (data?.error) throw new Error(data.error);
       return data;
     },
