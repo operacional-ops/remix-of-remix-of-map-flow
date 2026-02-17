@@ -30,17 +30,26 @@ export function usePaytTransactions() {
   return useQuery({
     queryKey: ['payt-transactions', activeWorkspace?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('payt_transactions')
-        .select('*')
-        .eq('workspace_id', activeWorkspace!.id)
-        .order('created_at', { ascending: false })
-        .limit(500);
-      if (error) throw error;
-      return data as PaytTransaction[];
+      const allData: PaytTransaction[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('payt_transactions')
+          .select('*')
+          .eq('workspace_id', activeWorkspace!.id)
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...(data as PaytTransaction[]));
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
     },
     enabled: !!activeWorkspace?.id,
-    refetchInterval: 30000, // Auto-refresh every 30s for real-time feel
+    refetchInterval: 30000,
   });
 }
 
