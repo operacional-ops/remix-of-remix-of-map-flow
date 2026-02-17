@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { BarChart3, Grid3X3, Layers, Image } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
@@ -12,6 +12,8 @@ import FacebookLoginButton from '@/components/marketing/FacebookLoginButton';
 import AccountSelector from '@/components/marketing/AccountSelector';
 import { toast } from 'sonner';
 import { usePaytSalesBreakdown, matchSalesToCampaign, matchSalesViaParentCampaign } from '@/hooks/useUnifiedMetrics';
+import UtmDiagnosticDialog from '@/components/marketing/UtmDiagnosticDialog';
+import { getColumnsByTab } from '@/components/marketing/UtmifyTable';
 
 export default function DashboardOperacao() {
   const { activeWorkspace } = useWorkspace();
@@ -25,6 +27,8 @@ export default function DashboardOperacao() {
   const [datePreset, setDatePreset] = useState('last_30d');
   const [accountFilter, setAccountFilter] = useState('all');
   const [showAccountSelector, setShowAccountSelector] = useState(false);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
 
   const connection = fbConnection || null;
   const selectedAccounts = connection?.selected_account_ids || [];
@@ -276,13 +280,24 @@ export default function DashboardOperacao() {
                 isSyncing={syncMutation.isPending}
                 totalItems={activeTab !== 'contas' ? filteredRows.length : undefined}
                 accounts={uniqueAccounts}
+                columns={getColumnsByTab(activeTab)}
+                hiddenColumns={hiddenColumns}
+                onHiddenColumnsChange={setHiddenColumns}
+                onDiagnostic={() => setShowDiagnostic(true)}
+                selectedAccountId={accountFilter !== 'all' ? accountFilter : uniqueAccounts[0]?.[0]}
               />
 
               {['contas', 'campanhas', 'conjuntos', 'anuncios'].map(tab => (
                 <TabsContent key={tab} value={tab} className="flex-1 overflow-hidden mt-0">
-                  <UtmifyTable rows={filteredRows} activeTab={tab} isLoading={syncMutation.isPending} />
+                  <UtmifyTable rows={filteredRows} activeTab={tab} isLoading={syncMutation.isPending} hiddenColumns={hiddenColumns} />
                 </TabsContent>
               ))}
+
+              <UtmDiagnosticDialog
+                open={showDiagnostic}
+                onOpenChange={setShowDiagnostic}
+                transactions={paytBreakdown.transactions}
+              />
             </div>
           </Tabs>
         </div>

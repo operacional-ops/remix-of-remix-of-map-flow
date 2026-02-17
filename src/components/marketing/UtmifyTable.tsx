@@ -36,6 +36,7 @@ interface UtmifyTableProps {
   rows: UtmifyRow[];
   activeTab: string;
   isLoading?: boolean;
+  hiddenColumns?: string[];
 }
 
 function StatusToggle({ status }: { status?: string }) {
@@ -120,6 +121,10 @@ const columnsByTab: Record<string, typeof contasColumns> = {
   anuncios: anuncioColumns,
 };
 
+export function getColumnsByTab(tab: string) {
+  return columnsByTab[tab] || contasColumns;
+}
+
 function renderCell(key: string, row: UtmifyRow) {
   switch (key) {
     case 'checkbox':
@@ -164,8 +169,9 @@ function renderCell(key: string, row: UtmifyRow) {
   }
 }
 
-export default function UtmifyTable({ rows, activeTab, isLoading }: UtmifyTableProps) {
-  const columns = columnsByTab[activeTab] || contasColumns;
+export default function UtmifyTable({ rows, activeTab, isLoading, hiddenColumns = [] }: UtmifyTableProps) {
+  const allColumns = columnsByTab[activeTab] || contasColumns;
+  const columns = allColumns.filter(c => !hiddenColumns.includes(c.key));
 
   // Calculate totals
   const totalSpend = rows.reduce((s, r) => s + r.spend, 0);

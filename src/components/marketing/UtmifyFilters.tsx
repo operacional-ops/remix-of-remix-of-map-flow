@@ -1,7 +1,8 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ChevronLeft, ChevronRight, Settings, ArrowUp, Sparkles, ChevronDown } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, Sparkles, ChevronDown, ExternalLink } from 'lucide-react';
+import ColumnCustomizerPopover from './ColumnCustomizerPopover';
 
 interface UtmifyFiltersProps {
   activeTab: string;
@@ -16,7 +17,16 @@ interface UtmifyFiltersProps {
   onSync: () => void;
   isSyncing: boolean;
   totalItems?: number;
-  accounts?: [string, string][]; // [[account_id, account_name], ...]
+  accounts?: [string, string][];
+  // Column customizer
+  columns: { key: string; label: string }[];
+  hiddenColumns: string[];
+  onHiddenColumnsChange: (hidden: string[]) => void;
+  // Diagnostic
+  onDiagnostic: () => void;
+  // Open in Ads Manager
+  selectedCampaignId?: string | null;
+  selectedAccountId?: string | null;
 }
 
 export default function UtmifyFilters({
@@ -33,6 +43,12 @@ export default function UtmifyFilters({
   isSyncing,
   totalItems,
   accounts = [],
+  columns,
+  hiddenColumns,
+  onHiddenColumnsChange,
+  onDiagnostic,
+  selectedCampaignId,
+  selectedAccountId,
 }: UtmifyFiltersProps) {
   const labelMap: Record<string, string> = {
     contas: 'Nome da Conta',
@@ -48,15 +64,46 @@ export default function UtmifyFilters({
     anuncios: 'Status do Anúncio',
   };
 
+  const handleOpenAdsManager = () => {
+    // Build the Facebook Ads Manager URL
+    const accountId = selectedAccountId || accounts?.[0]?.[0];
+    if (!accountId) return;
+    
+    let url = `https://www.facebook.com/adsmanager/manage/campaigns?act=${accountId}`;
+    if (selectedCampaignId) {
+      url = `https://www.facebook.com/adsmanager/manage/campaigns?act=${accountId}&selected_campaign_ids=${selectedCampaignId}`;
+    }
+    window.open(url, '_blank');
+  };
+
+  const canOpenAdsManager = activeTab !== 'contas' && (selectedAccountId || accounts.length > 0);
+
   return (
     <div className="space-y-3">
       {/* Toolbar row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground"><Settings className="h-4 w-4" /></button>
-          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ArrowUp className="h-4 w-4" /></button>
-          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground"><Sparkles className="h-4 w-4" /></button>
-          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground"><ChevronDown className="h-4 w-4" /></button>
+          <ColumnCustomizerPopover
+            columns={columns}
+            hiddenColumns={hiddenColumns}
+            onHiddenColumnsChange={onHiddenColumnsChange}
+          />
+          <button
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground"
+            onClick={onDiagnostic}
+            title="Diagnóstico UTM"
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
+          {canOpenAdsManager && (
+            <button
+              className="p-1.5 rounded hover:bg-muted text-muted-foreground"
+              onClick={handleOpenAdsManager}
+              title="Abrir no Gerenciador de Anúncios"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </button>
+          )}
           <span className="ml-3 px-3 py-1 bg-emerald-500/20 text-emerald-500 text-xs font-medium rounded-full flex items-center gap-1">
             ✓ Todas as vendas trackeadas
           </span>
