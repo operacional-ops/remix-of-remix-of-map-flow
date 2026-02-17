@@ -36,14 +36,28 @@ async function fetchAllPages(url: string): Promise<any[]> {
   const allData: any[] = [];
   let nextUrl: string | null = url;
   let pageCount = 0;
-  const maxPages = 50; // Safety limit to prevent infinite loops
+  const maxPages = 50;
   
   while (nextUrl && pageCount < maxPages) {
     const response = await fetch(nextUrl);
     const json = await response.json();
     
     if (json.error) {
-      throw new Error(`Meta API Error: ${json.error.message} (code: ${json.error.code || 'unknown'})`);
+      const code = json.error.code || 'unknown';
+      const msg = json.error.message || 'Unknown error';
+      // Code 100 = invalid parameter (usually no permission or wrong account ID)
+      // Code 190 = expired/invalid token
+      // Code 17 = rate limit
+      if (code === 100 || code === 10) {
+        throw new Error(`Sem permissão para acessar esta conta de anúncios. Verifique se seu perfil Facebook tem acesso a esta conta. (Meta code: ${code})`);
+      }
+      if (code === 190) {
+        throw new Error(`Token do Facebook expirado. Desconecte e reconecte seu perfil. (Meta code: ${code})`);
+      }
+      if (code === 17 || code === 4) {
+        throw new Error(`Limite de requisições da Meta atingido. Aguarde alguns minutos e tente novamente. (Meta code: ${code})`);
+      }
+      throw new Error(`Meta API Error: ${msg} (code: ${code})`);
     }
     
     if (json.data) {
@@ -81,9 +95,13 @@ serve(async (req) => {
       throw new Error("Supabase environment variables not configured");
     }
 
-    const { accountId, workspaceId, datePreset, accessToken } = await req.json();
+    let { accountId, workspaceId, datePreset, accessToken } = await req.json();
     if (!accountId) {
       throw new Error("accountId is required");
+    }
+    // Ensure accountId has the act_ prefix
+    if (!accountId.startsWith('act_')) {
+      accountId = `act_${accountId}`;
     }
 
     const token = accessToken;
