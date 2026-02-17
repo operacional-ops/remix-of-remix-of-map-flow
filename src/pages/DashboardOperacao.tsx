@@ -25,27 +25,33 @@ export default function DashboardOperacao() {
   const [activeTab, setActiveTab] = useState('contas');
   const [nameFilter, setNameFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [datePreset, setDatePreset] = useState('today');
+  const [datePreset, setDatePreset] = useState('last_28d');
   const [accountFilter, setAccountFilter] = useState('all');
   const [showAccountSelector, setShowAccountSelector] = useState(false);
 
   const connection = fbConnection || null;
   const selectedAccounts = connection?.selected_account_ids || [];
 
-  const handleSync = () => {
+  const handleSync = async () => {
     if (!connection || selectedAccounts.length === 0) {
       toast.error('Conecte seu Facebook e selecione contas primeiro');
       setShowAccountSelector(true);
       return;
     }
-    selectedAccounts.forEach(accountId => {
-      syncMutation.mutate({
-        accountId,
-        workspaceId: activeWorkspace?.id,
-        accessToken: connection.access_token,
-        datePreset,
-      });
-    });
+    // Sync accounts sequentially to avoid Meta API rate limits
+    for (const accountId of selectedAccounts) {
+      try {
+        await syncMutation.mutateAsync({
+          accountId,
+          workspaceId: activeWorkspace?.id,
+          accessToken: connection.access_token,
+          datePreset,
+        });
+      } catch (err) {
+        // Error toast already handled by mutation onError, continue with next account
+        console.error(`Sync failed for ${accountId}:`, err);
+      }
+    }
   };
 
   const isLoading = loadingMetrics || loadingCampaigns || loadingAdsets || loadingAds;

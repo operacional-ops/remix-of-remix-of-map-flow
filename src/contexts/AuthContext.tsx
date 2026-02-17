@@ -110,16 +110,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      // Clear role cache to prevent session leaking
-      queryClient.removeQueries({ queryKey: ['user-role'] });
+      // Clear all cached queries to prevent session leaking
+      queryClient.clear();
       
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      // Always sign out locally even if the server call fails (e.g. expired session)
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      
+      // Clear state manually in case onAuthStateChange doesn't fire
+      setSession(null);
+      setUser(null);
+      previousSessionRef.current = null;
       
       toast.success('Logout realizado com sucesso');
       navigate('/auth');
     } catch (error: any) {
-      toast.error('Erro ao fazer logout');
+      // Even on error, force local cleanup
+      setSession(null);
+      setUser(null);
+      previousSessionRef.current = null;
+      navigate('/auth');
     }
   };
 

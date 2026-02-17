@@ -2,23 +2,33 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+async function fetchAllRows(table: string, workspaceId: string) {
+  const allData: any[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  
+  while (true) {
+    const { data, error } = await supabase
+      .from(table as any)
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .order('date_start', { ascending: false })
+      .range(from, from + pageSize - 1);
+    
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  
+  return allData;
+}
+
 export function useFacebookMetrics(workspaceId?: string) {
   return useQuery({
     queryKey: ['facebook_metrics', workspaceId],
-    queryFn: async () => {
-      let query = supabase
-        .from('facebook_metrics')
-        .select('*')
-        .order('date_start', { ascending: false });
-
-      if (workspaceId) {
-        query = query.eq('workspace_id', workspaceId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => fetchAllRows('facebook_metrics', workspaceId!),
     enabled: !!workspaceId,
   });
 }
@@ -26,20 +36,7 @@ export function useFacebookMetrics(workspaceId?: string) {
 export function useFacebookCampaignInsights(workspaceId?: string) {
   return useQuery({
     queryKey: ['facebook_campaign_insights', workspaceId],
-    queryFn: async () => {
-      let query = supabase
-        .from('facebook_campaign_insights')
-        .select('*')
-        .order('date_start', { ascending: false });
-
-      if (workspaceId) {
-        query = query.eq('workspace_id', workspaceId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => fetchAllRows('facebook_campaign_insights', workspaceId!),
     enabled: !!workspaceId,
   });
 }
@@ -47,20 +44,7 @@ export function useFacebookCampaignInsights(workspaceId?: string) {
 export function useFacebookAdsetInsights(workspaceId?: string) {
   return useQuery({
     queryKey: ['facebook_adset_insights', workspaceId],
-    queryFn: async () => {
-      let query = supabase
-        .from('facebook_adset_insights' as any)
-        .select('*')
-        .order('date_start', { ascending: false });
-
-      if (workspaceId) {
-        query = query.eq('workspace_id', workspaceId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as any[];
-    },
+    queryFn: () => fetchAllRows('facebook_adset_insights', workspaceId!),
     enabled: !!workspaceId,
   });
 }
@@ -68,20 +52,7 @@ export function useFacebookAdsetInsights(workspaceId?: string) {
 export function useFacebookAdInsights(workspaceId?: string) {
   return useQuery({
     queryKey: ['facebook_ad_insights', workspaceId],
-    queryFn: async () => {
-      let query = supabase
-        .from('facebook_ad_insights' as any)
-        .select('*')
-        .order('date_start', { ascending: false });
-
-      if (workspaceId) {
-        query = query.eq('workspace_id', workspaceId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as any[];
-    },
+    queryFn: () => fetchAllRows('facebook_ad_insights', workspaceId!),
     enabled: !!workspaceId,
   });
 }
