@@ -9,6 +9,7 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
 import { OperationalRoute } from "@/components/OperationalRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomDock } from "@/components/BottomDock";
 import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import HomePage from "./pages/HomePage";
@@ -44,6 +45,7 @@ import DiscordChat from "./pages/DiscordChat";
 const queryClient = new QueryClient();
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="light" storageKey="map-flow-theme">
       <TooltipProvider>
@@ -104,6 +106,7 @@ const App = () => (
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
