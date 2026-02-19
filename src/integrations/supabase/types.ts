@@ -3657,6 +3657,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_dashboard_data: {
+        Args: {
+          p_date_end?: string
+          p_date_start?: string
+          p_workspace_id: string
+        }
+        Returns: Json
+      }
       get_user_id_by_email: { Args: { email: string }; Returns: string }
       get_user_workspace_role: {
         Args: { _user_id: string; _workspace_id: string }

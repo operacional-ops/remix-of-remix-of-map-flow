@@ -1,64 +1,47 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { BarChart3, Grid3X3, Layers, Image, FileBarChart } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useState } from 'react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
-import { useFacebookConnection } from '@/hooks/useFacebookConnections';
-import { useFacebookMetrics, useFacebookCampaignInsights, useFacebookAdsetInsights, useFacebookAdInsights, useSyncFacebookMetrics } from '@/hooks/useFacebookMetrics';
-import UtmifySidebar from '@/components/marketing/UtmifySidebar';
-import UtmifyFilters from '@/components/marketing/UtmifyFilters';
-import UtmifyTable, { type UtmifyRow } from '@/components/marketing/UtmifyTable';
-import ResumoView from '@/components/marketing/ResumoView';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import KpiGrid from '@/components/intelligence/KpiGrid';
+import InvestmentReturnChart from '@/components/intelligence/InvestmentReturnChart';
+import CampaignTable from '@/components/intelligence/CampaignTable';
 import FacebookLoginButton from '@/components/marketing/FacebookLoginButton';
+import { useFacebookConnection } from '@/hooks/useFacebookConnections';
+import { useSyncFacebookMetrics } from '@/hooks/useFacebookMetrics';
 import AccountSelector from '@/components/marketing/AccountSelector';
 import { toast } from 'sonner';
-import { usePaytSalesBreakdown, matchSalesToCampaign, matchSalesViaParentCampaign } from '@/hooks/useUnifiedMetrics';
-import UtmDiagnosticDialog from '@/components/marketing/UtmDiagnosticDialog';
-import { getColumnsByTab } from '@/components/marketing/UtmifyTable';
-import PerformanceReportTable, { type PerformanceRow } from '@/components/marketing/PerformanceReportTable';
+import { useQueryClient } from '@tanstack/react-query';
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4 p-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+      </div>
+      <Skeleton className="h-[300px] rounded-lg" />
+      <Skeleton className="h-[300px] rounded-lg" />
+    </div>
+  );
+}
 
 export default function DashboardOperacao() {
   const { activeWorkspace } = useWorkspace();
+  const [datePreset, setDatePreset] = useState('last_30d');
+  const [showAccountSelector, setShowAccountSelector] = useState(false);
+
   const { data: fbConnection } = useFacebookConnection(activeWorkspace?.id);
   const syncMutation = useSyncFacebookMetrics();
-
-  const [sidebarView, setSidebarView] = useState<'resumo' | 'meta'>('resumo');
-  const [activeTab, setActiveTab] = useState('contas');
-  const [nameFilter, setNameFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [datePreset, setDatePreset] = useState('last_30d');
-  const [accountFilter, setAccountFilter] = useState('all');
-  const [showAccountSelector, setShowAccountSelector] = useState(false);
-  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
-  const [showDiagnostic, setShowDiagnostic] = useState(false);
-
+  const queryClient = useQueryClient();
   const connection = fbConnection || null;
   const selectedAccounts = connection?.selected_account_ids || [];
 
-  // Build filter params — changes trigger automatic refetch via queryKey
-  const filterParams = useMemo(() => ({
-    workspaceId: activeWorkspace?.id,
-    datePreset,
-    accountId: accountFilter,
-  }), [activeWorkspace?.id, datePreset, accountFilter]);
-
-  const { data: metrics, isLoading: metricsLoading } = useFacebookMetrics(filterParams);
-  const { data: campaigns, isLoading: campaignsLoading } = useFacebookCampaignInsights(filterParams);
-  const { data: adsets } = useFacebookAdsetInsights(filterParams);
-  const { data: ads } = useFacebookAdInsights(filterParams);
-
-  // Unfiltered query to always populate the accounts dropdown
-  const allAccountsParams = useMemo(() => ({
-    workspaceId: activeWorkspace?.id,
-    datePreset: 'maximum',
-    accountId: 'all',
-  }), [activeWorkspace?.id]);
-  const { data: allMetricsForAccounts } = useFacebookMetrics(allAccountsParams);
-
-  // PAYT sales breakdown for the same date range
-  const { breakdown: paytBreakdown } = usePaytSalesBreakdown(datePreset);
-
-  const queryClient = useQueryClient();
+  const { data, isLoading, error, refetch } = useDashboardData(activeWorkspace?.id, datePreset);
 
   const handleSync = async () => {
     if (!connection || selectedAccounts.length === 0) {
@@ -77,292 +60,108 @@ export default function DashboardOperacao() {
         })
       )
     );
-    // Invalidate all queries once after all accounts finish
     queryClient.invalidateQueries({ queryKey: ['facebook_metrics'] });
     queryClient.invalidateQueries({ queryKey: ['facebook_campaign_insights'] });
-    queryClient.invalidateQueries({ queryKey: ['facebook_adset_insights'] });
-    queryClient.invalidateQueries({ queryKey: ['facebook_ad_insights'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard_data'] });
 
     const failed = results.filter(r => r.status === 'rejected');
     const succeeded = results.filter(r => r.status === 'fulfilled');
-    if (failed.length > 0) {
-      toast.error(`${failed.length} conta(s) falharam na sincronização`);
-    }
-    if (succeeded.length > 0) {
-      toast.success(`${succeeded.length} conta(s) sincronizada(s) com sucesso!`);
-    }
+    if (failed.length > 0) toast.error(`${failed.length} conta(s) falharam`);
+    if (succeeded.length > 0) toast.success(`${succeeded.length} conta(s) sincronizada(s)!`);
   };
-
-  // Derive unique accounts from the UNFILTERED metrics (so dropdown always shows all accounts)
-  const uniqueAccounts = useMemo(() => {
-    const map = new Map<string, string>();
-    (allMetricsForAccounts || []).forEach((m: any) => {
-      if (m.account_id && !map.has(m.account_id)) {
-        map.set(m.account_id, m.account_name || m.account_id);
-      }
-    });
-    return Array.from(map.entries());
-  }, [allMetricsForAccounts]);
-
-  // ========= Build table rows =========
-  const buildContasRows = (): UtmifyRow[] => {
-    const contasMap = new Map<string, UtmifyRow>();
-    (metrics || []).forEach((m: any) => {
-      const key = m.account_id;
-      const existing = contasMap.get(key);
-      if (existing) {
-        existing.spend += Number(m.spend);
-        existing.clicks += Number(m.clicks);
-        existing.impressions += Number(m.impressions);
-      } else {
-        contasMap.set(key, {
-          id: key, name: m.account_name || m.account_id,
-          spend: Number(m.spend), totalSpend: 0, clicks: Number(m.clicks),
-          impressions: Number(m.impressions), cpc: 0, ctr: 0, cpm: 0,
-          vendas: 0, faturamento: 0, lucro: 0,
-        });
-      }
-    });
-    // Inject total PAYT sales for contas level
-    const totalPaytVendas = paytBreakdown.totalVendas;
-    const totalPaytFaturamento = paytBreakdown.totalFaturamento;
-    const rows = Array.from(contasMap.values());
-    const totalSpend = rows.reduce((s, r) => s + r.spend, 0);
-    return rows.map(r => {
-      // Distribute PAYT sales proportionally by spend share
-      const spendShare = totalSpend > 0 ? r.spend / totalSpend : 0;
-      const vendas = Math.round(totalPaytVendas * spendShare);
-      const faturamento = totalPaytFaturamento * spendShare;
-      return {
-        ...r, totalSpend: r.spend,
-        ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
-        cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
-        cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
-        vendas,
-        faturamento,
-        lucro: faturamento - r.spend,
-      };
-    });
-  };
-
-  const buildGenericRows = (data: any[], idField: string, nameField: string): UtmifyRow[] => {
-    const map = new Map<string, UtmifyRow & { campaign_id?: string }>();
-    data.forEach(c => {
-      const key = c[idField];
-      const existing = map.get(key);
-      if (existing) {
-        existing.spend += Number(c.spend);
-        existing.clicks += Number(c.clicks);
-        existing.impressions += Number(c.impressions);
-        existing.conversions = (existing.conversions ?? 0) + Number(c.conversions);
-        existing.reach = (existing.reach ?? 0) + Number(c.reach);
-      } else {
-        map.set(key, {
-          id: key, name: c[nameField] || 'Sem nome', status: c.status || 'unknown',
-          spend: Number(c.spend), clicks: Number(c.clicks), impressions: Number(c.impressions),
-          cpc: 0, ctr: 0, cpm: 0, cpa: 0, conversions: Number(c.conversions),
-          reach: Number(c.reach), roas: Number(c.roas), vendas: 0,
-          faturamento: 0, lucro: 0,
-          campaign_id: c.campaign_id,
-        });
-      }
-    });
-
-    // Build per-campaign spend totals for proportional distribution at adset/ad level
-    const campaignSpendMap = new Map<string, number>();
-    if (idField !== 'campaign_id') {
-      Array.from(map.values()).forEach(r => {
-        if (r.campaign_id) {
-          campaignSpendMap.set(r.campaign_id, (campaignSpendMap.get(r.campaign_id) || 0) + r.spend);
-        }
-      });
-    }
-
-    return Array.from(map.values()).map(r => {
-      let vendas = 0;
-      let faturamento = 0;
-
-      if (idField === 'campaign_id') {
-        // Direct match via utm_id
-        const paytMatch = matchSalesToCampaign(r.id, paytBreakdown.byCampaignId);
-        vendas = paytMatch.vendas || (r.conversions ?? 0);
-        faturamento = paytMatch.faturamento;
-      } else {
-        // For adsets/ads: distribute parent campaign's PAYT sales proportionally by spend
-        const parentMatch = matchSalesViaParentCampaign(r.campaign_id, paytBreakdown.byCampaignId);
-        if (parentMatch.vendas > 0 && r.campaign_id) {
-          const totalCampaignSpend = campaignSpendMap.get(r.campaign_id) || 1;
-          const spendShare = r.spend / totalCampaignSpend;
-          vendas = Math.round(parentMatch.vendas * spendShare);
-          faturamento = parentMatch.faturamento * spendShare;
-        } else {
-          vendas = r.conversions ?? 0;
-        }
-      }
-
-      return {
-        ...r,
-        ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
-        cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
-        cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
-        cpa: vendas > 0 ? r.spend / vendas : 0,
-        vendas,
-        faturamento,
-        lucro: faturamento - r.spend,
-      };
-    }).sort((a, b) => b.spend - a.spend);
-  };
-
-  const rowsByTab: Record<string, UtmifyRow[]> = {
-    contas: buildContasRows(),
-    campanhas: buildGenericRows(campaigns || [], 'campaign_id', 'campaign_name'),
-    conjuntos: buildGenericRows(adsets || [], 'adset_id', 'adset_name'),
-    anuncios: buildGenericRows(ads || [], 'ad_id', 'ad_name'),
-  };
-
-  const currentRows = rowsByTab[activeTab] || [];
-  const filteredRows = currentRows.filter(r => {
-    if (nameFilter && !r.name.toLowerCase().includes(nameFilter.toLowerCase())) return false;
-    if (statusFilter !== 'all' && r.status !== statusFilter) return false;
-    return true;
-  });
 
   return (
-    <div className="flex h-full">
-      <UtmifySidebar activeView={sidebarView} onViewChange={setSidebarView} />
-
-      {sidebarView === 'resumo' ? (
-        <ResumoView
-          metrics={metrics}
-          campaigns={campaigns}
-          isLoading={syncMutation.isPending}
-          onSync={handleSync}
-          isSyncing={syncMutation.isPending}
-          datePreset={datePreset}
-          onDatePresetChange={setDatePreset}
-        />
-      ) : (
-        <div className="flex-1 flex flex-col overflow-hidden bg-background">
-          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-            <h1 className="text-lg font-semibold text-foreground">Meta Ads</h1>
-            <div className="flex items-center gap-3">
-              <FacebookLoginButton />
-              {connection && (
-                <button
-                  onClick={() => setShowAccountSelector(!showAccountSelector)}
-                  className="text-xs text-muted-foreground hover:text-foreground underline"
-                >
-                  {selectedAccounts.length} conta(s)
-                </button>
-              )}
-            </div>
-          </div>
-
-          {showAccountSelector && connection && (
-            <div className="px-6 py-3 border-b border-border">
-              <AccountSelector connection={connection} onAccountsSelected={() => setShowAccountSelector(false)} />
-            </div>
+    <div className="flex-1 flex flex-col overflow-hidden bg-background">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">DRX Intelligence</h1>
+          <p className="text-[11px] text-muted-foreground">Meta Ads + PayT · Dashboard Unificado</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <FacebookLoginButton />
+          {connection && (
+            <button
+              onClick={() => setShowAccountSelector(!showAccountSelector)}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              {selectedAccounts.length} conta(s)
+            </button>
           )}
+        </div>
+      </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-6 pt-4">
-              <TabsList className="bg-transparent p-0 h-auto gap-0 w-full grid grid-cols-5">
-                <TabsTrigger value="contas" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none rounded-tl-lg px-6 py-3 text-sm gap-2">
-                  <BarChart3 className="h-4 w-4" /> Contas
-                </TabsTrigger>
-                <TabsTrigger value="campanhas" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none px-6 py-3 text-sm gap-2">
-                  <Grid3X3 className="h-4 w-4" /> Campanhas
-                </TabsTrigger>
-                <TabsTrigger value="conjuntos" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none px-6 py-3 text-sm gap-2">
-                  <Layers className="h-4 w-4" /> Conjuntos
-                </TabsTrigger>
-                <TabsTrigger value="anuncios" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none px-6 py-3 text-sm gap-2">
-                  <Image className="h-4 w-4" /> Anúncios
-                </TabsTrigger>
-                <TabsTrigger value="performance" className="data-[state=active]:bg-card data-[state=active]:border-primary data-[state=active]:text-primary border border-border rounded-none rounded-tr-lg px-6 py-3 text-sm gap-2">
-                  <FileBarChart className="h-4 w-4" /> Relatório
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <div className="flex-1 flex flex-col overflow-hidden px-6 py-4 space-y-4">
-              <UtmifyFilters
-                activeTab={activeTab}
-                nameFilter={nameFilter}
-                onNameFilterChange={setNameFilter}
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
-                datePreset={datePreset}
-                onDatePresetChange={setDatePreset}
-                accountFilter={accountFilter}
-                onAccountFilterChange={setAccountFilter}
-                onSync={handleSync}
-                isSyncing={syncMutation.isPending}
-                totalItems={activeTab !== 'contas' ? filteredRows.length : undefined}
-                accounts={uniqueAccounts}
-                columns={getColumnsByTab(activeTab)}
-                hiddenColumns={hiddenColumns}
-                onHiddenColumnsChange={setHiddenColumns}
-                onDiagnostic={() => setShowDiagnostic(true)}
-                selectedAccountId={accountFilter !== 'all' ? accountFilter : uniqueAccounts[0]?.[0]}
-              />
-
-              {['contas', 'campanhas', 'conjuntos', 'anuncios'].map(tab => (
-                <TabsContent key={tab} value={tab} className="flex-1 overflow-hidden mt-0">
-                  <UtmifyTable rows={filteredRows} activeTab={tab} isLoading={syncMutation.isPending} hiddenColumns={hiddenColumns} />
-                </TabsContent>
-              ))}
-
-              <TabsContent value="performance" className="flex-1 overflow-hidden mt-0">
-                <PerformanceReportTable
-                  rows={(() => {
-                    const map = new Map<string, PerformanceRow>();
-                    (campaigns || []).forEach((c: any) => {
-                      const key = c.campaign_id;
-                      const existing = map.get(key);
-                      if (existing) {
-                        existing.spend += Number(c.spend) || 0;
-                        existing.impressions += Number(c.impressions) || 0;
-                        existing.purchases += Number(c.purchases) || Number(c.conversions) || 0;
-                      } else {
-                        map.set(key, {
-                          id: key,
-                          name: c.campaign_name || 'Sem nome',
-                          spend: Number(c.spend) || 0,
-                          impressions: Number(c.impressions) || 0,
-                          cpm: 0, ctr: 0, cpc: 0,
-                          purchases: Number(c.purchases) || Number(c.conversions) || 0,
-                          cpp: 0, roas: 0,
-                        });
-                      }
-                    });
-                    return Array.from(map.values()).map(r => {
-                      const clicks = r.impressions > 0 ? r.impressions * ((campaigns || []).filter((c: any) => c.campaign_id === r.id).reduce((s: number, c: any) => s + (Number(c.clicks) || 0), 0) / Math.max(1, (campaigns || []).filter((c: any) => c.campaign_id === r.id).reduce((s: number, c: any) => s + (Number(c.impressions) || 0), 0))) : 0;
-                      const totalClicks = (campaigns || []).filter((c: any) => c.campaign_id === r.id).reduce((s: number, c: any) => s + (Number(c.clicks) || 0), 0);
-                      const totalPurchaseValue = (campaigns || []).filter((c: any) => c.campaign_id === r.id).reduce((s: number, c: any) => s + (Number(c.purchase_value) || 0), 0);
-                      return {
-                        ...r,
-                        cpm: r.impressions > 0 ? (r.spend / r.impressions) * 1000 : 0,
-                        ctr: r.impressions > 0 ? (totalClicks / r.impressions) * 100 : 0,
-                        cpc: totalClicks > 0 ? r.spend / totalClicks : 0,
-                        cpp: r.purchases > 0 ? r.spend / r.purchases : 0,
-                        roas: r.spend > 0 && totalPurchaseValue > 0 ? totalPurchaseValue / r.spend : 0,
-                      };
-                    }).sort((a, b) => b.spend - a.spend);
-                  })()}
-                  isLoading={syncMutation.isPending || campaignsLoading}
-                />
-              </TabsContent>
-
-              <UtmDiagnosticDialog
-                open={showDiagnostic}
-                onOpenChange={setShowDiagnostic}
-                transactions={paytBreakdown.transactions}
-              />
-            </div>
-          </Tabs>
+      {showAccountSelector && connection && (
+        <div className="px-6 py-3 border-b border-border">
+          <AccountSelector connection={connection} onAccountsSelected={() => setShowAccountSelector(false)} />
         </div>
       )}
+
+      {/* Filters */}
+      <div className="px-6 py-3 border-b border-border flex items-center gap-4">
+        <div>
+          <label className="text-[10px] text-muted-foreground mb-1 block">Período</label>
+          <Select value={datePreset} onValueChange={setDatePreset}>
+            <SelectTrigger className="h-8 text-xs bg-card border-border w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="yesterday">Ontem</SelectItem>
+              <SelectItem value="last_7d">Últimos 7 dias</SelectItem>
+              <SelectItem value="last_14d">Últimos 14 dias</SelectItem>
+              <SelectItem value="last_30d">Últimos 30 dias</SelectItem>
+              <SelectItem value="this_month">Este mês</SelectItem>
+              <SelectItem value="last_month">Mês passado</SelectItem>
+              <SelectItem value="maximum">Máximo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+          <Button size="sm" onClick={handleSync} disabled={syncMutation.isPending}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            Sincronizar Meta
+          </Button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+        {isLoading ? (
+          <LoadingSkeleton />
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+            <AlertTriangle className="h-8 w-8 text-destructive mb-3" />
+            <p className="text-sm font-medium text-foreground mb-1">
+              {(error as any)?.type === 'DENIED' ? 'Acesso negado' : 'Erro ao carregar dados'}
+            </p>
+            <p className="text-xs text-muted-foreground mb-4">
+              {(error as any)?.type === 'DENIED'
+                ? 'Você não tem permissão para acessar este workspace.'
+                : (error as any)?.message || 'Erro desconhecido'}
+            </p>
+            <Button size="sm" onClick={() => refetch()}>Tentar novamente</Button>
+          </div>
+        ) : !data ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+            <p className="text-sm">Sem dados para a data selecionada</p>
+            <p className="text-xs">Sincronize os dados do Meta Ads e conecte o PayT.</p>
+          </div>
+        ) : (
+          <div className="p-6 space-y-4">
+            <KpiGrid kpis={data.kpis} />
+            <InvestmentReturnChart campaigns={data.campaigns} />
+            <CampaignTable campaigns={data.campaigns} />
+            <p className="text-[10px] text-muted-foreground text-right">
+              Gerado em: {new Date(data.generated_at).toLocaleString('pt-BR')}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
