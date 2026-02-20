@@ -49,8 +49,8 @@ const drxNavItems = [
   { title: 'Chamados', url: '/chamados', icon: Inbox, tutorialId: 'chamados' },
   { title: 'Fluxogramas', url: '/fluxogramas', icon: GitBranch, tutorialId: 'fluxogramas' },
   { title: 'Matriz Decisões', url: '/matriz-decisoes', icon: Target, tutorialId: 'matriz-decisoes' },
-  { title: 'Dashboard Operação', url: '/dashboard-operacao', icon: Activity, tutorialId: 'dashboard-operacao' },
-  { title: 'DRX Analytics', url: '/drx-analytics', icon: BarChart3, tutorialId: 'drx-analytics' },
+  { title: 'DRX UTMs', url: '/dashboard-operacao', icon: Activity, tutorialId: 'dashboard-operacao' },
+  { title: 'DRX Payt', url: '/drx-analytics', icon: BarChart3, tutorialId: 'drx-analytics' },
 ];
 
 export function AppSidebar() {

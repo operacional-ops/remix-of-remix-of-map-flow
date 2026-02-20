@@ -306,7 +306,7 @@ export default function DRXAnalytics() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border px-6 h-14 shrink-0">
-          <h1 className="text-lg font-semibold">DRX Analytics</h1>
+          <h1 className="text-lg font-semibold">DRX Payt</h1>
           <div className="flex items-center gap-3">
             {/* Product filter */}
             <Select value={selectedProductId} onValueChange={setSelectedProductId}>

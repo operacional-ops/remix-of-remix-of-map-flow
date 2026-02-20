@@ -66,8 +66,8 @@ export function BottomDock() {
     { title: 'Fluxogramas', url: '/fluxogramas', icon: GitBranch, group: 'ops' },
     { title: 'Matriz', url: '/matriz-decisoes', icon: Target, group: 'ops' },
     ...(!isLimitedMember ? [
-      { title: 'Operação', url: '/dashboard-operacao', icon: Activity, group: 'ops' },
-      { title: 'Analytics', url: '/drx-analytics', icon: BarChart3, group: 'ops' },
+      { title: 'DRX UTMs', url: '/dashboard-operacao', icon: Activity, group: 'ops' },
+      { title: 'DRX Payt', url: '/drx-analytics', icon: BarChart3, group: 'ops' },
     ] : []),
     { title: '', icon: Home, separator: true },
     ...(isAdmin ? [{ title: 'Config', url: '/settings', icon: Settings, group: 'system' }] : []),
