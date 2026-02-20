@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTMFY-teste | Dashboard Integrado Supabase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'Roboto Mono', monospace; }
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); }
+        .glass { background: rgba(30, 27, 75, 0.4); backdrop-filter: blur(10px); border: 1px solid rgba(139, 92, 246, 0.2); }
+        .glow { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="min-h-screen p-6 text-white">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-violet-400 to-purple-600 bg-clip-text text-transparent">UTMFY-teste</h1>
+            <p class="text-slate-400 mt-1">Dashboard Integrado - Dados em Tempo Real via Supabase</p>
+        </div>
+        <div class="flex gap-4 items-center">
+            <div id="connectionStatus" class="flex items-center gap-2 glass px-4 py-2 rounded-lg">
+                <div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                <span class="text-sm">Conectando...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Button -->
+    <div class="mb-6 flex items-center gap-4">
+        <button id="syncButton" class="px-6 py-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Sincronizar Dados
+        </button>
+        <span id="lastSync" class="text-slate-400 text-sm"></span>
+    </div>
+
+    <!-- KPIs -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold mb-4">Visão Geral</h2>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">Gasto Total</p>
+                <p class="text-3xl font-bold mono" id="gastoTotal">R$ 0,00</p>
+                <p class="text-xs text-slate-500 mt-1">Meta Ads</p>
+            </div>
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">Vendas Totais</p>
+                <p class="text-3xl font-bold mono" id="vendasTotais">0</p>
+                <p class="text-xs text-slate-500 mt-1">PayT</p>
+            </div>
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">Faturamento</p>
+                <p class="text-3xl font-bold mono" id="faturamento">R$ 0,00</p>
+                <p class="text-xs text-slate-500 mt-1">Aprovado</p>
+            </div>
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">ROAS Médio</p>
+                <p class="text-3xl font-bold mono" id="roasMedio">0.00x</p>
+                <p class="text-xs text-slate-500 mt-1">Retorno</p>
+            </div>
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">Lucro Bruto</p>
+                <p class="text-3xl font-bold mono" id="lucroBruto">R$ 0,00</p>
+                <p class="text-xs text-slate-500 mt-1" id="margemLabel">0% margem</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controle por Contas -->
+    <div class="glass rounded-xl p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4">📊 Controle por Contas</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-slate-700">
+                    <tr class="text-left">
+                        <th class="pb-3 font-semibold">Data</th>
+                        <th class="pb-3 font-semibold">Conta</th>
+                        <th class="pb-3 font-semibold">Gastos</th>
+                        <th class="pb-3 font-semibold">Impressões</th>
+                        <th class="pb-3 font-semibold">Cliques</th>
+                        <th class="pb-3 font-semibold">CPM</th>
+                        <th class="pb-3 font-semibold">CPC</th>
+                        <th class="pb-3 font-semibold">CTR</th>
+                        <th class="pb-3 font-semibold">Vendas</th>
+                        <th class="pb-3 font-semibold">Faturamento</th>
+                        <th class="pb-3 font-semibold">ROAS</th>
+                        <th class="pb-3 font-semibold">CPA</th>
+                    </tr>
+                </thead>
+                <tbody id="contasTableBody">
+                    <tr>
+                        <td colspan="12" class="text-center py-8 text-slate-400">Clique em "Sincronizar Dados" para carregar</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Campanhas Detalhadas -->
+    <div class="glass rounded-xl p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4">🎯 Campanhas Detalhadas</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-slate-700">
+                    <tr class="text-left">
+                        <th class="pb-3 font-semibold">Campanha</th>
+                        <th class="pb-3 font-semibold">Conta</th>
+                        <th class="pb-3 font-semibold">Gasto</th>
+                        <th class="pb-3 font-semibold">Impressões</th>
+                        <th class="pb-3 font-semibold">Cliques</th>
+                        <th class="pb-3 font-semibold">CTR</th>
+                        <th class="pb-3 font-semibold">CPC</th>
+                        <th class="pb-3 font-semibold">CPM</th>
+                        <th class="pb-3 font-semibold">Vendas</th>
+                        <th class="pb-3 font-semibold">Faturamento</th>
+                        <th class="pb-3 font-semibold">ROAS</th>
+                    </tr>
+                </thead>
+                <tbody id="campanhasTableBody">
+                    <tr>
+                        <td colspan="11" class="text-center py-8 text-slate-400">Clique em "Sincronizar Dados" para carregar</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="glass rounded-xl p-6">
+            <h3 class="text-lg font-semibold mb-4">📊 Gasto vs Retorno (Top 10)</h3>
+            <canvas id="gastoRetornoChart"></canvas>
+        </div>
+        <div class="glass rounded-xl p-6">
+            <h3 class="text-lg font-semibold mb-4">📈 ROAS por Campanha (Top 10)</h3>
+            <canvas id="roasChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Configuração Supabase
+        const SUPABASE_URL = 'https://apvczhiifvdodawrlgmk.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwdmN6aGlpZnZkb2Rhd3JsZ21rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNzk4MzksImV4cCI6MjA4Njg1NTgzOX0.cBw5WbUmbaW-bCuKk6V_aBOnrK1TRVnf00biApeKX_4';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let chartGastoRetorno, chartRoas;
+
+        // Verificar conexão
+        async function checkConnection() {
+            try {
+                const { count, error } = await supabase
+                    .from('gastos_meta')
+                    .select('*', { count: 'exact', head: true });
+                
+                if (error) throw error;
+                
+                document.getElementById('connectionStatus').innerHTML = `
+                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span class="text-sm">✅ Conectado (${count} registros)</span>
+                `;
+            } catch (error) {
+                document.getElementById('connectionStatus').innerHTML = `
+                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span class="text-sm">❌ Erro: ${error.message}</span>
+                `;
+                console.error('Erro de conexão:', error);
+            }
+        }
+
+        // Sincronizar dados
+        async function syncData() {
+            const button = document.getElementById('syncButton');
+            button.disabled = true;
+            button.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sincronizando...';
+
+            try {
+                // Buscar dados do Meta Ads
+                const { data: metaData, error: metaError } = await supabase
+                    .from('gastos_meta')
+                    .select('*')
+                    .order('date', { ascending: false })
+                    .limit(1000);
+
+                if (metaError) throw metaError;
+
+                // Buscar dados da PayT
+                const { data: paytData, error: paytError } = await supabase
+                    .from('payt_vendas')
+                    .select('*')
+                    .order('data_venda', { ascending: false })
+                    .limit(1000);
+
+                if (paytError) throw paytError;
+
+                console.log('Meta Ads:', metaData.length, 'registros');
+                console.log('PayT:', paytData.length, 'registros');
+
+                // Processar e exibir dados
+                processData(metaData, paytData);
+
+                // Atualizar timestamp
+                document.getElementById('lastSync').textContent = 
+                    `Última sincronização: ${new Date().toLocaleTimeString('pt-BR')}`;
+
+            } catch (error) {
+                console.error('Erro ao sincronizar:', error);
+                alert('Erro ao sincronizar dados: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sincronizar Dados';
+            }
+        }
+
+        // Processar dados
+        function processData(metaData, paytData) {
+            // Calcular KPIs
+            const totalGasto = metaData.reduce((sum, row) => sum + (parseFloat(row.spend) || 0), 0);
+            const totalVendas = paytData.length;
+            const totalFaturamento = paytData.reduce((sum, row) => sum + (parseFloat(row.valor_total) || 0), 0);
+            const roasMedio = totalGasto > 0 ? totalFaturamento / totalGasto : 0;
+            const lucroBruto = totalFaturamento - totalGasto;
+            const margem = totalGasto > 0 ? ((lucroBruto / totalGasto) * 100) : 0;
+
+            // Atualizar KPIs
+            document.getElementById('gastoTotal').textContent = formatCurrency(totalGasto);
+            document.getElementById('vendasTotais').textContent = totalVendas;
+            document.getElementById('faturamento').textContent = formatCurrency(totalFaturamento);
+            document.getElementById('roasMedio').textContent = roasMedio.toFixed(2) + 'x';
+            document.getElementById('lucroBruto').textContent = formatCurrency(lucroBruto);
+            document.getElementById('margemLabel').textContent = margem.toFixed(1) + '% margem';
+
+            // Agrupar por conta
+            const contasMap = {};
+            metaData.forEach(row => {
+                const key = `${row.date}_${row.account_name}`;
+                if (!contasMap[key]) {
+                    contasMap[key] = {
+                        date: row.date,
+                        account: row.account_name,
+                        spend: 0,
+                        impressions: 0,
+                        clicks: 0,
+                        campaigns: []
+                    };
+                }
+                contasMap[key].spend += parseFloat(row.spend) || 0;
+                contasMap[key].impressions += parseInt(row.impressions) || 0;
+                contasMap[key].clicks += parseInt(row.clicks) || 0;
+                contasMap[key].campaigns.push(row.campaign_name);
+            });
+
+            // Renderizar tabelas
+            renderContasTable(Object.values(contasMap), paytData);
+            renderCampanhasTable(metaData, paytData);
+
+            // Renderizar gráficos
+            renderCharts(metaData, paytData);
+        }
+
+        // Renderizar tabela de contas
+        function renderContasTable(contas, paytData) {
+            const tbody = document.getElementById('contasTableBody');
+            tbody.innerHTML = '';
+
+            contas.forEach(conta => {
+                const cpm = conta.impressions > 0 ? (conta.spend / conta.impressions) * 1000 : 0;
+                const cpc = conta.clicks > 0 ? conta.spend / conta.clicks : 0;
+                const ctr = conta.impressions > 0 ? (conta.clicks / conta.impressions) * 100 : 0;
+                
+                const vendas = paytData.filter(v => 
+                    conta.campaigns.some(c => v.utm_campaign && c.toLowerCase().includes(v.utm_campaign.toLowerCase()))
+                ).length;
+                
+                const faturamento = paytData
+                    .filter(v => conta.campaigns.some(c => v.utm_campaign && c.toLowerCase().includes(v.utm_campaign.toLowerCase())))
+                    .reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0);
+                
+                const roas = conta.spend > 0 ? faturamento / conta.spend : 0;
+                const cpa = vendas > 0 ? conta.spend / vendas : 0;
+
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-800 hover:bg-slate-800/50';
+                tr.innerHTML = `
+                    <td class="p-3">${formatDate(conta.date)}</td>
+                    <td class="p-3">${conta.account}</td>
+                    <td class="p-3 text-right">${formatCurrency(conta.spend)}</td>
+                    <td class="p-3 text-right">${conta.impressions.toLocaleString('pt-BR')}</td>
+                    <td class="p-3 text-right">${conta.clicks.toLocaleString('pt-BR')}</td>
+                    <td class="p-3 text-right">${formatCurrency(cpm)}</td>
+                    <td class="p-3 text-right">${formatCurrency(cpc)}</td>
+                    <td class="p-3 text-right">${ctr.toFixed(2)}%</td>
+                    <td class="p-3 text-right font-bold text-green-400">${vendas}</td>
+                    <td class="p-3 text-right">${formatCurrency(faturamento)}</td>
+                    <td class="p-3 text-right font-bold ${getRoasColor(roas)}">${roas.toFixed(2)}x</td>
+                    <td class="p-3 text-right">${formatCurrency(cpa)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Renderizar tabela de campanhas
+        function renderCampanhasTable(metaData, paytData) {
+            const tbody = document.getElementById('campanhasTableBody');
+            tbody.innerHTML = '';
+
+            metaData.slice(0, 50).forEach(row => {
+                const vendas = paytData.filter(v => 
+                    v.utm_campaign && row.campaign_name.toLowerCase().includes(v.utm_campaign.toLowerCase())
+                ).length;
+                
+                const faturamento = paytData
+                    .filter(v => v.utm_campaign && row.campaign_name.toLowerCase().includes(v.utm_campaign.toLowerCase()))
+                    .reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0);
+                
+                const spend = parseFloat(row.spend) || 0;
+                const impressions = parseInt(row.impressions) || 0;
+                const clicks = parseInt(row.clicks) || 0;
+                const roas = spend > 0 ? faturamento / spend : 0;
+                const cpc = clicks > 0 ? spend / clicks : 0;
+                const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+                const cpm = impressions > 0 ? (spend / impressions) * 1000 : 0;
+
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-800 hover:bg-slate-800/50';
+                tr.innerHTML = `
+                    <td class="p-3 max-w-xs truncate" title="${row.campaign_name}">${row.campaign_name}</td>
+                    <td class="p-3">${row.account_name}</td>
+                    <td class="p-3 text-right">${formatCurrency(spend)}</td>
+                    <td class="p-3 text-right">${impressions.toLocaleString('pt-BR')}</td>
+                    <td class="p-3 text-right">${clicks.toLocaleString('pt-BR')}</td>
+                    <td class="p-3 text-right">${ctr.toFixed(2)}%</td>
+                    <td class="p-3 text-right">${formatCurrency(cpc)}</td>
+                    <td class="p-3 text-right">${formatCurrency(cpm)}</td>
+                    <td class="p-3 text-right font-bold text-green-400">${vendas}</td>
+                    <td class="p-3 text-right">${formatCurrency(faturamento)}</td>
+                    <td class="p-3 text-right font-bold ${getRoasColor(roas)}">${roas.toFixed(2)}x</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Renderizar gráficos
+        function renderCharts(metaData, paytData) {
+            // Top 10 campanhas por gasto
+            const top10 = metaData
+                .sort((a, b) => (parseFloat(b.spend) || 0) - (parseFloat(a.spend) || 0))
+                .slice(0, 10);
+
+            const labels = top10.map(r => r.campaign_name.substring(0, 30) + '...');
+            const gastos = top10.map(r => parseFloat(r.spend) || 0);
+            const retornos = top10.map(r => {
+                const vendas = paytData.filter(v => 
+                    v.utm_campaign && r.campaign_name.toLowerCase().includes(v.utm_campaign.toLowerCase())
+                );
+                return vendas.reduce((sum, v) => sum + (parseFloat(v.valor_total) || 0), 0);
+            });
+
+            // Gráfico Gasto vs Retorno
+            if (chartGastoRetorno) chartGastoRetorno.destroy();
+            chartGastoRetorno = new Chart(document.getElementById('gastoRetornoChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Gasto',
+                            data: gastos,
+                            backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                            borderColor: 'rgba(139, 92, 246, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Retorno',
+                            data: retornos,
+                            backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                            borderColor: 'rgba(34, 197, 94, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#94a3b8' } },
+                        x: { ticks: { color: '#94a3b8', maxRotation: 45, minRotation: 45 } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            // Gráfico ROAS
+            const roasData = top10.map((r, i) => {
+                const spend = gastos[i];
+                const faturamento = retornos[i];
+                return spend > 0 ? faturamento / spend : 0;
+            });
+
+            if (chartRoas) chartRoas.destroy();
+            chartRoas = new Chart(document.getElementById('roasChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'ROAS',
+                        data: roasData,
+                        backgroundColor: roasData.map(r => 
+                            r >= 2.0 ? 'rgba(34, 197, 94, 0.7)' : 
+                            r >= 1.0 ? 'rgba(234, 179, 8, 0.7)' : 
+                            'rgba(239, 68, 68, 0.7)'
+                        ),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#94a3b8' } },
+                        x: { ticks: { color: '#94a3b8', maxRotation: 45, minRotation: 45 } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // Funções auxiliares
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value);
+        }
+
+        function formatDate(dateStr) {
+            return new Date(dateStr + 'T00:00:00').toLocaleDateString('pt-BR');
+        }
+
+        function getRoasColor(roas) {
+            if (roas >= 2.0) return 'text-green-400';
+            if (roas >= 1.0) return 'text-yellow-400';
+            return 'text-red-400';
+        }
+
+        // Inicializar
+        document.getElementById('syncButton').addEventListener('click', syncData);
+        
+        checkConnection();
+        syncData();
+
+        // Auto-refresh a cada 5 minutos
+        setInterval(syncData, 5 * 60 * 1000);
+    </script>
+</body>
+</html>

@@ -41,6 +41,7 @@ import PainelDRX from "./pages/PainelDRX";
 import CommandCenter from "./pages/CommandCenter";
 import FinancialDashboard from "./pages/FinancialDashboard";
 import DiscordChat from "./pages/DiscordChat";
+import UTMFYTeste from "./pages/UTMFYTeste";
 
 const queryClient = new QueryClient();
 
@@ -85,6 +86,7 @@ const App = () => (
                             <Route path="/fluxogramas" element={<FluxogramasProcessos />} />
                             <Route path="/matriz-decisoes" element={<MatrizDecisoes />} />
                             <Route path="/dashboard-operacao" element={<OperationalRoute><DashboardOperacao /></OperationalRoute>} />
+                            <Route path="/utmfy-teste" element={<OperationalRoute><UTMFYTeste /></OperationalRoute>} />
                             <Route path="/drx-analytics" element={<OperationalRoute><DRXAnalytics /></OperationalRoute>} />
                             <Route path="/painel-drx" element={<OperationalRoute><PainelDRX /></OperationalRoute>} />
                             <Route path="/command-center" element={<OperationalRoute><CommandCenter /></OperationalRoute>} />

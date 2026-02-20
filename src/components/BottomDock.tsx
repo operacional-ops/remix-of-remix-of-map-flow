@@ -67,6 +67,7 @@ export function BottomDock() {
     { title: 'Matriz', url: '/matriz-decisoes', icon: Target, group: 'ops' },
     ...(!isLimitedMember ? [
       { title: 'DRX UTMs', url: '/dashboard-operacao', icon: Activity, group: 'ops' },
+      { title: 'UTMFY-teste', url: '/utmfy-teste', icon: Zap, group: 'ops' },
       { title: 'DRX Payt', url: '/drx-analytics', icon: BarChart3, group: 'ops' },
     ] : []),
     { title: '', icon: Home, separator: true },

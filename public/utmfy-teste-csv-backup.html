@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTMFY-teste | Dashboard Integrado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'Roboto Mono', monospace; }
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); }
+        .glass { background: rgba(30, 27, 75, 0.4); backdrop-filter: blur(10px); border: 1px solid rgba(139, 92, 246, 0.2); }
+        .glow { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+        .upload-zone {
+            border: 2px dashed rgba(139, 92, 246, 0.5);
+            transition: all 0.3s ease;
+        }
+        .upload-zone:hover {
+            border-color: rgba(139, 92, 246, 1);
+            background: rgba(139, 92, 246, 0.1);
+        }
+        .upload-zone.dragover {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6 text-white">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-violet-400 to-purple-600 bg-clip-text text-transparent">UTMFY-teste</h1>
+            <p class="text-slate-400 mt-1">Dashboard Integrado com Make</p>
+        </div>
+        <div class="flex gap-4 items-center">
+            <select id="periodoFilter" class="glass px-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+                <option>Últimos 7 dias</option>
+                <option>Últimos 30 dias</option>
+                <option>Hoje</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="glass rounded-xl p-6 mb-8 glow">
+        <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+            <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            Upload de Dados (CSV ou Excel)
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Meta Ads Upload -->
+            <div class="upload-zone rounded-lg p-6 text-center cursor-pointer" id="metaUploadZone">
+                <input type="file" id="metaFileInput" accept=".csv,.xlsx,.xls" class="hidden">
+                <svg class="w-12 h-12 mx-auto mb-3 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="font-semibold mb-1">Meta Ads</h3>
+                <p class="text-xs text-slate-400 mb-2">Dados de campanhas e gastos</p>
+                <p class="text-xs text-green-400 hidden" id="metaStatus">✓ Carregado</p>
+                <button onclick="document.getElementById('metaFileInput').click()" class="mt-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 rounded-lg text-sm transition">
+                    Selecionar Arquivo
+                </button>
+            </div>
+
+            <!-- PayT Upload -->
+            <div class="upload-zone rounded-lg p-6 text-center cursor-pointer" id="paytUploadZone">
+                <input type="file" id="paytFileInput" accept=".csv,.xlsx,.xls" class="hidden">
+                <svg class="w-12 h-12 mx-auto mb-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="font-semibold mb-1">PayT</h3>
+                <p class="text-xs text-slate-400 mb-2">Excel ou CSV de vendas</p>
+                <p class="text-xs text-green-400 hidden" id="paytStatus">✓ Carregado</p>
+                <button onclick="document.getElementById('paytFileInput').click()" class="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm transition">
+                    Selecionar Arquivo
+                </button>
+            </div>
+
+            <!-- Airtable Upload -->
+            <div class="upload-zone rounded-lg p-6 text-center cursor-pointer" id="airtableUploadZone">
+                <input type="file" id="airtableFileInput" accept=".csv,.xlsx,.xls" multiple class="hidden">
+                <svg class="w-12 h-12 mx-auto mb-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="font-semibold mb-1">Airtable Criativos</h3>
+                <p class="text-xs text-slate-400 mb-2">CSV ou Excel (um por produto)</p>
+                <p class="text-xs text-green-400 hidden" id="airtableStatus">✓ <span id="airtableFileCount">0</span> arquivo(s) carregado(s)</p>
+                <button onclick="document.getElementById('airtableFileInput').click()" class="mt-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg text-sm transition">
+                    Selecionar Arquivos
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-4 flex justify-between items-center">
+            <a href="/GUIA_EXPORTACAO_CSV.md" target="_blank" class="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Como exportar os dados?
+            </a>
+            <button id="processButton" disabled class="px-6 py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg font-semibold transition flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Processar Dados
+            </button>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold mb-4">Visão Geral</h2>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">Gasto Total</p>
+                <p class="text-3xl font-bold mono" id="gastoTotal">R$ 0,00</p>
+                <p class="text-xs text-slate-500 mt-1">Meta Ads</p>
+            </div>
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">Vendas Totais</p>
+                <p class="text-3xl font-bold mono" id="vendasTotais">0</p>
+                <p class="text-xs text-slate-500 mt-1">PayT</p>
+            </div>
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">Faturamento</p>
+                <p class="text-3xl font-bold mono" id="faturamento">R$ 0,00</p>
+                <p class="text-xs text-slate-500 mt-1">Aprovado</p>
+            </div>
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">ROAS Médio</p>
+                <p class="text-3xl font-bold mono" id="roasMedio">0.00</p>
+                <p class="text-xs text-slate-500 mt-1">Retorno</p>
+            </div>
+            <div class="glass rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-2">Lucro Bruto</p>
+                <p class="text-3xl font-bold mono" id="lucroBruto">R$ 0,00</p>
+                <p class="text-xs text-slate-500 mt-1" id="margemLabel">0% margem</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controle por Contas -->
+    <div class="glass rounded-xl p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4">Controle por Contas</h2>
+        <div class="flex gap-2 mb-4">
+            <button class="px-4 py-2 bg-violet-600 rounded-lg text-sm font-medium" data-conta="todas">Todas</button>
+            <button class="px-4 py-2 glass rounded-lg text-sm font-medium hover:bg-violet-600/30" data-conta="CA02 - ELE">CA02 - ELE</button>
+            <button class="px-4 py-2 glass rounded-lg text-sm font-medium hover:bg-violet-600/30" data-conta="AGE 01 - ELE">AGE 01 - ELE</button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-slate-700">
+                    <tr class="text-left">
+                        <th class="pb-3 font-semibold">Data</th>
+                        <th class="pb-3 font-semibold">Conta</th>
+                        <th class="pb-3 font-semibold">Status</th>
+                        <th class="pb-3 font-semibold">Gastos</th>
+                        <th class="pb-3 font-semibold">CPM</th>
+                        <th class="pb-3 font-semibold">CPC</th>
+                        <th class="pb-3 font-semibold">Vendas</th>
+                        <th class="pb-3 font-semibold">CPA</th>
+                        <th class="pb-3 font-semibold">Faturamento</th>
+                        <th class="pb-3 font-semibold">Lucro</th>
+                        <th class="pb-3 font-semibold">ROAS</th>
+                        <th class="pb-3 font-semibold">Margem</th>
+                    </tr>
+                </thead>
+                <tbody id="contasTableBody">
+                    <tr>
+                        <td colspan="12" class="text-center py-8 text-slate-400">Faça upload dos arquivos e clique em "Processar Dados"</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Criativos por Lotes -->
+    <div class="glass rounded-xl p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4">Criativos por Lotes</h2>
+        <div class="flex gap-4 mb-4">
+            <div class="flex gap-2">
+                <button class="px-4 py-2 bg-violet-600 rounded-lg text-sm font-medium" data-creative-conta="todas">Todas</button>
+                <button class="px-4 py-2 glass rounded-lg text-sm font-medium hover:bg-violet-600/30" data-creative-conta="CA02">CA02</button>
+                <button class="px-4 py-2 glass rounded-lg text-sm font-medium hover:bg-violet-600/30" data-creative-conta="AGE 01">AGE 01</button>
+            </div>
+            <select id="statusFilter" class="glass px-4 py-2 rounded-lg text-sm flex-1 max-w-xs">
+                <option value="">Todos os Status</option>
+                <option value="Escalando">🟢 Escalando</option>
+                <option value="Testando">🟡 Testando</option>
+                <option value="Pre Escala">🟠 Pre Escala</option>
+                <option value="Pausado">⚫ Pausado</option>
+                <option value="Aprovados">🔵 Aprovado</option>
+                <option value="Rejeitado">🔴 Rejeitado</option>
+                <option value="Backlog">⚪ Backlog</option>
+            </select>
+            <input type="text" id="searchCreative" placeholder="Buscar criativo..." class="glass px-4 py-2 rounded-lg text-sm flex-1">
+        </div>
+        <div id="creativesContainer">
+            <p class="text-center py-8 text-slate-400">Faça upload dos arquivos e clique em "Processar Dados"</p>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="glass rounded-xl p-6">
+            <h3 class="text-lg font-semibold mb-4">Gasto vs Retorno</h3>
+            <canvas id="gastoRetornoChart"></canvas>
+        </div>
+        <div class="glass rounded-xl p-6">
+            <h3 class="text-lg font-semibold mb-4">ROAS por Lote</h3>
+            <canvas id="roasLoteChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Estado global
+        const appState = {
+            metaData: null,
+            paytData: null,
+            airtableData: [],
+            airtableFiles: [], // Rastrear arquivos e produtos
+            processedData: null
+        };
+
+        // Utility para limpar valores monetários brasileiros
+        function parseBRCurrency(value) {
+            if (!value) return 0;
+            return parseFloat(value.toString().replace('R$', '').replace(/\./g, '').replace(',', '.').trim()) || 0;
+        }
+
+        function parsePercentage(value) {
+            if (!value) return 0;
+            return parseFloat(value.toString().replace('%', '').replace(',', '.').trim()) || 0;
+        }
+
+        // Função para ler Excel
+        function readExcelFile(file, callback) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                    
+                    // Converter para formato com headers
+                    if (jsonData.length > 0) {
+                        const headers = jsonData[0];
+                        const rows = jsonData.slice(1).map(row => {
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                obj[header] = row[index];
+                            });
+                            return obj;
+                        });
+                        callback(rows);
+                    } else {
+                        callback([]);
+                    }
+                } catch (error) {
+                    console.error('Erro ao ler Excel:', error);
+                    alert('Erro ao processar arquivo Excel: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Upload handlers
+        function setupFileUpload(inputId, statusId, dataKey, isMultiple = false) {
+            const input = document.getElementById(inputId);
+            const status = document.getElementById(statusId);
+            let uploadedFileCount = 0;
+            
+            input.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (files.length > 0) {
+                    let filesProcessed = 0;
+                    const totalFiles = files.length;
+                    
+                    if (isMultiple) {
+                        appState[dataKey] = [];
+                        if (dataKey === 'airtableData') {
+                            appState.airtableFiles = [];
+                        }
+                    }
+                    
+                    Array.from(files).forEach(file => {
+                        const fileName = file.name.toLowerCase();
+                        const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+                        
+                        // Extrair nome do produto do arquivo (ex: AGE01, CA02)
+                        let productName = file.name.replace(/\.(csv|xlsx|xls)$/i, '');
+                        const match = productName.match(/(AGE\s?\d+|CA\s?\d+)/i);
+                        if (match) {
+                            productName = match[0].toUpperCase().replace(/\s/g, '');
+                        }
+                        
+                        if (isExcel) {
+                            readExcelFile(file, (data) => {
+                                if (isMultiple) {
+                                    // Adicionar produto a cada linha
+                                    const dataWithProduct = data.map(row => ({ ...row, _produto: productName, _arquivo: file.name }));
+                                    appState[dataKey] = appState[dataKey].concat(dataWithProduct);
+                                    if (dataKey === 'airtableData') {
+                                        appState.airtableFiles.push({ name: file.name, product: productName, rows: data.length });
+                                    }
+                                } else {
+                                    appState[dataKey] = data;
+                                }
+                                
+                                filesProcessed++;
+                                if (filesProcessed === totalFiles) {
+                                    status.classList.remove('hidden');
+                                    if (isMultiple && dataKey === 'airtableData') {
+                                        uploadedFileCount = totalFiles;
+                                        document.getElementById('airtableFileCount').textContent = uploadedFileCount;
+                                    }
+                                    checkAllFilesLoaded();
+                                    console.log(`${dataKey} carregado:`, isMultiple ? appState[dataKey].length : data.length, 'linhas', totalFiles, 'arquivo(s)');
+                                }
+                            });
+                        } else {
+                            // CSV
+                            Papa.parse(file, {
+                                header: true,
+                                skipEmptyLines: true,
+                                complete: (results) => {
+                                    if (isMultiple) {
+                                        // Adicionar produto a cada linha
+                                        const dataWithProduct = results.data.map(row => ({ ...row, _produto: productName, _arquivo: file.name }));
+                                        appState[dataKey] = appState[dataKey].concat(dataWithProduct);
+                                        if (dataKey === 'airtableData') {
+                                            appState.airtableFiles.push({ name: file.name, product: productName, rows: results.data.length });
+                                        }
+                                    } else {
+                                        appState[dataKey] = results.data;
+                                    }
+                                    
+                                    filesProcessed++;
+                                    if (filesProcessed === totalFiles) {
+                                        status.classList.remove('hidden');
+                                        if (isMultiple && dataKey === 'airtableData') {
+                                            uploadedFileCount = totalFiles;
+                                            document.getElementById('airtableFileCount').textContent = uploadedFileCount;
+                                        }
+                                        checkAllFilesLoaded();
+                                        console.log(`${dataKey} carregado:`, isMultiple ? appState[dataKey].length : results.data.length, 'linhas', totalFiles, 'arquivo(s)');
+                                    }
+                                },
+                                error: (error) => {
+                                    alert(`Erro ao processar ${file.name}: ${error.message}`);
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        function checkAllFilesLoaded() {
+            const processButton = document.getElementById('processButton');
+            // Apenas Airtable é obrigatório para começar
+            if (appState.airtableData.length > 0) {
+                processButton.disabled = false;
+            }
+        }
+
+        // Processar e cruzar dados
+        function processData() {
+            console.log('Processando dados...');
+            console.log('Meta:', appState.metaData);
+            console.log('PayT:', appState.paytData);
+            console.log('Airtable:', appState.airtableData);
+            
+            const processed = {
+                kpis: calculateKPIs(),
+                contas: processContas(),
+                criativos: processCreativos()
+            };
+            
+            appState.processedData = processed;
+            updateDashboard(processed);
+        }
+
+        function calculateKPIs() {
+            let gastoTotal = 0;
+            let vendasTotais = 0;
+            let faturamento = 0;
+
+            // Se tiver dados do Airtable, usar eles
+            if (appState.airtableData.length > 0) {
+                appState.airtableData.forEach(row => {
+                    gastoTotal += parseBRCurrency(row['Valor Gasto']);
+                    vendasTotais += parseInt(row['Vendas'] || 0);
+                    faturamento += parseBRCurrency(row['Faturamento']);
+                });
+            }
+
+            // Se tiver dados do Meta, somar também
+            if (appState.metaData) {
+                appState.metaData.forEach(row => {
+                    gastoTotal += parseFloat(row.spend || 0);
+                });
+            }
+
+            // Se tiver dados do PayT, usar para vendas
+            if (appState.paytData) {
+                const vendasPayT = appState.paytData.filter(row => 
+                    row.status && row.status.toLowerCase().includes('approv')
+                ).length;
+                if (vendasPayT > 0) vendasTotais = vendasPayT;
+
+                const faturamentoPayT = appState.paytData
+                    .filter(row => row.status && row.status.toLowerCase().includes('approv'))
+                    .reduce((sum, row) => sum + parseFloat(row.amount || 0), 0);
+                if (faturamentoPayT > 0) faturamento = faturamentoPayT;
+            }
+
+            const roas = gastoTotal > 0 ? faturamento / gastoTotal : 0;
+            const lucro = faturamento - gastoTotal;
+            const margem = faturamento > 0 ? (lucro / faturamento) * 100 : 0;
+
+            return { gastoTotal, vendasTotais, faturamento, roas, lucro, margem };
+        }
+
+        function processContas() {
+            const contasMap = new Map();
+            
+            // Processar dados do Airtable agrupados por conta
+            appState.airtableData.forEach(row => {
+                const criativo = row['Criativo'] || row['Name'] || '';
+                let conta = 'Desconhecida';
+                
+                // Extrair conta do nome do criativo [ELE] ou [CA02]
+                if (criativo.includes('[ELE]')) conta = 'AGE 01 - ELE';
+                else if (criativo.includes('[CA02]')) conta = 'CA02 - ELE';
+                
+                const data = new Date().toISOString().split('T')[0]; // Usar data atual
+                const key = `${data}_${conta}`;
+                
+                if (!contasMap.has(key)) {
+                    contasMap.set(key, {
+                        data: data,
+                        conta: conta,
+                        status: row['Status (Tráfego)'] || '🟡 Testando',
+                        gastos: 0,
+                        impressoes: 0,
+                        clicks: 0,
+                        vendas: 0,
+                        faturamento: 0
+                    });
+                }
+                
+                const contaData = contasMap.get(key);
+                contaData.gastos += parseBRCurrency(row['Valor Gasto']);
+                contaData.vendas += parseInt(row['Vendas'] || 0);
+                contaData.faturamento += parseBRCurrency(row['Faturamento']);
+                
+                // Calcular impressões e clicks a partir de CTR e CPC
+                const ctr = parsePercentage(row['CTR']);
+                const cpc = parseBRCurrency(row['CPC']);
+                if (cpc > 0) {
+                    contaData.clicks += Math.round(contaData.gastos / cpc);
+                }
+                if (ctr > 0 && contaData.clicks > 0) {
+                    contaData.impressoes += Math.round(contaData.clicks / (ctr / 100));
+                }
+            });
+
+            return Array.from(contasMap.values());
+        }
+
+        function processCreativos() {
+            const lotesMap = new Map();
+            
+            appState.airtableData.forEach(row => {
+                const lote = row['LOTE'] || 'LOTE 00';
+                if (!lotesMap.has(lote)) {
+                    lotesMap.set(lote, []);
+                }
+                
+                const roas = parseBRCurrency(row['ROAS']) || parseFloat(row['ROAS']) || 0;
+                const gasto = parseBRCurrency(row['Valor Gasto']);
+                const faturamento = parseBRCurrency(row['Faturamento']);
+                const lucro = parseBRCurrency(row['Lucro ROAS']);
+                
+                lotesMap.get(lote).push({
+                    nome: row['Name'] || row['Criativo'] || 'Sem nome',
+                    status: row['Status (Tráfego)'] || '⚪ Backlog',
+                    lote: lote,
+                    gasto: gasto,
+                    vendas: parseInt(row['Vendas'] || 0),
+                    cpa: parseBRCurrency(row['CPA']),
+                    faturamento: faturamento,
+                    lucro: lucro,
+                    roas: roas,
+                    cpc: parseBRCurrency(row['CPC']),
+                    ctr: parsePercentage(row['CTR']),
+                    cpm: parseBRCurrency(row['CPM']),
+                    hook: parsePercentage(row['Hook Rate']),
+                    hold: parsePercentage(row['Hold Rate'])
+                });
+            });
+
+            return Array.from(lotesMap.entries()).map(([lote, criativos]) => {
+                const gastoTotal = criativos.reduce((sum, c) => sum + c.gasto, 0);
+                const vendasTotal = criativos.reduce((sum, c) => sum + c.vendas, 0);
+                const faturamentoTotal = criativos.reduce((sum, c) => sum + c.faturamento, 0);
+                const roasMedia = gastoTotal > 0 ? faturamentoTotal / gastoTotal : 0;
+                
+                return {
+                    lote,
+                    criativos,
+                    gastoTotal,
+                    vendasTotal,
+                    roasMedia
+                };
+            }).sort((a, b) => {
+                // Ordenar por número do lote
+                const numA = parseInt(a.lote.replace('LOTE ', ''));
+                const numB = parseInt(b.lote.replace('LOTE ', ''));
+                return numA - numB;
+            });
+        }
+
+        function updateDashboard(data) {
+            // Atualizar KPIs
+            document.getElementById('gastoTotal').textContent = formatCurrency(data.kpis.gastoTotal);
+            document.getElementById('vendasTotais').textContent = data.kpis.vendasTotais;
+            document.getElementById('faturamento').textContent = formatCurrency(data.kpis.faturamento);
+            document.getElementById('roasMedio').textContent = data.kpis.roas.toFixed(2);
+            
+            const lucroEl = document.getElementById('lucroBruto');
+            lucroEl.textContent = formatCurrency(data.kpis.lucro);
+            lucroEl.className = `text-3xl font-bold mono ${data.kpis.lucro >= 0 ? 'text-green-400' : 'text-red-400'}`;
+            
+            document.getElementById('margemLabel').textContent = `${data.kpis.margem.toFixed(2)}% margem`;
+
+            // Atualizar tabela de contas
+            updateContasTable(data.contas);
+
+            // Atualizar criativos
+            updateCreativesDisplay(data.criativos);
+
+            // Atualizar gráficos
+            updateCharts(data);
+        }
+
+        function updateContasTable(contas) {
+            const tbody = document.getElementById('contasTableBody');
+            if (contas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-8 text-slate-400">Nenhum dado encontrado</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = contas.map(conta => {
+                const cpm = conta.impressoes > 0 ? (conta.gastos / conta.impressoes) * 1000 : 0;
+                const cpc = conta.clicks > 0 ? conta.gastos / conta.clicks : 0;
+                const cpa = conta.vendas > 0 ? conta.gastos / conta.vendas : 0;
+                const roas = conta.gastos > 0 ? conta.faturamento / conta.gastos : 0;
+                const lucro = conta.faturamento - conta.gastos;
+                const margem = conta.faturamento > 0 ? (lucro / conta.faturamento) * 100 : 0;
+
+                return `
+                    <tr class="border-b border-slate-800 hover:bg-slate-800/30">
+                        <td class="py-3">${formatDate(conta.data)}</td>
+                        <td class="py-3 font-semibold">${conta.conta}</td>
+                        <td class="py-3"><span class="px-2 py-1 rounded text-xs">${conta.status}</span></td>
+                        <td class="py-3 mono">${formatCurrency(conta.gastos)}</td>
+                        <td class="py-3 mono">${formatCurrency(cpm)}</td>
+                        <td class="py-3 mono">${formatCurrency(cpc)}</td>
+                        <td class="py-3 font-semibold">${conta.vendas}</td>
+                        <td class="py-3 mono">${formatCurrency(cpa)}</td>
+                        <td class="py-3 mono">${formatCurrency(conta.faturamento)}</td>
+                        <td class="py-3 mono ${lucro >= 0 ? 'text-green-400' : 'text-red-400'}">${formatCurrency(lucro)}</td>
+                        <td class="py-3 mono font-bold ${getROASColor(roas)}">${roas.toFixed(2)}</td>
+                        <td class="py-3 mono">${margem.toFixed(2)}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateCreativesDisplay(lotes) {
+            const container = document.getElementById('creativesContainer');
+            if (lotes.length === 0) {
+                container.innerHTML = '<p class="text-center py-8 text-slate-400">Nenhum criativo encontrado</p>';
+                return;
+            }
+            
+            container.innerHTML = lotes.map(lote => `
+                <div class="mb-4 border border-slate-700 rounded-lg overflow-hidden">
+                    <div class="bg-slate-800/50 p-4 flex justify-between items-center cursor-pointer hover:bg-slate-800/70" onclick="toggleLote('${lote.lote}')">
+                        <div>
+                            <h3 class="font-bold text-lg">${lote.lote}</h3>
+                            <p class="text-sm text-slate-400">${lote.criativos.length} criativos</p>
+                        </div>
+                        <div class="flex gap-6 text-sm">
+                            <div><span class="text-slate-400">Gasto:</span> <span class="mono font-semibold">${formatCurrency(lote.gastoTotal)}</span></div>
+                            <div><span class="text-slate-400">Vendas:</span> <span class="mono font-semibold">${lote.vendasTotal}</span></div>
+                            <div><span class="text-slate-400">ROAS:</span> <span class="mono font-semibold ${getROASColor(lote.roasMedia)}">${lote.roasMedia.toFixed(2)}</span></div>
+                            <svg class="w-5 h-5 transition-transform" id="arrow-${lote.lote}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="hidden p-4" id="lote-${lote.lote}">
+                        <table class="w-full text-sm">
+                            <thead class="border-b border-slate-700">
+                                <tr class="text-left">
+                                    <th class="pb-2">Nome</th>
+                                    <th class="pb-2">Status</th>
+                                    <th class="pb-2">Gasto</th>
+                                    <th class="pb-2">Vendas</th>
+                                    <th class="pb-2">CPA</th>
+                                    <th class="pb-2">Faturamento</th>
+                                    <th class="pb-2">Lucro</th>
+                                    <th class="pb-2">ROAS</th>
+                                    <th class="pb-2">CPC</th>
+                                    <th class="pb-2">CTR</th>
+                                    <th class="pb-2">CPM</th>
+                                    <th class="pb-2">Hook</th>
+                                    <th class="pb-2">Hold</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${lote.criativos.map(c => `
+                                    <tr class="border-b border-slate-800">
+                                        <td class="py-2 font-medium">${c.nome}</td>
+                                        <td class="py-2">${c.status}</td>
+                                        <td class="py-2 mono">${formatCurrency(c.gasto)}</td>
+                                        <td class="py-2 mono">${c.vendas}</td>
+                                        <td class="py-2 mono">${formatCurrency(c.cpa)}</td>
+                                        <td class="py-2 mono">${formatCurrency(c.faturamento)}</td>
+                                        <td class="py-2 mono ${c.lucro >= 0 ? 'text-green-400' : 'text-red-400'}">${formatCurrency(c.lucro)}</td>
+                                        <td class="py-2 mono font-bold ${getROASColor(c.roas)}">${c.roas.toFixed(2)}</td>
+                                        <td class="py-2 mono">${formatCurrency(c.cpc)}</td>
+                                        <td class="py-2 mono">${c.ctr.toFixed(2)}%</td>
+                                        <td class="py-2 mono">${formatCurrency(c.cpm)}</td>
+                                        <td class="py-2 mono">${c.hook}%</td>
+                                        <td class="py-2 mono">${c.hold}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleLote(loteId) {
+            const content = document.getElementById(`lote-${loteId}`);
+            const arrow = document.getElementById(`arrow-${loteId}`);
+            content.classList.toggle('hidden');
+            arrow.style.transform = content.classList.contains('hidden') ? '' : 'rotate(180deg)';
+        }
+
+        function updateCharts(data) {
+            // Gráfico Gasto vs Retorno
+            const ctx1 = document.getElementById('gastoRetornoChart');
+            if (window.gastoRetornoChartInstance) {
+                window.gastoRetornoChartInstance.destroy();
+            }
+            
+            const labels = data.contas.map(c => c.conta);
+            const gastos = data.contas.map(c => c.gastos);
+            const retornos = data.contas.map(c => c.faturamento);
+            
+            window.gastoRetornoChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Gasto',
+                        data: gastos,
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)'
+                    }, {
+                        label: 'Retorno',
+                        data: retornos,
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    },
+                    scales: {
+                        y: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                    }
+                }
+            });
+
+            // Gráfico ROAS por Lote
+            const ctx2 = document.getElementById('roasLoteChart');
+            if (window.roasLoteChartInstance) {
+                window.roasLoteChartInstance.destroy();
+            }
+            
+            const lotesLabels = data.criativos.map(l => l.lote);
+            const roasValues = data.criativos.map(l => l.roasMedia);
+            
+            window.roasLoteChartInstance = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: lotesLabels,
+                    datasets: [{
+                        label: 'ROAS',
+                        data: roasValues,
+                        borderColor: 'rgba(139, 92, 246, 1)',
+                        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    },
+                    scales: {
+                        y: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                    }
+                }
+            });
+        }
+
+        // Utility functions
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        function getROASColor(roas) {
+            if (roas >= 2.0) return 'text-green-400';
+            if (roas >= 1.0) return 'text-yellow-400';
+            return 'text-red-400';
+        }
+
+        // Initialize
+        setupFileUpload('metaFileInput', 'metaStatus', 'metaData');
+        setupFileUpload('paytFileInput', 'paytStatus', 'paytData');
+        setupFileUpload('airtableFileInput', 'airtableStatus', 'airtableData', true);
+
+        document.getElementById('processButton').addEventListener('click', processData);
+
+        // Drag and drop
+        ['metaUploadZone', 'paytUploadZone', 'airtableUploadZone'].forEach(zoneId => {
+            const zone = document.getElementById(zoneId);
+            const inputId = zoneId.replace('UploadZone', 'FileInput');
+            
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('dragover');
+            });
+            
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('dragover');
+            });
+            
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    document.getElementById(inputId).files = files;
+                    document.getElementById(inputId).dispatchEvent(new Event('change'));
+                }
+            });
+        });
+    </script>
+</body>
+</html>
