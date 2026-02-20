@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -52,13 +53,13 @@
             <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
-            Upload de Dados (CSV)
+            Upload de Dados (CSV ou Excel)
         </h2>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Meta Ads Upload -->
             <div class="upload-zone rounded-lg p-6 text-center cursor-pointer" id="metaUploadZone">
-                <input type="file" id="metaFileInput" accept=".csv" class="hidden">
+                <input type="file" id="metaFileInput" accept=".csv,.xlsx,.xls" class="hidden">
                 <svg class="w-12 h-12 mx-auto mb-3 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
@@ -72,12 +73,12 @@
 
             <!-- PayT Upload -->
             <div class="upload-zone rounded-lg p-6 text-center cursor-pointer" id="paytUploadZone">
-                <input type="file" id="paytFileInput" accept=".csv" class="hidden">
+                <input type="file" id="paytFileInput" accept=".csv,.xlsx,.xls" class="hidden">
                 <svg class="w-12 h-12 mx-auto mb-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
                 <h3 class="font-semibold mb-1">PayT</h3>
-                <p class="text-xs text-slate-400 mb-2">Dados de vendas e conversões</p>
+                <p class="text-xs text-slate-400 mb-2">Excel ou CSV de vendas</p>
                 <p class="text-xs text-green-400 hidden" id="paytStatus">✓ Carregado</p>
                 <button onclick="document.getElementById('paytFileInput').click()" class="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm transition">
                     Selecionar Arquivo
@@ -86,13 +87,13 @@
 
             <!-- Airtable Upload -->
             <div class="upload-zone rounded-lg p-6 text-center cursor-pointer" id="airtableUploadZone">
-                <input type="file" id="airtableFileInput" accept=".csv" multiple class="hidden">
+                <input type="file" id="airtableFileInput" accept=".csv,.xlsx,.xls" multiple class="hidden">
                 <svg class="w-12 h-12 mx-auto mb-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
                 <h3 class="font-semibold mb-1">Airtable Criativos</h3>
-                <p class="text-xs text-slate-400 mb-2">Organização por lotes (múltiplos arquivos)</p>
-                <p class="text-xs text-green-400 hidden" id="airtableStatus">✓ Carregado</p>
+                <p class="text-xs text-slate-400 mb-2">CSV ou Excel (um por produto)</p>
+                <p class="text-xs text-green-400 hidden" id="airtableStatus">✓ <span id="airtableFileCount">0</span> arquivo(s) carregado(s)</p>
                 <button onclick="document.getElementById('airtableFileInput').click()" class="mt-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg text-sm transition">
                     Selecionar Arquivos
                 </button>
@@ -104,7 +105,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-                Como exportar os CSVs?
+                Como exportar os dados?
             </a>
             <button id="processButton" disabled class="px-6 py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg font-semibold transition flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -175,7 +176,7 @@
                 </thead>
                 <tbody id="contasTableBody">
                     <tr>
-                        <td colspan="12" class="text-center py-8 text-slate-400">Faça upload dos arquivos CSV e clique em "Processar Dados"</td>
+                        <td colspan="12" class="text-center py-8 text-slate-400">Faça upload dos arquivos e clique em "Processar Dados"</td>
                     </tr>
                 </tbody>
             </table>
@@ -204,7 +205,7 @@
             <input type="text" id="searchCreative" placeholder="Buscar criativo..." class="glass px-4 py-2 rounded-lg text-sm flex-1">
         </div>
         <div id="creativesContainer">
-            <p class="text-center py-8 text-slate-400">Faça upload dos arquivos CSV e clique em "Processar Dados"</p>
+            <p class="text-center py-8 text-slate-400">Faça upload dos arquivos e clique em "Processar Dados"</p>
         </div>
     </div>
 
@@ -226,6 +227,7 @@
             metaData: null,
             paytData: null,
             airtableData: [],
+            airtableFiles: [], // Rastrear arquivos e produtos
             processedData: null
         };
 
@@ -240,10 +242,43 @@
             return parseFloat(value.toString().replace('%', '').replace(',', '.').trim()) || 0;
         }
 
+        // Função para ler Excel
+        function readExcelFile(file, callback) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                    
+                    // Converter para formato com headers
+                    if (jsonData.length > 0) {
+                        const headers = jsonData[0];
+                        const rows = jsonData.slice(1).map(row => {
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                obj[header] = row[index];
+                            });
+                            return obj;
+                        });
+                        callback(rows);
+                    } else {
+                        callback([]);
+                    }
+                } catch (error) {
+                    console.error('Erro ao ler Excel:', error);
+                    alert('Erro ao processar arquivo Excel: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
         // Upload handlers
         function setupFileUpload(inputId, statusId, dataKey, isMultiple = false) {
             const input = document.getElementById(inputId);
             const status = document.getElementById(statusId);
+            let uploadedFileCount = 0;
             
             input.addEventListener('change', (e) => {
                 const files = e.target.files;
@@ -253,30 +288,79 @@
                     
                     if (isMultiple) {
                         appState[dataKey] = [];
+                        if (dataKey === 'airtableData') {
+                            appState.airtableFiles = [];
+                        }
                     }
                     
                     Array.from(files).forEach(file => {
-                        Papa.parse(file, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: (results) => {
+                        const fileName = file.name.toLowerCase();
+                        const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+                        
+                        // Extrair nome do produto do arquivo (ex: AGE01, CA02)
+                        let productName = file.name.replace(/\.(csv|xlsx|xls)$/i, '');
+                        const match = productName.match(/(AGE\s?\d+|CA\s?\d+)/i);
+                        if (match) {
+                            productName = match[0].toUpperCase().replace(/\s/g, '');
+                        }
+                        
+                        if (isExcel) {
+                            readExcelFile(file, (data) => {
                                 if (isMultiple) {
-                                    appState[dataKey] = appState[dataKey].concat(results.data);
+                                    // Adicionar produto a cada linha
+                                    const dataWithProduct = data.map(row => ({ ...row, _produto: productName, _arquivo: file.name }));
+                                    appState[dataKey] = appState[dataKey].concat(dataWithProduct);
+                                    if (dataKey === 'airtableData') {
+                                        appState.airtableFiles.push({ name: file.name, product: productName, rows: data.length });
+                                    }
                                 } else {
-                                    appState[dataKey] = results.data;
+                                    appState[dataKey] = data;
                                 }
                                 
                                 filesProcessed++;
                                 if (filesProcessed === totalFiles) {
                                     status.classList.remove('hidden');
+                                    if (isMultiple && dataKey === 'airtableData') {
+                                        uploadedFileCount = totalFiles;
+                                        document.getElementById('airtableFileCount').textContent = uploadedFileCount;
+                                    }
                                     checkAllFilesLoaded();
-                                    console.log(`${dataKey} carregado:`, isMultiple ? appState[dataKey].length : results.data.length, 'linhas');
+                                    console.log(`${dataKey} carregado:`, isMultiple ? appState[dataKey].length : data.length, 'linhas', totalFiles, 'arquivo(s)');
                                 }
-                            },
-                            error: (error) => {
-                                alert(`Erro ao processar ${file.name}: ${error.message}`);
-                            }
-                        });
+                            });
+                        } else {
+                            // CSV
+                            Papa.parse(file, {
+                                header: true,
+                                skipEmptyLines: true,
+                                complete: (results) => {
+                                    if (isMultiple) {
+                                        // Adicionar produto a cada linha
+                                        const dataWithProduct = results.data.map(row => ({ ...row, _produto: productName, _arquivo: file.name }));
+                                        appState[dataKey] = appState[dataKey].concat(dataWithProduct);
+                                        if (dataKey === 'airtableData') {
+                                            appState.airtableFiles.push({ name: file.name, product: productName, rows: results.data.length });
+                                        }
+                                    } else {
+                                        appState[dataKey] = results.data;
+                                    }
+                                    
+                                    filesProcessed++;
+                                    if (filesProcessed === totalFiles) {
+                                        status.classList.remove('hidden');
+                                        if (isMultiple && dataKey === 'airtableData') {
+                                            uploadedFileCount = totalFiles;
+                                            document.getElementById('airtableFileCount').textContent = uploadedFileCount;
+                                        }
+                                        checkAllFilesLoaded();
+                                        console.log(`${dataKey} carregado:`, isMultiple ? appState[dataKey].length : results.data.length, 'linhas', totalFiles, 'arquivo(s)');
+                                    }
+                                },
+                                error: (error) => {
+                                    alert(`Erro ao processar ${file.name}: ${error.message}`);
+                                }
+                            });
+                        }
                     });
                 }
             });
