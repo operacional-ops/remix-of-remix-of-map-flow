@@ -514,6 +514,13 @@
                         createdAt: Date.now(),
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    
+                    // Marcar tarefa como tendo comentário não lido
+                    await db.collection('drx_tasks').doc(task.id).update({
+                        hasUnreadComments: true,
+                        lastCommentAt: Date.now()
+                    });
+                    
                     setNewComment("");
                 } catch (err) {
                     console.error('Erro ao adicionar comentário:', err);
@@ -912,6 +919,12 @@
                                             return <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${info.cls}`}>{info.label}</span>;
                                         })()}
                                         {task.link && <Icon name="link" className="w-3 h-3 text-blue-400" />}
+                                        {task.hasUnreadComments && (
+                                            <span className="flex items-center gap-1 bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-[9px] font-bold animate-pulse">
+                                                <Icon name="message-circle" className="w-3 h-3" />
+                                                Novo
+                                            </span>
+                                        )}
                                         <CommentCountBadge taskId={task.id} />
                                     </div>
                                     <p className="text-sm text-slate-200 leading-snug font-medium mb-1">{task.text}</p>
@@ -970,7 +983,21 @@
             const toggleSelectMode = () => { setIsSelectMode(!isSelectMode); setSelectedTasks([]); };
             
             const openNewTaskModal = () => { setCurrentTask(null); setModalOpen(true); };
-            const openEditTaskModal = (task) => { setCurrentTask(task); setModalOpen(true); };
+            const openEditTaskModal = async (task) => { 
+                setCurrentTask(task); 
+                setModalOpen(true); 
+                
+                // Marcar comentários como lidos ao abrir a tarefa
+                if (task.hasUnreadComments) {
+                    try {
+                        await db.collection('drx_tasks').doc(task.id).update({
+                            hasUnreadComments: false
+                        });
+                    } catch (err) {
+                        console.error('Erro ao marcar comentários como lidos:', err);
+                    }
+                }
+            };
 
             const executeBulkAction = async (action) => { await onBulkAction(action, selectedTasks); setSelectedTasks([]); setIsSelectMode(false); };
 
@@ -1351,8 +1378,16 @@
 
             // Listener de Mensagens
             React.useEffect(() => {
+                let isFirstLoad = true;
                 const unsubscribe = db.collection('drx_messages').orderBy('timestamp', 'desc').onSnapshot(snapshot => {
                     const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    
+                    // Tocar som apenas para novas mensagens (não no primeiro carregamento)
+                    if (!isFirstLoad && snapshot.docChanges().some(change => change.type === 'added')) {
+                        playNotificationSound('message');
+                    }
+                    isFirstLoad = false;
+                    
                     setMessages(msgs);
                 });
                 return () => unsubscribe();
@@ -1372,6 +1407,37 @@
                     setView('login');
                 }
             }, [currentUser]);
+
+            // Sistema de Notificações Sonoras
+            const playNotificationSound = (type = 'task') => {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    if (type === 'task') {
+                        // Som suave para nova tarefa (2 tons)
+                        oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+                        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1);
+                        gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.3);
+                    } else if (type === 'message') {
+                        // Som suave para mensagem (1 tom)
+                        oscillator.frequency.setValueAtTime(700, audioContext.currentTime);
+                        gainNode.gain.setValueAtTime(0.12, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.2);
+                    }
+                } catch (error) {
+                    console.log('Notificação sonora não disponível:', error);
+                }
+            };
 
             // Ações Firebase (COM SAVE UNIFICADO)
             // --- VERSÃO CORRIGIDA DO saveTask ---
@@ -1423,6 +1489,9 @@
                             assignedTo: targetUserId || currentUser.id,
                             timestamp: firebase.firestore.FieldValue.serverTimestamp()
                         });
+                        
+                        // Tocar som de notificação quando criar nova tarefa
+                        playNotificationSound('task');
                     }
                 } catch (error) {
                     console.error("Erro ao salvar tarefa:", error);
