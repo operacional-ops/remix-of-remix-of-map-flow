@@ -35,8 +35,8 @@ export default function DashboardOperacao() {
   }, [activeWorkspace?.id]);
 
   const src = activeWorkspace?.id
-    ? `/dashboard-operacao.html?workspace=${activeWorkspace.id}`
-    : '/dashboard-operacao.html';
+    ? `/dashboard-operacao-v2.html?workspace=${activeWorkspace.id}`
+    : '/dashboard-operacao-v2.html';
 
   return (
     <div className="h-full w-full">

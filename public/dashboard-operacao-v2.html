@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRX Intelligence Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .font-mono {
+            font-family: 'Roboto Mono', monospace;
+        }
+        
+        body {
+            background: #0f172a;
+            color: #f1f5f9;
+        }
+        
+        .card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        
+        .card:hover {
+            border-color: rgba(139, 92, 246, 0.3);
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-escalando { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .status-testando { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .status-pre-escala { background: rgba(249, 115, 22, 0.2); color: #f97316; }
+        .status-pausado { background: rgba(100, 116, 139, 0.2); color: #64748b; }
+        .status-aprovado { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .status-rejeitado { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .status-backlog { background: rgba(226, 232, 240, 0.2); color: #e2e8f0; }
+        
+        .roas-positive { color: #10b981; font-weight: 700; }
+        .roas-neutral { color: #f59e0b; font-weight: 700; }
+        .roas-negative { color: #ef4444; font-weight: 700; }
+        
+        .lote-group {
+            border-left: 3px solid rgba(139, 92, 246, 0.5);
+            padding-left: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .lote-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .lote-header:hover {
+            background: rgba(139, 92, 246, 0.1);
+        }
+        
+        .loading-spinner {
+            border: 3px solid rgba(139, 92, 246, 0.3);
+            border-top: 3px solid #8b5cf6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tab-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .tab-button:not(.active) {
+            color: #94a3b8;
+        }
+        
+        .tab-button:not(.active):hover {
+            background: rgba(139, 92, 246, 0.1);
+            color: #cbd5e1;
+        }
+        
+        .tab-button.active {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
+            color: #e0e7ff;
+            border-left: 3px solid #8b5cf6;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        th {
+            background: rgba(15, 23, 42, 0.8);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #cbd5e1;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        
+        tr:hover td {
+            background: rgba(139, 92, 246, 0.05);
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-900">
+    <!-- HEADER -->
+    <header class="bg-slate-800/50 backdrop-blur-lg border-b border-slate-700/50 sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
+                        DRX Intelligence
+                    </h1>
+                    <span class="text-sm text-slate-400 font-mono">Dashboard Operacional</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <select id="periodoFilter" class="bg-slate-700 text-slate-200 px-4 py-2 rounded-lg border border-slate-600 focus:outline-none focus:border-violet-500">
+                        <option value="7">Últimos 7 dias</option>
+                        <option value="30">Últimos 30 dias</option>
+                        <option value="today">Hoje</option>
+                    </select>
+                    <button id="syncButton" class="btn-primary">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Sincronizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="container mx-auto px-6 py-8">
+        <!-- KPIs GERAIS -->
+        <section class="mb-8">
+            <h2 class="text-xl font-bold mb-4 text-slate-200">Visão Geral</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="card metric-card rounded-xl p-6">
+                    <div class="text-sm text-slate-400 mb-2">Gasto Total</div>
+                    <div class="text-3xl font-bold text-white" id="kpi-gasto">R$ 0,00</div>
+                    <div class="text-xs text-slate-500 mt-2 font-mono">Meta Ads</div>
+                </div>
+                <div class="card metric-card rounded-xl p-6">
+                    <div class="text-sm text-slate-400 mb-2">Vendas Totais</div>
+                    <div class="text-3xl font-bold text-white" id="kpi-vendas">0</div>
+                    <div class="text-xs text-slate-500 mt-2 font-mono">PayT</div>
+                </div>
+                <div class="card metric-card rounded-xl p-6">
+                    <div class="text-sm text-slate-400 mb-2">Faturamento</div>
+                    <div class="text-3xl font-bold text-white" id="kpi-faturamento">R$ 0,00</div>
+                    <div class="text-xs text-green-500 mt-2 font-mono">Aprovado</div>
+                </div>
+                <div class="card metric-card rounded-xl p-6">
+                    <div class="text-sm text-slate-400 mb-2">ROAS Médio</div>
+                    <div class="text-3xl font-bold" id="kpi-roas">0.00</div>
+                    <div class="text-xs text-slate-500 mt-2 font-mono">Retorno</div>
+                </div>
+                <div class="card metric-card rounded-xl p-6">
+                    <div class="text-sm text-slate-400 mb-2">Lucro Bruto</div>
+                    <div class="text-3xl font-bold" id="kpi-lucro">R$ 0,00</div>
+                    <div class="text-xs text-slate-500 mt-2 font-mono" id="kpi-margem">0% margem</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CONTROLE POR CONTAS -->
+        <section class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-200">Controle por Contas</h2>
+                <div class="flex gap-2">
+                    <button class="tab-button active" data-conta="all">Todas</button>
+                    <button class="tab-button" data-conta="CA02">CA02 - ELE</button>
+                    <button class="tab-button" data-conta="AGE01">AGE 01 - ELE</button>
+                </div>
+            </div>
+            <div class="card rounded-xl p-6 overflow-x-auto">
+                <table id="contasTable">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Conta</th>
+                            <th>Status</th>
+                            <th>Gastos</th>
+                            <th>CPM</th>
+                            <th>CPC</th>
+                            <th>Vendas</th>
+                            <th>CPA</th>
+                            <th>Faturamento</th>
+                            <th>Lucro</th>
+                            <th>ROAS</th>
+                            <th>Margem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contasTableBody">
+                        <tr>
+                            <td colspan="12" class="text-center text-slate-400 py-8">
+                                Clique em "Sincronizar" para carregar os dados
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- CRIATIVOS POR LOTES -->
+        <section class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-200">Criativos por Lotes</h2>
+                <div class="flex gap-2">
+                    <button class="tab-button active" data-criativo-conta="CA02">CA02</button>
+                    <button class="tab-button" data-criativo-conta="AGE01">AGE 01</button>
+                </div>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <select id="statusFilter" class="bg-slate-700 text-slate-200 px-4 py-2 rounded-lg border border-slate-600 focus:outline-none focus:border-violet-500">
+                    <option value="all">Todos os Status</option>
+                    <option value="Escalando">🟢 Escalando</option>
+                    <option value="Testando">🟡 Testando</option>
+                    <option value="Pre Escala">🟠 Pre Escala</option>
+                    <option value="Pausado">⚫ Pausado</option>
+                    <option value="Aprovado">🔵 Aprovado</option>
+                    <option value="Rejeitado">🔴 Rejeitado</option>
+                    <option value="Backlog">⚪ Backlog</option>
+                </select>
+                <input type="text" id="searchCreative" placeholder="Buscar criativo..." class="bg-slate-700 text-slate-200 px-4 py-2 rounded-lg border border-slate-600 focus:outline-none focus:border-violet-500 flex-1">
+            </div>
+            <div id="criativosContainer" class="space-y-4">
+                <div class="card rounded-xl p-6 text-center text-slate-400">
+                    Clique em "Sincronizar" para carregar os criativos
+                </div>
+            </div>
+        </section>
+
+        <!-- GRÁFICOS -->
+        <section class="mb-8">
+            <h2 class="text-xl font-bold mb-4 text-slate-200">Performance</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card rounded-xl p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-slate-200">Gasto vs Retorno</h3>
+                    <canvas id="gastoRetornoChart"></canvas>
+                </div>
+                <div class="card rounded-xl p-6">
+                    <h3 class="text-lg font-semibold mb-4 text-slate-200">ROAS por Lote</h3>
+                    <canvas id="roasLoteChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Global state
+        let authToken = null;
+        let workspaceId = null;
+        let currentData = {
+            kpis: {},
+            contas: [],
+            criativos: {}
+        };
+        let currentFilters = {
+            periodo: '7',
+            conta: 'all',
+            criativoConta: 'CA02',
+            status: 'all'
+        };
+
+        // Listen for auth messages from parent
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === 'AUTH_TOKEN') {
+                authToken = event.data.access_token;
+                console.log('✅ Auth token received');
+            }
+            if (event.data?.type === 'WORKSPACE_ID') {
+                workspaceId = event.data.workspaceId;
+                console.log('✅ Workspace ID received:', workspaceId);
+            }
+        });
+
+        // Request auth on load
+        window.parent.postMessage({ type: 'REQUEST_AUTH' }, '*');
+        window.parent.postMessage({ type: 'REQUEST_WORKSPACE' }, '*');
+
+        // Utility functions
+        function formatCurrency(value) {
+            if (!value && value !== 0) return 'R$ 0,00';
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value);
+        }
+
+        function formatNumber(value) {
+            if (!value && value !== 0) return '0';
+            return new Intl.NumberFormat('pt-BR').format(value);
+        }
+
+        function formatPercent(value) {
+            if (!value && value !== 0) return '0%';
+            return `${value.toFixed(2)}%`;
+        }
+
+        function formatROAS(value) {
+            if (!value && value !== 0) return '0.00';
+            return value.toFixed(2);
+        }
+
+        function getStatusClass(status) {
+            const statusMap = {
+                'Escalando': 'status-escalando',
+                'Testando': 'status-testando',
+                'Pre Escala': 'status-pre-escala',
+                'Pausado': 'status-pausado',
+                'Aprovado': 'status-aprovado',
+                'Rejeitado': 'status-rejeitado',
+                'Backlog': 'status-backlog'
+            };
+            return statusMap[status] || 'status-pausado';
+        }
+
+        function getStatusEmoji(status) {
+            const emojiMap = {
+                'Escalando': '🟢',
+                'Testando': '🟡',
+                'Pre Escala': '🟠',
+                'Pausado': '⚫',
+                'Aprovado': '🔵',
+                'Rejeitado': '🔴',
+                'Backlog': '⚪'
+            };
+            return emojiMap[status] || '⚫';
+        }
+
+        function getROASClass(roas) {
+            if (roas >= 2.0) return 'roas-positive';
+            if (roas >= 1.0) return 'roas-neutral';
+            return 'roas-negative';
+        }
+
+        // Sync button handler
+        document.getElementById('syncButton').addEventListener('click', async () => {
+            const button = document.getElementById('syncButton');
+            button.disabled = true;
+            button.innerHTML = '<div class="loading-spinner"></div> Sincronizando...';
+
+            try {
+                // Simulate API call (replace with actual Supabase calls)
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Mock data for demonstration
+                currentData = {
+                    kpis: {
+                        gasto_total: 33215.63,
+                        vendas_totais: 99,
+                        faturamento_total: 37167.00,
+                        roas_medio: 1.12,
+                        lucro_total: 3951.37,
+                        margem_media: 10.63
+                    },
+                    contas: [
+                        {
+                            data: '2026-02-16',
+                            conta: 'CA02 - ELE',
+                            status: 'Testando',
+                            gastos: 1638.00,
+                            cpm: 176.00,
+                            cpc: 2.00,
+                            vendas: 6,
+                            cpa: 273.00,
+                            faturamento: 1996.00,
+                            lucro: 358.00,
+                            roas: 1.22,
+                            margem: 17.94
+                        },
+                        {
+                            data: '2026-02-15',
+                            conta: 'CA02 - ELE',
+                            status: 'Testando',
+                            gastos: 4868.00,
+                            cpm: 121.00,
+                            cpc: 2.24,
+                            vendas: 17,
+                            cpa: 286.35,
+                            faturamento: 6518.00,
+                            lucro: 1650.00,
+                            roas: 1.34,
+                            margem: 25.31
+                        }
+                    ],
+                    criativos: {
+                        'CA02': {
+                            'LOTE 00': {
+                                summary: {
+                                    gasto_total: 392.00,
+                                    vendas_totais: 1,
+                                    cpa_medio: 392.00,
+                                    faturamento_total: 377.05,
+                                    lucro_total: -14.95,
+                                    roas_medio: 0.96
+                                },
+                                criativos: [
+                                    {
+                                        name: 'ID46',
+                                        status: 'Pausado',
+                                        valor_gasto: 392.00,
+                                        vendas: 1,
+                                        cpa: 392.00,
+                                        faturamento: 377.05,
+                                        lucro: -14.95,
+                                        roas: 0.96,
+                                        cpc: 3.30,
+                                        ctr: 6.50,
+                                        cpm: 215.00,
+                                        hook_rate: 68,
+                                        hold_rate: 9
+                                    }
+                                ]
+                            }
+                        },
+                        'AGE01': {
+                            'LOTE 19': {
+                                summary: {
+                                    gasto_total: 2184.20,
+                                    vendas_totais: 8,
+                                    cpa_medio: 273.03,
+                                    faturamento_total: 2541.35,
+                                    lucro_total: 357.15,
+                                    roas_medio: 1.16
+                                },
+                                criativos: [
+                                    {
+                                        name: 'H2_ID107',
+                                        status: 'Pausado',
+                                        valor_gasto: 1361.00,
+                                        vendas: 7,
+                                        cpa: 194.43,
+                                        faturamento: 2164.30,
+                                        lucro: 803.30,
+                                        roas: 1.59,
+                                        cpc: 1.83,
+                                        ctr: 5.99,
+                                        cpm: 173.00,
+                                        hook_rate: 46,
+                                        hold_rate: 5
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                };
+
+                updateKPIs();
+                updateContasTable();
+                updateCriativosSection();
+                updateCharts();
+
+                button.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Sincronizado!
+                `;
+                
+                setTimeout(() => {
+                    button.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Sincronizar
+                    `;
+                    button.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error('Erro ao sincronizar:', error);
+                button.innerHTML = '❌ Erro ao sincronizar';
+                button.disabled = false;
+            }
+        });
+
+        // Update KPIs
+        function updateKPIs() {
+            const kpis = currentData.kpis;
+            document.getElementById('kpi-gasto').textContent = formatCurrency(kpis.gasto_total);
+            document.getElementById('kpi-vendas').textContent = formatNumber(kpis.vendas_totais);
+            document.getElementById('kpi-faturamento').textContent = formatCurrency(kpis.faturamento_total);
+            
+            const roasElement = document.getElementById('kpi-roas');
+            roasElement.textContent = formatROAS(kpis.roas_medio);
+            roasElement.className = `text-3xl font-bold ${getROASClass(kpis.roas_medio)}`;
+            
+            const lucroElement = document.getElementById('kpi-lucro');
+            lucroElement.textContent = formatCurrency(kpis.lucro_total);
+            lucroElement.className = `text-3xl font-bold ${kpis.lucro_total >= 0 ? 'text-green-500' : 'text-red-500'}`;
+            
+            document.getElementById('kpi-margem').textContent = `${formatPercent(kpis.margem_media)} margem`;
+        }
+
+        // Update Contas Table
+        function updateContasTable() {
+            const tbody = document.getElementById('contasTableBody');
+            const contas = currentData.contas.filter(c => 
+                currentFilters.conta === 'all' || c.conta.includes(currentFilters.conta)
+            );
+
+            if (contas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center text-slate-400 py-8">Nenhum dado encontrado</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = contas.map(conta => `
+                <tr>
+                    <td class="font-mono text-sm">${new Date(conta.data).toLocaleDateString('pt-BR')}</td>
+                    <td class="font-semibold">${conta.conta}</td>
+                    <td><span class="status-badge ${getStatusClass(conta.status)}">${getStatusEmoji(conta.status)} ${conta.status}</span></td>
+                    <td class="font-mono">${formatCurrency(conta.gastos)}</td>
+                    <td class="font-mono text-sm">${formatCurrency(conta.cpm)}</td>
+                    <td class="font-mono text-sm">${formatCurrency(conta.cpc)}</td>
+                    <td class="font-semibold">${conta.vendas}</td>
+                    <td class="font-mono">${formatCurrency(conta.cpa)}</td>
+                    <td class="font-mono">${formatCurrency(conta.faturamento)}</td>
+                    <td class="font-mono ${conta.lucro >= 0 ? 'text-green-500' : 'text-red-500'}">${formatCurrency(conta.lucro)}</td>
+                    <td class="font-mono font-bold ${getROASClass(conta.roas)}">${formatROAS(conta.roas)}</td>
+                    <td class="font-mono text-sm">${formatPercent(conta.margem)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Update Criativos Section
+        function updateCriativosSection() {
+            const container = document.getElementById('criativosContainer');
+            const conta = currentFilters.criativoConta;
+            const criativos = currentData.criativos[conta] || {};
+
+            if (Object.keys(criativos).length === 0) {
+                container.innerHTML = '<div class="card rounded-xl p-6 text-center text-slate-400">Nenhum criativo encontrado</div>';
+                return;
+            }
+
+            container.innerHTML = Object.entries(criativos).map(([lote, data]) => {
+                const summary = data.summary;
+                const criativosList = data.criativos.filter(c => 
+                    currentFilters.status === 'all' || c.status === currentFilters.status
+                );
+
+                if (criativosList.length === 0) return '';
+
+                return `
+                    <div class="lote-group">
+                        <div class="lote-header card rounded-xl p-4 mb-2" onclick="toggleLote('${lote}')">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <h3 class="text-lg font-bold text-violet-400">${lote}</h3>
+                                    <span class="text-sm text-slate-400">${criativosList.length} criativos</span>
+                                </div>
+                                <div class="flex items-center gap-6 text-sm">
+                                    <div>
+                                        <span class="text-slate-400">Gasto:</span>
+                                        <span class="font-mono font-semibold ml-2">${formatCurrency(summary.gasto_total)}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-400">Vendas:</span>
+                                        <span class="font-mono font-semibold ml-2">${summary.vendas_totais}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-400">ROAS:</span>
+                                        <span class="font-mono font-bold ml-2 ${getROASClass(summary.roas_medio)}">${formatROAS(summary.roas_medio)}</span>
+                                    </div>
+                                    <svg class="w-5 h-5 text-slate-400 transition-transform" id="arrow-${lote}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="lote-${lote}" class="card rounded-xl overflow-hidden">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Status</th>
+                                        <th>Gasto</th>
+                                        <th>Vendas</th>
+                                        <th>CPA</th>
+                                        <th>Faturamento</th>
+                                        <th>Lucro</th>
+                                        <th>ROAS</th>
+                                        <th>CPC</th>
+                                        <th>CTR</th>
+                                        <th>CPM</th>
+                                        <th>Hook</th>
+                                        <th>Hold</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${criativosList.map(c => `
+                                        <tr>
+                                            <td class="font-semibold">${c.name}</td>
+                                            <td><span class="status-badge ${getStatusClass(c.status)}">${getStatusEmoji(c.status)} ${c.status}</span></td>
+                                            <td class="font-mono">${formatCurrency(c.valor_gasto)}</td>
+                                            <td class="font-semibold">${c.vendas}</td>
+                                            <td class="font-mono">${formatCurrency(c.cpa)}</td>
+                                            <td class="font-mono">${formatCurrency(c.faturamento)}</td>
+                                            <td class="font-mono ${c.lucro >= 0 ? 'text-green-500' : 'text-red-500'}">${formatCurrency(c.lucro)}</td>
+                                            <td class="font-mono font-bold ${getROASClass(c.roas)}">${formatROAS(c.roas)}</td>
+                                            <td class="font-mono text-sm">${formatCurrency(c.cpc)}</td>
+                                            <td class="font-mono text-sm">${formatPercent(c.ctr)}</td>
+                                            <td class="font-mono text-sm">${formatCurrency(c.cpm)}</td>
+                                            <td class="font-mono text-sm">${c.hook_rate}%</td>
+                                            <td class="font-mono text-sm">${c.hold_rate}%</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Toggle lote visibility
+        function toggleLote(lote) {
+            const content = document.getElementById(`lote-${lote}`);
+            const arrow = document.getElementById(`arrow-${lote}`);
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.style.transform = 'rotate(0deg)';
+            } else {
+                content.style.display = 'none';
+                arrow.style.transform = 'rotate(-90deg)';
+            }
+        }
+
+        // Update Charts
+        function updateCharts() {
+            // Gasto vs Retorno Chart
+            const ctx1 = document.getElementById('gastoRetornoChart');
+            new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: currentData.contas.map(c => new Date(c.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })),
+                    datasets: [
+                        {
+                            label: 'Gasto',
+                            data: currentData.contas.map(c => c.gastos),
+                            backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Retorno',
+                            data: currentData.contas.map(c => c.faturamento),
+                            backgroundColor: 'rgba(16, 185, 129, 0.5)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#cbd5e1' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: '#cbd5e1' },
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#cbd5e1' },
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                        }
+                    }
+                }
+            });
+
+            // ROAS por Lote Chart
+            const ctx2 = document.getElementById('roasLoteChart');
+            const lotes = Object.entries(currentData.criativos[currentFilters.criativoConta] || {});
+            new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: lotes.map(([lote]) => lote),
+                    datasets: [{
+                        label: 'ROAS',
+                        data: lotes.map(([, data]) => data.summary.roas_medio),
+                        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                        borderColor: 'rgba(139, 92, 246, 1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#cbd5e1' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: '#cbd5e1' },
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#cbd5e1' },
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Tab button handlers
+        document.querySelectorAll('[data-conta]').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('[data-conta]').forEach(b => b.classList.remove('active'));
+                button.classList.add('active');
+                currentFilters.conta = button.dataset.conta;
+                updateContasTable();
+            });
+        });
+
+        document.querySelectorAll('[data-criativo-conta]').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('[data-criativo-conta]').forEach(b => b.classList.remove('active'));
+                button.classList.add('active');
+                currentFilters.criativoConta = button.dataset.criativoConta;
+                updateCriativosSection();
+            });
+        });
+
+        // Filter handlers
+        document.getElementById('periodoFilter').addEventListener('change', (e) => {
+            currentFilters.periodo = e.target.value;
+            // Re-sync data with new period
+        });
+
+        document.getElementById('statusFilter').addEventListener('change', (e) => {
+            currentFilters.status = e.target.value;
+            updateCriativosSection();
+        });
+
+        document.getElementById('searchCreative').addEventListener('input', (e) => {
+            // Implement search functionality
+            console.log('Search:', e.target.value);
+        });
+    </script>
+</body>
+</html>
