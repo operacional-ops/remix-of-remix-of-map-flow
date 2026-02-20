@@ -2,7 +2,7 @@ const PainelDRX = () => {
   return (
     <div className="h-full w-full">
       <iframe
-        src="/dashboard-operacao-v3.html"
+        src="/painel-drx.html"
         className="w-full h-full border-0"
         title="Painel DRX"
         allow="camera;microphone"
