@@ -194,7 +194,7 @@
             const fbButton = document.getElementById('fbLoginButton');
             fbButton.addEventListener('click', () => {
                 // Simular login (para teste - substituir por OAuth real depois)
-                const useSimulation = true; // Mudar para false quando tiver App ID real
+                const useSimulation = false; // Mudado para false - usando App ID real
                 
                 if (useSimulation) {
                     // Simulação de login para teste
@@ -215,7 +215,7 @@
                     alert('✅ Login simulado com sucesso! Agora você pode sincronizar os dados.');
                 } else {
                     // OAuth real do Facebook
-                    const fbAppId = 'SEU_APP_ID_AQUI'; // Substituir pelo App ID real
+                    const fbAppId = '1938349836774831'; // App ID real configurado
                     const redirectUri = encodeURIComponent(window.location.origin + '/utmfy-teste');
                     const scope = 'ads_read,ads_management';
                     const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${fbAppId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`;
