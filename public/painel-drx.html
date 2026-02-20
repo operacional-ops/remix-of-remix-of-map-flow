@@ -341,6 +341,102 @@
             );
         };
 
+        // --- FLOATING COMMENTS PANEL ---
+        const FloatingCommentsPanel = ({ taskId, comments, loadingComments, newComment, setNewComment, addComment, deleteComment, currentUser }) => {
+            const [isExpanded, setIsExpanded] = React.useState(true);
+            
+            return (
+                <div className={`fixed right-4 top-20 bottom-4 z-[60] transition-all duration-300 ${isExpanded ? 'w-80' : 'w-14'}`}>
+                    <div className="glass-panel h-full flex flex-col shadow-2xl">
+                        {/* Header */}
+                        <div className="p-3 border-b border-slate-700 flex items-center justify-between bg-slate-900/50">
+                            {isExpanded && (
+                                <div className="flex items-center gap-2">
+                                    <Icon name="message-square" className="w-4 h-4 text-blue-500"/>
+                                    <h3 className="text-sm font-bold text-white">Comentários</h3>
+                                    <span className="text-xs text-slate-500">({comments.length})</span>
+                                </div>
+                            )}
+                            <button 
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className="ml-auto text-slate-400 hover:text-white transition-colors p-1"
+                            >
+                                <Icon name={isExpanded ? "chevron-right" : "chevron-left"} className="w-4 h-4"/>
+                            </button>
+                        </div>
+                        
+                        {isExpanded && (
+                            <>
+                                {/* Comments List */}
+                                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                                    {loadingComments ? (
+                                        <div className="text-center text-slate-500 text-xs py-8">Carregando...</div>
+                                    ) : comments.length === 0 ? (
+                                        <div className="text-center text-slate-600 text-xs py-8">
+                                            <Icon name="message-square" className="w-8 h-8 mx-auto mb-2 text-slate-700"/>
+                                            <p>Nenhum comentário</p>
+                                            <p className="text-[10px] mt-1">Seja o primeiro!</p>
+                                        </div>
+                                    ) : (
+                                        comments.map(cmt => (
+                                            <div key={cmt.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-2.5 animate-enter">
+                                                <div className="flex items-start justify-between mb-1.5">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className={`w-5 h-5 ${cmt.authorColor || 'bg-slate-600'} rounded-full flex items-center justify-center text-[8px] font-bold text-white`}>
+                                                            {cmt.authorAvatar || '??'}
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-[11px] font-bold text-slate-200 block leading-tight">{cmt.authorName}</span>
+                                                            <span className="text-[9px] text-slate-600">
+                                                                {cmt.createdAt ? new Date(cmt.createdAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {cmt.authorId === currentUser.id && (
+                                                        <button onClick={() => deleteComment(cmt.id)} className="text-slate-600 hover:text-red-400 transition-colors p-0.5">
+                                                            <Icon name="trash-2" className="w-3 h-3"/>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{cmt.content}</p>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                
+                                {/* Add Comment Button & Input */}
+                                <div className="p-3 border-t border-slate-700 bg-slate-900/30">
+                                    <div className="flex gap-2 items-start">
+                                        <div className={`w-6 h-6 ${currentUser.color} rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0 mt-1`}>
+                                            {currentUser.avatar}
+                                        </div>
+                                        <div className="flex-1">
+                                            <textarea 
+                                                rows="2" 
+                                                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none resize-none"
+                                                placeholder="Adicionar comentário..."
+                                                value={newComment}
+                                                onChange={e => setNewComment(e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); } }}
+                                            />
+                                            <button 
+                                                onClick={addComment} 
+                                                disabled={!newComment.trim()}
+                                                className={`mt-2 w-full py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${newComment.trim() ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+                                            >
+                                                <Icon name="plus" className="w-3.5 h-3.5"/>
+                                                Adicionar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         // --- COMPONENTE MODAL DE TAREFA ---
         const PRIORITY_OPTIONS = [
             { value: 'low', label: 'Baixa', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', icon: 'minus' },
@@ -536,78 +632,24 @@
                             )}
                         </form>
 
-                        {/* SEÇÃO DE COMENTÁRIOS */}
-                        {task?.id && (
-                            <div className="border-t border-slate-700 p-6">
-                                <button 
-                                    onClick={() => setShowComments(!showComments)} 
-                                    className="flex items-center gap-2 text-sm font-bold text-slate-300 hover:text-white transition-colors w-full"
-                                >
-                                    <Icon name="message-square" className="w-4 h-4 text-blue-500"/>
-                                    Comentários ({comments.length})
-                                    <Icon name={showComments ? "chevron-up" : "chevron-down"} className="w-3.5 h-3.5 ml-auto text-slate-500"/>
-                                </button>
 
-                                {showComments && (
-                                    <div className="mt-4 space-y-3">
-                                        {/* Lista de comentários */}
-                                        {loadingComments ? (
-                                            <div className="text-center text-slate-500 text-xs py-4">Carregando comentários...</div>
-                                        ) : comments.length === 0 ? (
-                                            <div className="text-center text-slate-600 text-xs py-4">Nenhum comentário ainda. Seja o primeiro!</div>
-                                        ) : (
-                                            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                                                {comments.map(cmt => (
-                                                    <div key={cmt.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 animate-enter">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={`w-6 h-6 ${cmt.authorColor || 'bg-slate-600'} rounded-full flex items-center justify-center text-[9px] font-bold text-white`}>
-                                                                    {cmt.authorAvatar || '??'}
-                                                                </div>
-                                                                <span className="text-xs font-bold text-slate-200">{cmt.authorName}</span>
-                                                                <span className="text-[10px] text-slate-600">
-                                                                    {cmt.createdAt ? new Date(cmt.createdAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
-                                                                </span>
-                                                            </div>
-                                                            {cmt.authorId === currentUser.id && (
-                                                                <button onClick={() => deleteComment(cmt.id)} className="text-slate-600 hover:text-red-400 transition-colors p-1">
-                                                                    <Icon name="trash-2" className="w-3 h-3"/>
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{cmt.content}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Input de novo comentário */}
-                                        <div className="flex gap-2 items-end mt-2">
-                                            <div className={`w-7 h-7 ${currentUser.color} rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0`}>{currentUser.avatar}</div>
-                                            <div className="flex-1 flex gap-2">
-                                                <textarea 
-                                                    rows="2" 
-                                                    className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none resize-none"
-                                                    placeholder="Escreva um comentário..."
-                                                    value={newComment}
-                                                    onChange={e => setNewComment(e.target.value)}
-                                                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(); } }}
-                                                />
-                                                <button 
-                                                    onClick={addComment} 
-                                                    disabled={!newComment.trim()}
-                                                    className={`px-3 rounded-lg text-xs font-bold flex items-center gap-1 transition-all self-end h-[38px] ${newComment.trim() ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
-                                                >
-                                                    <Icon name="send" className="w-3.5 h-3.5"/>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
                 </div>
+                
+                {/* Floating Comments Panel */}
+                {task?.id && (
+                    <FloatingCommentsPanel 
+                        taskId={task.id}
+                        comments={comments}
+                        loadingComments={loadingComments}
+                        newComment={newComment}
+                        setNewComment={setNewComment}
+                        addComment={addComment}
+                        deleteComment={deleteComment}
+                        currentUser={currentUser}
+                    />
+                )}
+                </>
             );
         };
 
