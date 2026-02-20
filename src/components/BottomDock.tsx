@@ -58,7 +58,7 @@ export function BottomDock() {
     ...(isAdmin ? [{ title: 'Automações', url: '/automations', icon: Zap, group: 'tools' }] : []),
     { title: '', icon: Home, separator: true },
     ...(!isLimitedMember ? [
-      { title: 'Painel DRX', url: '/painel-drx', icon: Monitor, group: 'drx' },
+      { title: 'DRX Flow', url: '/painel-drx', icon: Monitor, group: 'drx' },
       { title: 'Expert\'s', url: '/command-center', icon: BookOpen, group: 'drx' },
       { title: 'Financeiro', url: '/financeiro', icon: DollarSign, group: 'drx' },
     ] : []),

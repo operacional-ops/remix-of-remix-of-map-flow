@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel DRX | Team Flow</title>
+    <title>DRX Flow | Team Flow</title>
     
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -549,6 +549,7 @@
             };
 
             return (
+                <>
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-enter">
                     <div className="bg-[#0f172a] border border-slate-700 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
                         <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900 sticky top-0 z-10">
@@ -1134,7 +1135,7 @@
                             <div className="inline-flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden"><img src="/logo-drx-white.png" alt="DRX" className="w-full h-full object-contain" /></div>
                                 <div className="text-left">
-                                    <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight login-title">Painel DRX</h1>
+                                    <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight login-title">DRX Flow</h1>
                                     <p className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Operacional</p>
                                 </div>
                             </div>
@@ -1219,7 +1220,7 @@
             const dragStart = React.useRef({ x: 0, y: 0, ox: 0, oy: 0 });
 
             const steps = [
-                { title: '👋 Bem-vindo ao Painel DRX!', tip: 'Tour rápido pelo sistema operacional. Arraste este card se tampar algo.', pos: 'center', arrow: 'none' },
+                { title: '👋 Bem-vindo ao DRX Flow!', tip: 'Tour rápido pelo sistema operacional. Arraste este card se tampar algo.', pos: 'center', arrow: 'none' },
                 { title: '📋 Workflow', tip: 'Aba principal. Seu Kanban com as tarefas do dia.', pos: 'top-left', arrow: 'up', action: () => setActiveTab('workflow') },
                 { title: '📌 Kanban: 3 Colunas', tip: 'A FAZER → FAZENDO → FEITO.\nAs tarefas fluem da esquerda pra direita.', pos: 'top-center', arrow: 'down' },
                 { title: '➕ Criar Tarefa', tip: 'Clique em "+ Adicionar Tarefa" na coluna A FAZER.\nPreencha título, descrição e link.', pos: 'top-left', arrow: 'down' },
@@ -1235,7 +1236,7 @@
                 { title: '☀️ Daily', tip: 'Estrutura das reuniões diárias e semanais. Regras, papéis e outputs.', pos: 'top-left', arrow: 'up', action: () => setActiveTab('daily') },
                 { title: '💬 Discord', tip: 'No canto inferior direito, acesse o Discord da equipe direto pelo site para comunicação em tempo real.', pos: 'bottom-right', arrow: 'down' },
                 { title: '🎓 Detalhes do Cargo', tip: 'Após o login, a tela de Preparação mostra:\n• Missão do cargo\n• Não-negociáveis\n• Limites\n• Checklist diário', pos: 'center', arrow: 'none' },
-                { title: '🎉 Tutorial Concluído!', tip: 'Você domina o Painel DRX!\nReabra a qualquer momento pelo botão Tutorial no cabeçalho.', pos: 'center', arrow: 'none' },
+                { title: '🎉 Tutorial Concluído!', tip: 'Você domina o DRX Flow!\nReabra a qualquer momento pelo botão Tutorial no cabeçalho.', pos: 'center', arrow: 'none' },
             ];
 
             const cur = steps[step];

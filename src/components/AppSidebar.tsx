@@ -40,7 +40,7 @@ const modulesNavItems = [
 ];
 
 const painelDrxNavItems = [
-  { title: 'Painel DRX', url: '/painel-drx', icon: Monitor, tutorialId: 'painel-drx' },
+  { title: 'DRX Flow', url: '/painel-drx', icon: Monitor, tutorialId: 'painel-drx' },
   { title: 'Mapa Orgânico | Expert\'s', url: '/command-center', icon: BookOpen, tutorialId: 'command-center' },
   { title: 'Financeiro', url: '/financeiro', icon: DollarSign, tutorialId: 'financeiro' },
 ];
