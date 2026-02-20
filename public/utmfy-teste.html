@@ -193,13 +193,35 @@
         function initFacebookLogin() {
             const fbButton = document.getElementById('fbLoginButton');
             fbButton.addEventListener('click', () => {
-                // Redirecionar para OAuth do Facebook
-                const fbAppId = '1234567890'; // Substituir pelo App ID real
-                const redirectUri = encodeURIComponent(window.location.origin + '/utmfy-teste');
-                const scope = 'ads_read,ads_management';
-                const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${fbAppId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`;
+                // Simular login (para teste - substituir por OAuth real depois)
+                const useSimulation = true; // Mudar para false quando tiver App ID real
                 
-                window.location.href = authUrl;
+                if (useSimulation) {
+                    // Simulação de login para teste
+                    const simulatedToken = 'simulated_token_' + Date.now();
+                    localStorage.setItem('fb_access_token', simulatedToken);
+                    localStorage.setItem('fb_logged_in', 'true');
+                    
+                    fbButton.innerHTML = `
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Conectado ao Facebook
+                    `;
+                    fbButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    fbButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                    fbButton.disabled = true;
+                    
+                    alert('✅ Login simulado com sucesso! Agora você pode sincronizar os dados.');
+                } else {
+                    // OAuth real do Facebook
+                    const fbAppId = 'SEU_APP_ID_AQUI'; // Substituir pelo App ID real
+                    const redirectUri = encodeURIComponent(window.location.origin + '/utmfy-teste');
+                    const scope = 'ads_read,ads_management';
+                    const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${fbAppId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`;
+                    
+                    window.location.href = authUrl;
+                }
             });
             
             // Verificar se há token no hash da URL (retorno do Facebook)
@@ -242,6 +264,13 @@
 
         // Sincronizar dados
         async function syncData() {
+            // Verificar se está logado
+            const isLoggedIn = localStorage.getItem('fb_logged_in');
+            if (!isLoggedIn) {
+                alert('⚠️ Por favor, faça login com Facebook antes de sincronizar os dados.');
+                return;
+            }
+            
             const button = document.getElementById('syncButton');
             button.disabled = true;
             button.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sincronizando...';
@@ -522,10 +551,8 @@
         
         initFacebookLogin();
         checkConnection();
-        syncData();
-
-        // Auto-refresh a cada 5 minutos
-        setInterval(syncData, 5 * 60 * 1000);
+        // syncData(); // Removido: só sincroniza após login e clique manual
+        // Auto-refresh removido: usuário controla quando sincronizar;
     </script>
 </body>
 </html>
