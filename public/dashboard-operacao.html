@@ -453,16 +453,7 @@
     </style>
 </head>
 <body>
-    <!-- LOGIN MODAL -->
-    <div id="loginModal" class="modal active">
-        <div class="modal-content">
-            <h2>Dashboard Operacional DRX</h2>
-            <p>Faça login com sua conta do Facebook para acessar as métricas</p>
-            <button class="btn btn-facebook" onclick="loginWithFacebook()">
-                <span>👤</span> Conectar com Facebook
-            </button>
-        </div>
-    </div>
+
 
     <div class="container">
         <!-- SIDEBAR -->
@@ -601,27 +592,10 @@
         const SUPABASE_URL = 'https://apvczhiifvdodawrlgmk.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwdmN6aGlpZnZkb2Rhd3JsZ21rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNzk4MzksImV4cCI6MjA4Njg1NTgzOX0.cBw5WbUmbaW-bCuKk6V_aBOnrK1TRVnf00biApeKX_4';
 
-        // FACEBOOK SDK
-        window.fbAsyncInit = function() {
-            FB.init({
-                appId: '1938349836774831',
-                xfbml: true,
-                version: 'v18.0'
-            });
-        };
-
-        // FACEBOOK LOGIN
-        function loginWithFacebook() {
-            FB.login(function(response) {
-                if (response.authResponse) {
-                    console.log('Login bem-sucedido!');
-                    document.getElementById('loginModal').classList.remove('active');
-                    loadDashboard();
-                } else {
-                    alert('Falha ao fazer login com Facebook');
-                }
-            }, {scope: 'public_profile'});
-        }
+        // AUTO LOAD DASHBOARD
+        window.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+        });
 
         // SYNC DATA
         async function syncData() {
@@ -753,14 +727,7 @@
             new ApexCharts(document.querySelector('#chart-distribution'), options2).render();
         }
 
-        // FACEBOOK SDK
-        (function(d, s, id) {
-            var js, fjs = d.getElementsByTagName(s)[0];
-            if (d.getElementById(id)) return;
-            js = d.createElement(s); js.id = id;
-            js.src = "https://connect.facebook.net/pt_BR/sdk.js#xfbml=1&version=v18.0";
-            fjs.parentNode.insertBefore(js, fjs);
-        }(document, 'script', 'facebook-jssdk'));
+
     </script>
 </body>
 </html>
