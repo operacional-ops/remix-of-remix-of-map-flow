@@ -448,6 +448,7 @@
         const TaskModal = ({ task, isOpen, onClose, onSave, isReadOnly, currentUser, targetUserId }) => {
             const [title, setTitle] = React.useState("");
             const [desc, setDesc] = React.useState("");
+            const [descExpanded, setDescExpanded] = React.useState(false);
             const [link, setLink] = React.useState("");
             const [priority, setPriority] = React.useState("normal");
             const [dueDate, setDueDate] = React.useState("");
@@ -574,8 +575,36 @@
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descrição Detalhada</label>
-                                <textarea rows="3" disabled={!canEdit} className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-slate-300 text-sm focus:border-blue-500 focus:outline-none resize-none" placeholder="Detalhes, contexto, instruções..." value={desc} onChange={e => setDesc(e.target.value)} />
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase">Descrição Detalhada</label>
+                                    {desc && desc.trim().length > 0 && (
+                                        <button type="button" onClick={() => setDescExpanded(prev => !prev)}
+                                            className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold transition-all duration-300 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300"
+                                            title={descExpanded ? "Recolher descrição" : "Expandir descrição"}>
+                                            <span className="text-sm">{descExpanded ? '➖' : '➕'}</span>
+                                            <span>{descExpanded ? 'Recolher' : 'Expandir'}</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <div style={{
+                                    maxHeight: descExpanded ? '500px' : '80px',
+                                    overflow: 'hidden',
+                                    transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+                                    opacity: 1,
+                                    position: 'relative'
+                                }}>
+                                    <textarea rows={descExpanded ? 10 : 3} disabled={!canEdit} className="w-full bg-slate-950 border border-slate-800 rounded p-3 text-slate-300 text-sm focus:border-blue-500 focus:outline-none resize-none transition-all duration-400" placeholder="Detalhes, contexto, instruções..." value={desc} onChange={e => setDesc(e.target.value)} />
+                                </div>
+                                {!descExpanded && desc && desc.length > 100 && (
+                                    <div style={{
+                                        background: 'linear-gradient(transparent, rgba(15,23,42,0.95))',
+                                        height: '24px',
+                                        marginTop: '-28px',
+                                        position: 'relative',
+                                        pointerEvents: 'none',
+                                        borderRadius: '0 0 6px 6px'
+                                    }} />
+                                )}
                             </div>
 
                             <div>
