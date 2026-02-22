@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, MoreHorizontal, Calendar, MapPin } from 'lucide-react';
+import { useState, Fragment } from 'react';
+import { ChevronDown, ChevronRight, MoreHorizontal, Calendar, MapPin, FileText } from 'lucide-react';
 import { format, isToday, isTomorrow, isPast, isThisWeek, addDays, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate } from '@/lib/dateUtils';
@@ -152,6 +152,7 @@ function groupTasksByPriority(tasks: TaskWithAssignees[]) {
 export function EverythingTableView({ tasks, groupBy, selectedTaskIds = [], onSelectionChange, sortConfig = null, onSortChange, visibleColumns, columnOrder }: EverythingTableViewProps) {
   const navigate = useNavigate();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
 
   const handleSelectTask = (taskId: string, checked: boolean) => {
     if (!onSelectionChange) return;
@@ -227,7 +228,29 @@ export function EverythingTableView({ tasks, groupBy, selectedTaskIds = [], onSe
           return (
             <TableCell key={columnId} className="max-w-md">
               <div className="flex flex-col gap-1">
-                <span className="font-medium truncate">{task.title}</span>
+                <div className="flex items-center gap-1">
+                  <span className="font-medium truncate">{task.title}</span>
+                  {task.description && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedDescriptions(prev => {
+                          const next = new Set(prev);
+                          if (next.has(task.id)) next.delete(task.id);
+                          else next.add(task.id);
+                          return next;
+                        });
+                      }}
+                      className="p-1 hover:bg-muted rounded transition-colors shrink-0"
+                      title="Expandir descrição"
+                    >
+                      <FileText className={cn(
+                        "h-3.5 w-3.5 transition-colors",
+                        expandedDescriptions.has(task.id) ? "text-primary" : "text-muted-foreground"
+                      )} />
+                    </button>
+                  )}
+                </div>
                 {task.list && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <MapPin className="h-3 w-3" />
@@ -355,35 +378,49 @@ export function EverythingTableView({ tasks, groupBy, selectedTaskIds = [], onSe
     };
     
     return (
-      <TableRow
-        key={task.id}
-        className={cn("hover:bg-muted/50 cursor-pointer", isSelected && "bg-primary/5")}
-        onClick={() => navigate(`/task/${task.id}`)}
-      >
-        {onSelectionChange && (
-          <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={(checked) => handleSelectTask(task.id, checked as boolean)}
-            />
+      <Fragment key={task.id}>
+        <TableRow
+          className={cn("hover:bg-muted/50 cursor-pointer", isSelected && "bg-primary/5")}
+          onClick={() => navigate(`/task/${task.id}`)}
+        >
+          {onSelectionChange && (
+            <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => handleSelectTask(task.id, checked as boolean)}
+              />
+            </TableCell>
+          )}
+          {orderedColumns.map(col => renderCellContent(col))}
+          <TableCell>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate(`/task/${task.id}`)}>
+                  Ver detalhes
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </TableCell>
+        </TableRow>
+        {expandedDescriptions.has(task.id) && task.description && (
+          <TableRow className="bg-muted/30 hover:bg-muted/40">
+            <TableCell colSpan={99} className="py-0">
+              <div className="overflow-hidden animate-fade-in">
+                <div className="py-3 px-4">
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed max-w-2xl">
+                    {task.description}
+                  </p>
+                </div>
+              </div>
+            </TableCell>
+          </TableRow>
         )}
-        {orderedColumns.map(col => renderCellContent(col))}
-        <TableCell>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/task/${task.id}`)}>
-                Ver detalhes
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </TableCell>
-      </TableRow>
+      </Fragment>
     );
   };
 

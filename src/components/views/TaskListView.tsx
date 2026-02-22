@@ -31,7 +31,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { format, isToday, isTomorrow, isPast, isThisWeek, addDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate } from '@/lib/dateUtils';
-import { ChevronDown, ChevronRight, GitBranch, MoreHorizontal, FolderInput, Archive, Trash2, User } from 'lucide-react';
+import { ChevronDown, ChevronRight, GitBranch, MoreHorizontal, FolderInput, Archive, Trash2, User, FileText } from 'lucide-react';
 import { TaskMoveDialog } from '@/components/tasks/TaskMoveDialog';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useDeleteTask, useArchiveTask } from '@/hooks/useTasks';
@@ -253,6 +253,7 @@ export const TaskListView = ({
 }: TaskListViewProps) => {
   const navigate = useNavigate();
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const [moveTaskId, setMoveTaskId] = useState<string | null>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -356,6 +357,26 @@ export const TaskListView = ({
                 {task.title}
               </span>
               {!isSubtask && <SubtaskCount parentId={task.id} />}
+              {task.description && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedDescriptions(prev => {
+                      const next = new Set(prev);
+                      if (next.has(task.id)) next.delete(task.id);
+                      else next.add(task.id);
+                      return next;
+                    });
+                  }}
+                  className="ml-2 p-1 hover:bg-muted rounded transition-colors"
+                  title="Expandir descrição"
+                >
+                  <FileText className={cn(
+                    "h-3.5 w-3.5 transition-colors",
+                    expandedDescriptions.has(task.id) ? "text-primary" : "text-muted-foreground"
+                  )} />
+                </button>
+              )}
             </div>
           );
         case 'status':
@@ -450,6 +471,24 @@ export const TaskListView = ({
             </TableCell>
           )}
         </TableRow>
+        {expandedDescriptions.has(task.id) && task.description && (
+          <TableRow className="bg-muted/30 hover:bg-muted/40">
+            <TableCell 
+              colSpan={99} 
+              className="py-0"
+            >
+              <div
+                className="overflow-hidden animate-fade-in"
+              >
+                <div className="py-3 px-4 ml-7">
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed max-w-2xl">
+                    {task.description}
+                  </p>
+                </div>
+              </div>
+            </TableCell>
+          </TableRow>
+        )}
         {isExpanded && subtasks.map(subtask => renderTaskRow(subtask, true))}
       </Fragment>
     );
