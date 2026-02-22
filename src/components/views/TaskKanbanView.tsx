@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,13 +7,14 @@ import { PriorityBadge } from '@/components/ui/badge-variant';
 import { format, startOfDay, isBefore, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseLocalDate } from '@/lib/dateUtils';
-import { Calendar, GitBranch } from 'lucide-react';
+import { Calendar, GitBranch, ChevronDown, ExternalLink } from 'lucide-react';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useUpdateTask } from '@/hooks/useTasks';
 import { useCreateTaskActivity } from '@/hooks/useTaskActivities';
 import { executeStatusChangeAutomations } from '@/hooks/useStatusChangeAutomations';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 
 interface Task {
   id: string;
@@ -64,11 +66,46 @@ const SubtaskBadge = ({ parentId }: { parentId: string }) => {
   );
 };
 
+const ExpandableDescription = ({ description, isExpanded }: { description: string; isExpanded: boolean }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setHeight(isExpanded ? contentRef.current.scrollHeight : 0);
+    }
+  }, [isExpanded, description]);
+
+  return (
+    <div
+      className="overflow-hidden transition-all duration-300 ease-in-out"
+      style={{ maxHeight: isExpanded ? `${height + 16}px` : '0px', opacity: isExpanded ? 1 : 0 }}
+    >
+      <div ref={contentRef} className="pt-2 pb-1 px-1">
+        <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+};
+
 export const TaskKanbanView = ({ tasks, statuses }: TaskKanbanViewProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { mutate: updateTask } = useUpdateTask();
   const createActivity = useCreateTaskActivity();
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+
+  const toggleExpand = useCallback((e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    setExpandedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }, []);
 
   const sortedStatuses = [...statuses].sort((a, b) => a.order_index - b.order_index);
 
@@ -186,7 +223,7 @@ export const TaskKanbanView = ({ tasks, statuses }: TaskKanbanViewProps) => {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  onClick={() => !snapshot.isDragging && navigate(`/task/${task.id}`)}
+                                  
                                 >
                                   <Card
                                     className={cn(
@@ -196,18 +233,49 @@ export const TaskKanbanView = ({ tasks, statuses }: TaskKanbanViewProps) => {
                                     )}
                                   >
                                     <CardHeader className="p-4 pb-3">
-                                      <CardTitle className={cn(
-                                        "text-sm font-medium",
-                                        task.completed_at && "line-through"
-                                      )}>
-                                        {task.title}
-                                      </CardTitle>
+                                      <div className="flex items-start justify-between gap-2">
+                                        <CardTitle className={cn(
+                                          "text-sm font-medium flex-1",
+                                          task.completed_at && "line-through"
+                                        )}>
+                                          {task.title}
+                                        </CardTitle>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {task.description && (
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6 rounded-full"
+                                              onClick={(e) => toggleExpand(e, task.id)}
+                                            >
+                                              <ChevronDown className={cn(
+                                                "h-3.5 w-3.5 text-muted-foreground transition-transform duration-300",
+                                                expandedTasks.has(task.id) && "rotate-180"
+                                              )} />
+                                            </Button>
+                                          )}
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 rounded-full"
+                                            onClick={(e) => { e.stopPropagation(); navigate(`/task/${task.id}`); }}
+                                          >
+                                            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </Button>
+                                        </div>
+                                      </div>
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0 space-y-2">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <PriorityBadge priority={task.priority} />
                                         <SubtaskBadge parentId={task.id} />
                                       </div>
+                                      {task.description && (
+                                        <ExpandableDescription
+                                          description={task.description}
+                                          isExpanded={expandedTasks.has(task.id)}
+                                        />
+                                      )}
                                       {task.due_date && (
                                         <div className={cn(
                                           "flex items-center gap-2 text-xs",
