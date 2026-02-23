@@ -35,6 +35,7 @@ export const TEAM_DATA: TeamMember[] = [
   { id: 'victor', name: 'Victor Navega', role: 'Editor de Vídeos', category: 'team', avatar: 'VN', color: 'bg-teal-500', isDirector: false },
   { id: 'bruno', name: 'Bruno Brittes', role: 'Social Media', category: 'team', avatar: 'BB', color: 'bg-fuchsia-500', isDirector: false },
   { id: 'evelin', name: 'Evelin', role: 'Facilities & Apoio', category: 'team', avatar: 'EV', color: 'bg-lime-600', isDirector: false },
+  { id: 'caio', name: 'Caio Rangel', role: 'Operador de Infraestrutura Pleno', category: 'team', avatar: 'CR', color: 'bg-indigo-500', isDirector: false },
 ];
 
 export const ROLE_DETAILS: Record<string, RoleDetail> = {
@@ -115,6 +116,13 @@ export const ROLE_DETAILS: Record<string, RoleDetail> = {
     decisions: ["Solicitar Ubers para convidados.", "Compra de insumos de recorrência.", "Acionar manutenção de urgência."],
     behavior: ["Disciplina Financeira (justificar cada centavo).", "Agilidade com Comprovantes.", "Discrição e Sigilo."],
   },
+  caio: {
+    mission: "Garantir toda infraestrutura da operação.",
+    nonNegotiables: ["Infraestrutura Web: Configuração e gestão de domínios, DNS (Cloudflare), hospedagem e servidores.", "Rastreamento (Tracking): Pixels, API de Conversão (CAPI), GTM e UTMs.", "Soluções Próprias: Desenvolvimento e otimização de soluções internas.", "Checkouts & Funis: Criar, configurar e otimizar checkouts e funis de upsell.", "Funis de Recuperação: SMS, WhatsApp e Email.", "VSL & Teste A/B: Configurar VSL na Vturb e testes A/B."],
+    limits: ["Não define orçamento (proxies, domínios).", "Não cria copy (sobe a página, não cria layout/texto).", "Não negocia com gateways (exceto técnico/integração)."],
+    decisions: ["Solicitação de compra de ativos de infraestrutura.", "Escolha técnica de implementação.", "Troca de servidor/hospedagem em emergência."],
+    behavior: ["Mindset Preventivo: check-up em todos funis.", "Organização Extrema: acessos e mapas de pixels impecáveis.", "Agilidade na Crise: prioridade zero é colocar de volta no ar.", "Comunicação Técnica Simples: traduzir problemas técnicos para linguagem de negócio."],
+  },
 };
 
 export const CHECKLISTS: Record<string, string[]> = {
@@ -132,6 +140,7 @@ export const CHECKLISTS: Record<string, string[]> = {
   danillo: ["Verificar estabilidade dos sistemas", "Checar reports de risco", "Alinhar prioridades com Arthur"],
   arthur: ["Revisar performance macro (Ontem)", "Ajustar prioridades de teste", "Validar budget diário"],
   brandon: ["Verificar agenda externa", "Checar métricas de expansão", "Alinhar com parceiros chave"],
+  caio: ["Check-up de estabilidade de todos os funis", "Verificar status de domínios e DNS", "Checar rastreamento (Pixels/CAPI/GTM)", "Verificar checkouts e funis de recuperação"],
 };
 
 export function getTeamMember(id: string): TeamMember | undefined {
