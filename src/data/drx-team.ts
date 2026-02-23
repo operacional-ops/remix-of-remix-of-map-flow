@@ -24,13 +24,13 @@ export const TEAM_DATA: TeamMember[] = [
   { id: 'arthur', name: 'Arthur', role: 'Head de Estratégia', category: 'board', avatar: 'AR', color: 'bg-purple-600', isDirector: true },
   { id: 'brandon', name: 'Brandon', role: 'CEO / Expansão', category: 'board', avatar: 'BR', color: 'bg-indigo-600', isDirector: true },
   { id: 'andre', name: 'Andre', role: 'Diretor Financeiro (CFO)', category: 'board', avatar: 'AN', color: 'bg-emerald-700', isDirector: true },
-  { id: 'marcos', name: 'Marcos Vinicius', role: 'Diretor de Copy', category: 'board', avatar: 'MV', color: 'bg-rose-600', isDirector: true },
+  
   { id: 'lucas', name: 'Lucas Rosário', role: 'Diretor de Tráfego', category: 'board', avatar: 'LR', color: 'bg-orange-600', isDirector: true },
 
   // --- TIME TÁTICO / OPERACIONAL ---
   { id: 'impactize', name: 'Impactize (Editor VSL)', role: 'Edição de VSL & Criativos', category: 'team', avatar: 'IM', color: 'bg-red-600', isDirector: false },
   { id: 'gabriel', name: 'Gabriel Gomes', role: 'Copywriter Pleno', category: 'team', avatar: 'GG', color: 'bg-pink-500', isDirector: false },
-  { id: 'pedro', name: 'Pedro Severo', role: 'Infraestrutura Pleno', category: 'team', avatar: 'PS', color: 'bg-cyan-600', isDirector: false },
+  
   { id: 'felipe', name: 'Felipe Origuela', role: 'Filmmaker Sênior', category: 'team', avatar: 'FO', color: 'bg-yellow-600', isDirector: false },
   { id: 'victor', name: 'Victor Navega', role: 'Editor de Vídeos', category: 'team', avatar: 'VN', color: 'bg-teal-500', isDirector: false },
   { id: 'bruno', name: 'Bruno Brittes', role: 'Social Media', category: 'team', avatar: 'BB', color: 'bg-fuchsia-500', isDirector: false },
@@ -66,13 +66,6 @@ export const ROLE_DETAILS: Record<string, RoleDetail> = {
     decisions: ["Priorizar pagamentos dentro do orçamento.", "Sugerir redução de custos.", "Alertar necessidade de pausa por risco de caixa."],
     behavior: ["Financeiro alerta. Estratégia decide.", "Nenhuma decisão estratégica relevante acontece sem visibilidade financeira."],
   },
-  marcos: {
-    mission: "Dirigir a comunicação persuasiva e garantir a qualidade dos ativos de conversão.",
-    nonNegotiables: ["Direcionar quais ângulos e formatos escrever.", "Escrever ativos de copy (VSL, Criativos, E-mails).", "Preencher Airtable com infos dos ativos.", "Revisar edição dos ativos escritos."],
-    limits: ["Não decide budget de tráfego.", "Não interfere na infraestrutura técnica.", "Não negocia contratos."],
-    decisions: ["Ajustes na copy pra performance.", "Prioridade nos testes da esteira de otimização.", "Definir próxima offer para esteira de ripagem."],
-    behavior: ["Pensar em padrões, não ativos isolados.", "Executar rápido, sem ego.", "Registrar aprendizados sempre."],
-  },
   lucas: {
     mission: "Maximizar o retorno sobre o investimento (ROAS) através da gestão técnica de mídia paga.",
     nonNegotiables: ["Subir, testar e otimizar campanhas.", "Executar os testes definidos pela estratégia.", "Garantir controle de CAC, ROAS e spend.", "Gerar relatórios claros."],
@@ -93,13 +86,6 @@ export const ROLE_DETAILS: Record<string, RoleDetail> = {
     limits: ["Não define o que fazer (segue demanda).", "Não sobe campanhas no gerenciador."],
     decisions: ["O 'como' criar cada ativo (liberdade criativa no texto)."],
     behavior: ["Coragem criativa para testar ideias.", "Feedback constante para melhorias.", "Resiliência Criativa (testes falham, continue)."],
-  },
-  pedro: {
-    mission: "Garantir toda infraestrutura da operação (Sites, Rastreamento, Ferramentas).",
-    nonNegotiables: ["Configuração de domínios, DNS e servidores.", "Rastreamento (Pixels, CAPI, UTMs).", "Criar e otimizar checkouts e funis.", "Configurar VSL na Vturb e testes A/B."],
-    limits: ["Não define orçamento de ferramentas.", "Não cria copy.", "Não negocia taxas de gateways."],
-    decisions: ["Solicitação de compra de ativos (Proxies, Domínios).", "Escolha técnica de implementação.", "Troca de servidor em emergência."],
-    behavior: ["Mindset Preventivo (check-up diário).", "Organização Extrema de acessos.", "Agilidade na Crise (site caiu = prioridade zero)."],
   },
   felipe: {
     mission: "Elevar o padrão visual da DRX e dos Experts através de produções cinematográficas.",
@@ -135,12 +121,12 @@ export const CHECKLISTS: Record<string, string[]> = {
   default: ["Organizar ambiente de trabalho", "Checar agenda do dia", "Definir prioridade única"],
   impactize: ["Ler Briefing/Roteiro do Marcos com atenção", "Garantir Narrativa Visual (B-rolls corretos)", "Revisão 100% de erros antes da entrega", "Validar prazo para não travar tráfego"],
   gabriel: ["Checar demandas do Marcos (Diretor)", "Estudar referências/público (15min)", "Revisar ativos de copy pendentes", "Blindar agenda para escrita focada"],
-  pedro: ["Check-up de todos os funis (Páginas ON?)", "Verificar integridade dos Pixels e UTMs", "Backup de segurança dos ativos", "Checar alertas de lentidão/servidor"],
+  
   felipe: ["Checar equipamentos (Bateria/Cartão)", "Organizar backup de arquivos brutos (RAW)", "Alinhar demandas com Victor Navega", "Verificar agenda de gravações institucionais"],
   victor: ["Baixar arquivos brutos do Drive/Social", "Verificar calendário de postagens com Bruno", "Organizar pastas de projetos", "Reportar problemas técnicos ao Danillo"],
   bruno: ["Responder Directs (Social Selling)", "Verificar aprovações pendentes com Brandon", "Postar Sequência de Bom Dia (Stories)", "Checar entrega dos posts agendados"],
   evelin: ["Checar agenda dos Sócios (Conflitos?)", "Conciliação bancária do dia anterior", "Verificar insumos do escritório", "Enviar comprovantes pendentes ao Andre"],
-  marcos: ["Alinhar produção com Impactize/Gabriel", "Revisar métricas de conversão", "Definir ângulos do dia"],
+  
   lucas: ["Check de Spend diário", "Análise de ROAS matinal", "Alertas de campanhas"],
   andre: ["Verificar Saldo/Caixa", "Validar pagamentos do dia", "Atualizar DFC"],
   danillo: ["Verificar estabilidade dos sistemas", "Checar reports de risco", "Alinhar prioridades com Arthur"],
