@@ -36,6 +36,7 @@ export const TEAM_DATA: TeamMember[] = [
   { id: 'bruno', name: 'Bruno Brittes', role: 'Social Media', category: 'team', avatar: 'BB', color: 'bg-fuchsia-500', isDirector: false },
   { id: 'evelin', name: 'Evelin', role: 'Facilities & Apoio', category: 'team', avatar: 'EV', color: 'bg-lime-600', isDirector: false },
   { id: 'caio', name: 'Caio Rangel', role: 'Operador de Infraestrutura Pleno', category: 'team', avatar: 'CR', color: 'bg-indigo-500', isDirector: false },
+  { id: 'joao', name: 'João Victor Boaventura', role: 'Treinee', category: 'team', avatar: 'JV', color: 'bg-cyan-500', isDirector: false },
 ];
 
 export const ROLE_DETAILS: Record<string, RoleDetail> = {
@@ -123,6 +124,13 @@ export const ROLE_DETAILS: Record<string, RoleDetail> = {
     decisions: ["Solicitação de compra de ativos de infraestrutura.", "Escolha técnica de implementação.", "Troca de servidor/hospedagem em emergência."],
     behavior: ["Mindset Preventivo: check-up em todos funis.", "Organização Extrema: acessos e mapas de pixels impecáveis.", "Agilidade na Crise: prioridade zero é colocar de volta no ar.", "Comunicação Técnica Simples: traduzir problemas técnicos para linguagem de negócio."],
   },
+  joao: {
+    mission: "Aprender e absorver os processos da operação, apoiando o time nas demandas diárias.",
+    nonNegotiables: ["Cumprir as tarefas atribuídas com pontualidade.", "Estudar os processos e ferramentas da operação.", "Reportar dúvidas e bloqueios ao supervisor."],
+    limits: ["Não toma decisões sem aprovação.", "Não altera processos existentes.", "Não acessa sistemas críticos sem supervisão."],
+    decisions: ["Organização das próprias tarefas do dia.", "Sugerir melhorias observadas nos processos."],
+    behavior: ["Proatividade para aprender.", "Humildade para pedir ajuda.", "Disciplina com prazos e entregas."],
+  },
 };
 
 export const CHECKLISTS: Record<string, string[]> = {
@@ -141,6 +149,7 @@ export const CHECKLISTS: Record<string, string[]> = {
   arthur: ["Revisar performance macro (Ontem)", "Ajustar prioridades de teste", "Validar budget diário"],
   brandon: ["Verificar agenda externa", "Checar métricas de expansão", "Alinhar com parceiros chave"],
   caio: ["Check-up de estabilidade de todos os funis", "Verificar status de domínios e DNS", "Checar rastreamento (Pixels/CAPI/GTM)", "Verificar checkouts e funis de recuperação"],
+  joao: ["Checar tarefas atribuídas para o dia", "Estudar processos e documentação (30min)", "Acompanhar demandas do supervisor", "Reportar progresso e dúvidas ao time"],
 };
 
 export function getTeamMember(id: string): TeamMember | undefined {
