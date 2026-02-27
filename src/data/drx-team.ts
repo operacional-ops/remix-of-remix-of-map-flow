@@ -36,7 +36,7 @@ export const TEAM_DATA: TeamMember[] = [
   { id: 'bruno', name: 'Bruno Brittes', role: 'Social Media', category: 'team', avatar: 'BB', color: 'bg-fuchsia-500', isDirector: false },
   { id: 'evelin', name: 'Evelin', role: 'Facilities & Apoio', category: 'team', avatar: 'EV', color: 'bg-lime-600', isDirector: false },
   { id: 'caio', name: 'Caio Rangel', role: 'Operador de Infraestrutura Pleno', category: 'team', avatar: 'CR', color: 'bg-indigo-500', isDirector: false },
-  { id: 'joao', name: 'João Victor Boaventura', role: 'Treinee', category: 'team', avatar: 'JV', color: 'bg-cyan-500', isDirector: false },
+  { id: 'joao', name: 'João Victor Boaventura', role: 'Trainee', category: 'team', avatar: 'JV', color: 'bg-cyan-500', isDirector: false },
 ];
 
 export const ROLE_DETAILS: Record<string, RoleDetail> = {
