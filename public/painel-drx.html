@@ -1006,7 +1006,15 @@
             );
         };
 
-        function KanbanBoard({ tasks, onMoveTask, onSaveTask, onBulkAction, readOnly = false, currentUser, targetUserId }) {
+        function KanbanBoard({ tasks: rawTasks, onMoveTask, onSaveTask, onBulkAction, readOnly = false, currentUser, targetUserId }) {
+            // Defensive: ensure tasks always has all 4 arrays
+            const tasks = {
+                todo: (rawTasks && Array.isArray(rawTasks.todo)) ? rawTasks.todo : [],
+                doing: (rawTasks && Array.isArray(rawTasks.doing)) ? rawTasks.doing : [],
+                review: (rawTasks && Array.isArray(rawTasks.review)) ? rawTasks.review : [],
+                done: (rawTasks && Array.isArray(rawTasks.done)) ? rawTasks.done : [],
+            };
+
             const [isSelectMode, setIsSelectMode] = React.useState(false);
             const [selectedTasks, setSelectedTasks] = React.useState([]);
             const [modalOpen, setModalOpen] = React.useState(false);
@@ -1680,7 +1688,7 @@
                                                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Sprint Atual</span>
                                                     </div>
                                                     <KanbanBoard 
-                                                        tasks={globalTasks[currentUser.id] || {todo:[], doing:[], done:[]}} 
+                                                        tasks={globalTasks[currentUser.id] || {todo:[], doing:[], review:[], done:[]}} 
                                                         onMoveTask={(taskId, currentStatus, dir) => moveTask(currentUser.id, taskId, currentStatus, dir)} 
                                                         onSaveTask={(task) => saveTask(task, currentUser.id)} 
                                                         onBulkAction={bulkAction} 
