@@ -808,6 +808,95 @@
             );
         };
 
+        // --- WORKFLOW COM VISUALIZAÇÃO DE EQUIPE (para não-supervisores) ---
+        const WorkflowWithTeam = ({ currentUser, globalTasks, moveTask, saveTask, bulkAction, inputText, setInputText, sendMessage }) => {
+            const [viewingMemberId, setViewingMemberId] = React.useState(null);
+            const allMembers = TEAM_DATA.filter(m => m.id !== currentUser.id);
+            const viewingTasks = viewingMemberId ? (globalTasks[viewingMemberId] || {todo:[], doing:[], review:[], done:[]}) : null;
+            const viewingMember = viewingMemberId ? TEAM_DATA.find(m => m.id === viewingMemberId) : null;
+
+            return (
+                <>
+                    <div className="flex-1 overflow-auto flex flex-col gap-4 mb-4">
+                        {/* Meu Fluxo */}
+                        <div className="overflow-hidden bg-slate-900/30 rounded-xl border border-slate-800 p-4" style={{minHeight: '320px'}}>
+                            <div className="flex justify-between items-center mb-4 px-2">
+                                <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><h2 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Meu Fluxo</h2></div>
+                                <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Sprint Atual</span>
+                            </div>
+                            <KanbanBoard 
+                                tasks={globalTasks[currentUser.id] || {todo:[], doing:[], review:[], done:[]}} 
+                                onMoveTask={(taskId, currentStatus, dir) => moveTask(currentUser.id, taskId, currentStatus, dir)} 
+                                onSaveTask={(task) => saveTask(task, currentUser.id)} 
+                                onBulkAction={bulkAction} 
+                                currentUser={currentUser}
+                                targetUserId={currentUser.id}
+                            />
+                        </div>
+
+                        {/* Equipe - Ver demandas dos colegas */}
+                        <div className="bg-slate-900/30 rounded-xl border border-slate-800 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Icon name="users" className="w-4 h-4 text-blue-400"/>
+                                <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Equipe</h2>
+                                <span className="text-[10px] text-slate-500 ml-auto">Clique para visualizar</span>
+                            </div>
+                            <div className="flex gap-1.5 overflow-x-auto pb-2">
+                                {allMembers.map(member => {
+                                    const stats = globalTasks[member.id] || {todo:[], doing:[], review:[], done:[]};
+                                    const doingCount = stats.doing.length + stats.review.length;
+                                    const totalTasks = stats.todo.length + stats.doing.length + stats.review.length + stats.done.length;
+                                    const donePercent = totalTasks > 0 ? Math.round((stats.done.length / totalTasks) * 100) : 0;
+                                    const isSelected = viewingMemberId === member.id;
+                                    const firstName = member.name.split(' ')[0];
+                                    return (
+                                        <button key={member.id} onClick={() => setViewingMemberId(isSelected ? null : member.id)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-left transition-all shrink-0 ${isSelected ? 'border-blue-500 bg-blue-900/20' : 'border-slate-800 bg-slate-900/30 hover:bg-slate-800'}`}>
+                                            <div className={`w-6 h-6 ${member.color} rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>{member.avatar}</div>
+                                            <div className="min-w-0">
+                                                <div className="text-[11px] font-bold text-slate-200 whitespace-nowrap">{firstName}</div>
+                                                <div className="flex items-center gap-1.5">
+                                                    {doingCount > 0 && <span className="text-[9px] font-bold text-blue-400">{doingCount} ativo</span>}
+                                                    <span className="text-[9px] text-slate-600">{donePercent}%</span>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Kanban do colega selecionado (read-only, mas pode comentar) */}
+                            {viewingMemberId && viewingMember && (
+                                <div className="mt-3 animate-enter">
+                                    <div className="mb-2 flex items-center gap-2 pb-2 border-b border-slate-800/50">
+                                        <div className={`w-6 h-6 ${viewingMember.color} rounded-full flex items-center justify-center text-[10px] font-bold text-white`}>{viewingMember.avatar}</div>
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="text-sm font-bold text-white">Quadro de {viewingMember.name.split(' ')[0]}</h3>
+                                            <p className="text-[9px] text-slate-400">{viewingMember.role} · <span className="text-blue-400">Somente leitura — comentários habilitados</span></p>
+                                        </div>
+                                        <button onClick={() => setViewingMemberId(null)} className="text-slate-500 hover:text-white transition-colors p-1"><Icon name="x" className="w-4 h-4"/></button>
+                                    </div>
+                                    <KanbanBoard 
+                                        tasks={viewingTasks} 
+                                        readOnly={true}
+                                        onSaveTask={(task) => saveTask(task, viewingMemberId)} 
+                                        onMoveTask={(taskId, status, dir) => moveTask(viewingMemberId, taskId, status, dir)} 
+                                        onBulkAction={bulkAction} 
+                                        currentUser={currentUser}
+                                        targetUserId={viewingMemberId}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="shrink-0 bg-[#0f172a] p-1.5 rounded-xl border border-slate-700/50 flex items-center gap-3 shadow-lg footer-input transition-all">
+                        <div className="w-10 h-10 flex items-center justify-center bg-yellow-500/10 rounded-lg text-yellow-500 shrink-0"><Icon name="alert-triangle" className="w-5 h-5"/></div>
+                        <div className="flex-1"><input type="text" className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none h-10" placeholder="Registrar incidente, insight ou bloqueio para a diretoria..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && inputText.trim()) { sendMessage(currentUser, inputText); setInputText(""); } }} /></div>
+                        <button onClick={() => { if (inputText.trim()) { sendMessage(currentUser, inputText); setInputText(""); } }} className="h-9 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"><Icon name="send" className="w-4 h-4"/></button>
+                    </div>
+                </>
+            );
+        };
+
         const GodView = ({ currentUser, globalTasks, messages, onSaveTask, onMoveTask, onBulkAction, onReply }) => {
             const [selectedMemberId, setSelectedMemberId] = React.useState(null);
             const [viewMode, setViewMode] = React.useState('supervision');
@@ -1680,28 +1769,17 @@
                                                 </div>
                                             </div>
                                         ) : (
-                                            /* WORKFLOW TAB */
-                                            <>
-                                                <div className="flex-1 overflow-hidden bg-slate-900/30 rounded-xl border border-slate-800 p-4 mb-4">
-                                                    <div className="flex justify-between items-center mb-4 px-2">
-                                                        <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div><h2 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Meu Fluxo</h2></div>
-                                                        <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Sprint Atual</span>
-                                                    </div>
-                                                    <KanbanBoard 
-                                                        tasks={globalTasks[currentUser.id] || {todo:[], doing:[], review:[], done:[]}} 
-                                                        onMoveTask={(taskId, currentStatus, dir) => moveTask(currentUser.id, taskId, currentStatus, dir)} 
-                                                        onSaveTask={(task) => saveTask(task, currentUser.id)} 
-                                                        onBulkAction={bulkAction} 
-                                                        currentUser={currentUser}
-                                                        targetUserId={currentUser.id}
-                                                    />
-                                                </div>
-                                                <div className="shrink-0 bg-[#0f172a] p-1.5 rounded-xl border border-slate-700/50 flex items-center gap-3 shadow-lg footer-input transition-all">
-                                                    <div className="w-10 h-10 flex items-center justify-center bg-yellow-500/10 rounded-lg text-yellow-500 shrink-0"><Icon name="alert-triangle" className="w-5 h-5"/></div>
-                                                    <div className="flex-1"><input type="text" className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none h-10" placeholder="Registrar incidente, insight ou bloqueio para a diretoria..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && inputText.trim()) { sendMessage(currentUser, inputText); setInputText(""); } }} /></div>
-                                                    <button onClick={() => { if (inputText.trim()) { sendMessage(currentUser, inputText); setInputText(""); } }} className="h-9 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"><Icon name="send" className="w-4 h-4"/></button>
-                                                </div>
-                                            </>
+                                            /* WORKFLOW TAB - COM VISUALIZAÇÃO DE EQUIPE */
+                                            <WorkflowWithTeam 
+                                                currentUser={currentUser}
+                                                globalTasks={globalTasks}
+                                                moveTask={moveTask}
+                                                saveTask={saveTask}
+                                                bulkAction={bulkAction}
+                                                inputText={inputText}
+                                                setInputText={setInputText}
+                                                sendMessage={sendMessage}
+                                            />
                                         )}
                                     </div>
                                 )}
