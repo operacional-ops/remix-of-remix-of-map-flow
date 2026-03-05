@@ -8,6 +8,7 @@ import { DocsHubTable } from '@/components/documents/DocsHub/DocsHubTable';
 import { DocsHubFilters } from '@/components/documents/DocsHub/DocsHubFilters';
 import { DocsHubCard } from '@/components/documents/DocsHub/DocsHubCard';
 import { CreateDocDialog } from '@/components/documents/DocsHub/CreateDocDialog';
+import { UploadDocButton } from '@/components/documents/DocsHub/UploadDocButton';
 import { useDocuments, useDocumentTags, DocumentFilter, Document } from '@/hooks/useDocuments';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -36,7 +37,8 @@ const Documents = () => {
     createDocument, 
     toggleFavorite, 
     archiveDocument,
-    deleteDocument 
+    deleteDocument,
+    uploadDocument,
   } = useDocuments({ filter, search, tagIds: selectedTagIds });
   
   const { tags } = useDocumentTags();
@@ -111,10 +113,16 @@ const Documents = () => {
               Crie e compartilhe documentação, playbooks e guias
             </p>
           </div>
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Documento
-          </Button>
+          <div className="flex gap-2">
+            <UploadDocButton
+              onUpload={async (file) => { await uploadDocument.mutateAsync(file); }}
+              isUploading={uploadDocument.isPending}
+            />
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Documento
+            </Button>
+          </div>
         </div>
 
         {/* Quick Access Cards */}

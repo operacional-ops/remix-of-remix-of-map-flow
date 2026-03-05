@@ -255,6 +255,68 @@ export const useDocuments = (options: UseDocumentsOptions = {}) => {
     },
   });
 
+  const sanitizeFileName = (name: string): string => {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_+/g, '_');
+  };
+
+  const uploadDocument = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+
+      const safeName = sanitizeFileName(file.name);
+      const filePath = `${user.id}/${Date.now()}_${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('document-uploads')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('document-uploads')
+        .getPublicUrl(filePath);
+
+      // Determine emoji based on file type
+      let emoji = '📎';
+      if (file.type === 'application/pdf') emoji = '📕';
+      else if (file.type.includes('spreadsheet') || file.type.includes('excel') || file.type.includes('csv')) emoji = '📊';
+      else if (file.type.startsWith('image/')) emoji = '🖼️';
+
+      const title = file.name.replace(/\.[^/.]+$/, '');
+
+      const { data: doc, error } = await supabase
+        .from('documents')
+        .insert({
+          title,
+          emoji,
+          is_wiki: false,
+          created_by_user_id: user.id,
+          content: {},
+          visibility: 'private',
+          file_url: publicUrl,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return doc;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      toast.success('Arquivo enviado com sucesso!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao enviar arquivo: ' + error.message);
+    },
+  });
+
   return {
     documents: documentsQuery.data || [],
     isLoading: documentsQuery.isLoading,
@@ -264,6 +326,7 @@ export const useDocuments = (options: UseDocumentsOptions = {}) => {
     deleteDocument,
     toggleFavorite,
     archiveDocument,
+    uploadDocument,
   };
 };
 

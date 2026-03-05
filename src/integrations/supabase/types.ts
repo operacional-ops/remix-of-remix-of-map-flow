@@ -800,6 +800,10 @@ export type Database = {
           created_at: string
           created_by_user_id: string
           emoji: string | null
+          file_name: string | null
+          file_size: number | null
+          file_type: string | null
+          file_url: string | null
           folder_id: string | null
           id: string
           is_archived: boolean | null
@@ -820,6 +824,10 @@ export type Database = {
           created_at?: string
           created_by_user_id: string
           emoji?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
           folder_id?: string | null
           id?: string
           is_archived?: boolean | null
@@ -840,6 +848,10 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string
           emoji?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
           folder_id?: string | null
           id?: string
           is_archived?: boolean | null
