@@ -60,6 +60,16 @@ const Documents = () => {
   };
 
   const handleOpenDoc = (doc: Document) => {
+    if (doc.file_url) {
+      const link = window.document.createElement('a');
+      link.href = doc.file_url;
+      link.download = doc.file_name || doc.title;
+      link.target = '_blank';
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      return;
+    }
     navigate(`/documents/${doc.id}`);
   };
 

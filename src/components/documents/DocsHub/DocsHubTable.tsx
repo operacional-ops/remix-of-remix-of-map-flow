@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FileText, BookOpen, Star, MoreHorizontal, Archive, Trash2, ExternalLink } from 'lucide-react';
+import { FileText, BookOpen, Star, MoreHorizontal, Archive, Trash2, ExternalLink, Download } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -130,8 +130,11 @@ export const DocsHubTable = ({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen(doc); }}>
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Abrir
+                      {doc.file_url ? (
+                        <><Download className="h-4 w-4 mr-2" />Download</>
+                      ) : (
+                        <><ExternalLink className="h-4 w-4 mr-2" />Abrir</>
+                      )}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleFavorite(doc); }}>
                       <Star className={`h-4 w-4 mr-2 ${doc.isFavorited ? 'fill-yellow-500 text-yellow-500' : ''}`} />

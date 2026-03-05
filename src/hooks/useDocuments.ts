@@ -23,6 +23,10 @@ export interface Document {
   visibility?: string;
   public_link_id?: string;
   folder_id?: string | null;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+  file_size?: number | null;
   tags?: DocumentTag[];
   creator?: {
     full_name: string | null;
