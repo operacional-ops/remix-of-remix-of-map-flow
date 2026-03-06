@@ -812,7 +812,7 @@
         const WorkflowWithTeam = ({ currentUser, globalTasks, moveTask, saveTask, bulkAction, inputText, setInputText, sendMessage }) => {
             const [viewingMemberId, setViewingMemberId] = React.useState(null);
             const allMembers = TEAM_DATA.filter(m => m.id !== currentUser.id);
-            const viewingTasks = viewingMemberId ? (globalTasks[viewingMemberId] || {todo:[], doing:[], review:[], done:[]}) : null;
+            const viewingTasks = viewingMemberId ? (globalTasks[viewingMemberId] || {todo:[], doing:[], blocked:[], review:[], done:[]}) : null;
             const viewingMember = viewingMemberId ? TEAM_DATA.find(m => m.id === viewingMemberId) : null;
 
             return (
@@ -825,7 +825,7 @@
                                 <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Sprint Atual</span>
                             </div>
                             <KanbanBoard 
-                                tasks={globalTasks[currentUser.id] || {todo:[], doing:[], review:[], done:[]}} 
+                                tasks={globalTasks[currentUser.id] || {todo:[], doing:[], blocked:[], review:[], done:[]}} 
                                 onMoveTask={(taskId, currentStatus, dir) => moveTask(currentUser.id, taskId, currentStatus, dir)} 
                                 onSaveTask={(task) => saveTask(task, currentUser.id)} 
                                 onBulkAction={bulkAction} 
@@ -843,9 +843,9 @@
                             </div>
                             <div className="flex gap-1.5 overflow-x-auto pb-2">
                                 {allMembers.map(member => {
-                                    const stats = globalTasks[member.id] || {todo:[], doing:[], review:[], done:[]};
-                                    const doingCount = stats.doing.length + stats.review.length;
-                                    const totalTasks = stats.todo.length + stats.doing.length + stats.review.length + stats.done.length;
+                                    const stats = globalTasks[member.id] || {todo:[], doing:[], blocked:[], review:[], done:[]};
+                                    const doingCount = stats.doing.length + stats.review.length + stats.blocked.length;
+                                    const totalTasks = stats.todo.length + stats.doing.length + stats.blocked.length + stats.review.length + stats.done.length;
                                     const donePercent = totalTasks > 0 ? Math.round((stats.done.length / totalTasks) * 100) : 0;
                                     const isSelected = viewingMemberId === member.id;
                                     const firstName = member.name.split(' ')[0];
@@ -903,7 +903,7 @@
             const [inboxOpen, setInboxOpen] = React.useState(false);
             
             const allMembers = TEAM_DATA.filter(m => m.id !== currentUser.id);
-            const selectedTasks = (selectedMemberId && globalTasks[selectedMemberId]) ? globalTasks[selectedMemberId] : { todo: [], doing: [], review: [], done: [] };
+            const selectedTasks = (selectedMemberId && globalTasks[selectedMemberId]) ? globalTasks[selectedMemberId] : { todo: [], doing: [], blocked: [], review: [], done: [] };
             const canEdit = TASK_EDITORS.includes(currentUser.id);
             const openMsgCount = messages.filter(m => m.status === 'open').length;
 
@@ -929,9 +929,9 @@
                             {/* Members: compact horizontal scroll strip */}
                             <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1 flex-shrink-0 godview-members-strip">
                                 {allMembers.map(member => {
-                                     const stats = globalTasks[member.id] || { todo: [], doing: [], review: [], done: [] };
-                                    const doingCount = stats.doing.length + stats.review.length;
-                                    const totalTasks = stats.todo.length + stats.doing.length + stats.review.length + stats.done.length;
+                                     const stats = globalTasks[member.id] || { todo: [], doing: [], blocked: [], review: [], done: [] };
+                                    const doingCount = stats.doing.length + stats.review.length + stats.blocked.length;
+                                    const totalTasks = stats.todo.length + stats.doing.length + stats.blocked.length + stats.review.length + stats.done.length;
                                     const donePercent = totalTasks > 0 ? Math.round((stats.done.length / totalTasks) * 100) : 0;
                                     const isSelected = selectedMemberId === member.id;
                                     const pendingMsg = messages.some(m => m.fromUser.id === member.id && m.status === 'open');
@@ -997,7 +997,7 @@
                                 <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Diretoria</span>
                             </div>
                             <KanbanBoard 
-                                 tasks={globalTasks[currentUser.id] || {todo:[], doing:[], review:[], done:[]}} 
+                                 tasks={globalTasks[currentUser.id] || {todo:[], doing:[], blocked:[], review:[], done:[]}} 
                                 onMoveTask={(taskId, currentStatus, dir) => onMoveTask(currentUser.id, taskId, currentStatus, dir)} 
                                 onSaveTask={(task) => onSaveTask(task, currentUser.id)} 
                                 onBulkAction={onBulkAction} 
@@ -1096,10 +1096,11 @@
         };
 
         function KanbanBoard({ tasks: rawTasks, onMoveTask, onSaveTask, onBulkAction, readOnly = false, currentUser, targetUserId }) {
-            // Defensive: ensure tasks always has all 4 arrays
+            // Defensive: ensure tasks always has all 5 arrays
             const tasks = {
                 todo: (rawTasks && Array.isArray(rawTasks.todo)) ? rawTasks.todo : [],
                 doing: (rawTasks && Array.isArray(rawTasks.doing)) ? rawTasks.doing : [],
+                blocked: (rawTasks && Array.isArray(rawTasks.blocked)) ? rawTasks.blocked : [],
                 review: (rawTasks && Array.isArray(rawTasks.review)) ? rawTasks.review : [],
                 done: (rawTasks && Array.isArray(rawTasks.done)) ? rawTasks.done : [],
             };
@@ -1264,6 +1265,7 @@
                     <div className="flex gap-2 h-full overflow-x-auto pb-2 kanban-columns">
                         <KanbanColumn title="A FAZER" status="todo" items={filterByDate(tasks.todo)} totalItems={tasks.todo.length} color="border-t-2 border-t-slate-500" icon="circle" readOnly={readOnly} onAddClick={openNewTaskModal} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} isFiltered={isFiltered} />
                         <KanbanColumn title="FAZENDO" status="doing" items={filterByDate(tasks.doing)} totalItems={tasks.doing.length} color="border-t-2 border-t-blue-500" icon="loader" readOnly={readOnly} onAddClick={() => {}} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} isFiltered={isFiltered} />
+                        <KanbanColumn title="IMPEDIMENTO" status="blocked" items={filterByDate(tasks.blocked)} totalItems={tasks.blocked.length} color="border-t-2 border-t-red-500" icon="alert-triangle" readOnly={readOnly} onAddClick={() => {}} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} isFiltered={isFiltered} />
                         <KanbanColumn title="REVISÃO" status="review" items={filterByDate(tasks.review)} totalItems={tasks.review.length} color="border-t-2 border-t-amber-500" icon="eye" readOnly={readOnly} onAddClick={() => {}} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} isFiltered={isFiltered} />
                         <KanbanColumn title="FEITO" status="done" items={filterByDate(tasks.done)} totalItems={tasks.done.length} color="border-t-2 border-t-emerald-500" icon="check-circle" readOnly={readOnly} onAddClick={() => {}} onTaskClick={openEditTaskModal} isSelectMode={isSelectMode} selectedTasks={selectedTasks} onSelectTask={handleSelectTask} onMoveTask={onMoveTask} isFiltered={isFiltered} />
                     </div>
@@ -1382,7 +1384,7 @@
             const steps = [
                 { title: '👋 Bem-vindo ao DRX Flow!', tip: 'Tour rápido pelo sistema operacional. Arraste este card se tampar algo.', pos: 'center', arrow: 'none' },
                 { title: '📋 Workflow', tip: 'Aba principal. Seu Kanban com as tarefas do dia.', pos: 'top-left', arrow: 'up', action: () => setActiveTab('workflow') },
-                { title: '📌 Kanban: 4 Colunas', tip: 'A FAZER → FAZENDO → REVISÃO → FEITO.\nAs tarefas fluem da esquerda pra direita.', pos: 'top-center', arrow: 'down' },
+                { title: '📌 Kanban: 5 Colunas', tip: 'A FAZER → FAZENDO → IMPEDIMENTO → REVISÃO → FEITO.\nAs tarefas fluem da esquerda pra direita.', pos: 'top-center', arrow: 'down' },
                 { title: '➕ Criar Tarefa', tip: 'Clique em "+ Adicionar Tarefa" na coluna A FAZER.\nPreencha título, descrição e link.', pos: 'top-left', arrow: 'down' },
                 { title: '◀ ▶ Mover Tarefa', tip: 'Use as setas que aparecem embaixo de cada tarefa para avançar ou voltar o status.', pos: 'top-center', arrow: 'down' },
                 { title: '✏️ Gerenciar', tip: 'Clique em "Gerenciar" para selecionar tarefas e deletar ou duplicar em lote.', pos: 'top-right', arrow: 'down' },
@@ -1486,7 +1488,7 @@
                 const unsubscribe = db.collection('drx_tasks').onSnapshot(snapshot => {
                     const newTasks = {};
                     TEAM_DATA.forEach(user => {
-                        newTasks[user.id] = { todo: [], doing: [], review: [], done: [] };
+                        newTasks[user.id] = { todo: [], doing: [], blocked: [], review: [], done: [] };
                     });
 
                     snapshot.forEach(doc => {
@@ -1635,7 +1637,7 @@
             const moveTask = async (userId, taskId, currentStatus, direction) => {
                 try {
                     let newStatus;
-                    const statusFlow = ['todo', 'doing', 'review', 'done'];
+                    const statusFlow = ['todo', 'doing', 'blocked', 'review', 'done'];
                     const currentIndex = statusFlow.indexOf(currentStatus);
                     if (direction === 'next' && currentIndex < statusFlow.length - 1) { newStatus = statusFlow[currentIndex + 1]; }
                     else if (direction === 'prev' && currentIndex > 0) { newStatus = statusFlow[currentIndex - 1]; }
