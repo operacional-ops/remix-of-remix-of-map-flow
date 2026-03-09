@@ -94,7 +94,7 @@ function FlowchartsSection() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full pb-[100px]">
       <div className="lg:col-span-2 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Fluxogramas</h2>
