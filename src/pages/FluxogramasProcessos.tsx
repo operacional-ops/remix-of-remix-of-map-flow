@@ -17,6 +17,10 @@ function FlowchartsSection() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [selectedFlow, setSelectedFlow] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editSteps, setEditSteps] = useState<{ label: string; type: string }[]>([]);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newSteps, setNewSteps] = useState<{ label: string; type: string }[]>([
