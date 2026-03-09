@@ -42,6 +42,7 @@ import CommandCenter from "./pages/CommandCenter";
 import FinancialDashboard from "./pages/FinancialDashboard";
 import DiscordChat from "./pages/DiscordChat";
 import UTMFYTeste from "./pages/UTMFYTeste";
+import DashboardImpact from "./pages/DashboardImpact";
 
 const queryClient = new QueryClient();
 
@@ -91,6 +92,7 @@ const App = () => (
                             <Route path="/painel-drx" element={<OperationalRoute><PainelDRX /></OperationalRoute>} />
                             <Route path="/command-center" element={<OperationalRoute><CommandCenter /></OperationalRoute>} />
                             <Route path="/financeiro" element={<OperationalRoute><FinancialDashboard /></OperationalRoute>} />
+                            <Route path="/dashboard-impact" element={<OperationalRoute><DashboardImpact /></OperationalRoute>} />
                             <Route path="/automations" element={<AdminRoute><Automations /></AdminRoute>} />
                             <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                             <Route path="*" element={<NotFound />} />

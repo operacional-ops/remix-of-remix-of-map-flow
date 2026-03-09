@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Inbox, GitBranch, Target, Activity, Monitor, BookOpen, DollarSign } from 'lucide-react';
+import { Home, MessageSquare, Users, FileText, BarChart3, Settings, Zap, ArrowLeftRight, CheckSquare, PanelLeft, PanelLeftClose, Layers, Sun, Moon, ChevronRight, Inbox, GitBranch, Target, Activity, Monitor, BookOpen, DollarSign, LayoutDashboard } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useTheme } from 'next-themes';
 import { ThemeLogo } from '@/components/ThemeLogo';
@@ -45,6 +45,10 @@ const painelDrxNavItems = [
   { title: 'Financeiro', url: '/financeiro', icon: DollarSign, tutorialId: 'financeiro' },
 ];
 
+const dashboardImpactNavItems = [
+  { title: 'Dashboard Impact', url: '/dashboard-impact', icon: LayoutDashboard, tutorialId: 'dashboard-impact' },
+];
+
 const drxNavItems = [
   { title: 'Chamados', url: '/chamados', icon: Inbox, tutorialId: 'chamados' },
   { title: 'Fluxogramas', url: '/fluxogramas', icon: GitBranch, tutorialId: 'fluxogramas' },
@@ -87,6 +91,9 @@ export function AppSidebar() {
   // Limited member não vê Painel DRX
   const filteredPainelDrxNavItems = isLimitedMember ? [] : painelDrxNavItems;
 
+  // Dashboard Impact visível para todos (exceto limited_member)
+  const filteredDashboardImpactNavItems = isLimitedMember ? [] : dashboardImpactNavItems;
+
   // Resize handler
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -119,7 +126,7 @@ export function AppSidebar() {
           {!isCollapsed && (
             <div className="flex items-center gap-2">
               <ThemeLogo className="h-8 w-8 object-contain" />
-              <span className="font-semibold text-sidebar-foreground">DRX Central</span>
+              <span className="font-semibold text-sidebar-foreground">Impactize</span>
             </div>
           )}
           
@@ -247,6 +254,41 @@ export function AppSidebar() {
                     <TooltipTrigger asChild>
                       <SidebarMenuButton asChild>
                         <NavLink 
+                          to={item.url}
+                          className="hover:bg-sidebar-accent"
+                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                          data-tutorial={item.tutorialId}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {!isCollapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    {isCollapsed && (
+                      <TooltipContent side="right">
+                        {item.title}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        )}
+
+        {/* Dashboard Impact Section */}
+        {filteredDashboardImpactNavItems.length > 0 && (
+        <SidebarGroup>
+          <SidebarGroupLabel>Painel IMPACTIZE</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {filteredDashboardImpactNavItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <Tooltip delayDuration={isCollapsed ? 0 : 1000}>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton asChild>
+                        <NavLink
                           to={item.url}
                           className="hover:bg-sidebar-accent"
                           activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"

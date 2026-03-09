@@ -436,7 +436,7 @@ const Auth = () => {
             </div>
           </div>
           <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text">
-            DRX Central
+            Impactize
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Gestão de operações e equipes
@@ -453,7 +453,7 @@ const Auth = () => {
 
         {/* Footer */}
         <p className="text-center text-[11px] text-muted-foreground/50 mt-6">
-          DRX Central © {new Date().getFullYear()}
+          Impactize © {new Date().getFullYear()}
         </p>
       </div>
     </div>
