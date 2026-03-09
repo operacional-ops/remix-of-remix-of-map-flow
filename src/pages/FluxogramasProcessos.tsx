@@ -156,7 +156,17 @@ function FlowchartsSection() {
                   <CardDescription>{selectedFlow.description}</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedFlow(null)}>Voltar</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelectedFlow(null); setIsEditing(false); }}>Voltar</Button>
+                  {!isEditing && (
+                    <Button variant="outline" size="sm" onClick={startEditing}>
+                      <Pencil className="h-4 w-4 mr-1" /> Editar
+                    </Button>
+                  )}
+                  {isEditing && (
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+                      <X className="h-4 w-4 mr-1" /> Cancelar
+                    </Button>
+                  )}
                   <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate(selectedFlow.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -164,40 +174,87 @@ function FlowchartsSection() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {(selectedFlow.flowchart_data as any)?.steps?.map((step: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2">
-                    {step.type === 'decision' ? (
-                      <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
-                    ) : step.type === 'end' ? (
-                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                    ) : (
-                      <Clock className="h-5 w-5 text-primary flex-shrink-0" />
-                    )}
-                    <div className={`flex-1 p-3 rounded-lg border ${
-                      step.type === 'decision' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800' :
-                      step.type === 'end' ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' :
-                      'bg-muted'
-                    }`}>
-                      <span className="text-sm font-medium">{step.label}</span>
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        {step.type === 'decision' ? 'Decisão' : step.type === 'end' ? 'Fim' : 'Etapa'}
-                      </Badge>
-                    </div>
-                    {i < ((selectedFlow.flowchart_data as any)?.steps?.length ?? 0) - 1 && (
-                      <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    )}
+              {isEditing ? (
+                <div className="space-y-3">
+                  <Input placeholder="Título do fluxograma" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
+                  <Textarea placeholder="Descrição" value={editDesc} onChange={e => setEditDesc(e.target.value)} />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Etapas do fluxo:</p>
+                    {editSteps.map((step, i) => (
+                      <div key={i} className="flex gap-2">
+                        <Input
+                          placeholder={`Etapa ${i + 1}`}
+                          value={step.label}
+                          onChange={e => {
+                            const copy = [...editSteps];
+                            copy[i].label = e.target.value;
+                            setEditSteps(copy);
+                          }}
+                        />
+                        <select
+                          className="border rounded px-2 text-sm bg-background"
+                          value={step.type}
+                          onChange={e => {
+                            const copy = [...editSteps];
+                            copy[i].type = e.target.value;
+                            setEditSteps(copy);
+                          }}
+                        >
+                          <option value="step">Etapa</option>
+                          <option value="decision">Decisão</option>
+                          <option value="end">Fim</option>
+                        </select>
+                        {editSteps.length > 1 && (
+                          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setEditSteps(editSteps.filter((_, idx) => idx !== i))}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => setEditSteps([...editSteps, { label: '', type: 'step' }])}>
+                      <Plus className="h-3 w-3 mr-1" /> Adicionar etapa
+                    </Button>
                   </div>
-                ))}
-              </div>
+                  <Button onClick={() => updateMutation.mutate()} disabled={!editTitle || updateMutation.isPending} className="w-full">
+                    Salvar Alterações
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {(selectedFlow.flowchart_data as any)?.steps?.map((step: any, i: number) => (
+                      <div key={i} className="flex items-center gap-2">
+                        {step.type === 'decision' ? (
+                          <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+                        ) : step.type === 'end' ? (
+                          <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <Clock className="h-5 w-5 text-primary flex-shrink-0" />
+                        )}
+                        <div className={`flex-1 p-3 rounded-lg border ${
+                          step.type === 'decision' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800' :
+                          step.type === 'end' ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' :
+                          'bg-muted'
+                        }`}>
+                          <span className="text-sm font-medium">{step.label}</span>
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {step.type === 'decision' ? 'Decisão' : step.type === 'end' ? 'Fim' : 'Etapa'}
+                          </Badge>
+                        </div>
+                        {i < ((selectedFlow.flowchart_data as any)?.steps?.length ?? 0) - 1 && (
+                          <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
 
-              <div className="mt-6">
-                <h3 className="text-sm font-semibold mb-2">📊 Preencher Métricas para Análise IA</h3>
-                <Textarea
-                  placeholder="Cole aqui suas métricas reais (ex: taxa de conversão, tempo médio, volume de leads...)"
-                  value={metricsInput}
-                  onChange={e => setMetricsInput(e.target.value)}
-                  className="min-h-[80px]"
+                  <div className="mt-6">
+                    <h3 className="text-sm font-semibold mb-2">📊 Preencher Métricas para Análise IA</h3>
+                    <Textarea
+                      placeholder="Cole aqui suas métricas reais (ex: taxa de conversão, tempo médio, volume de leads...)"
+                      value={metricsInput}
+                      onChange={e => setMetricsInput(e.target.value)}
+                      className="min-h-[80px]"
                 />
               </div>
             </CardContent>
